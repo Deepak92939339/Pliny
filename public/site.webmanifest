@@ -1,0 +1,9 @@
+{
+  "name": "Vector",
+  "short_name": "Vector",
+  "description": "From complex documents to verifiable decisions. Private document intelligence with traceable answers, source-backed analysis and decision-ready reports.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#ba5c3d"
+}
