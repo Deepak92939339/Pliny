@@ -322,6 +322,21 @@ The following names are present in Vercel Production scope. `ANTHROPIC_API_KEY` 
 - `git diff --check` — PASS
 - `npm audit --omit=dev --audit-level=high` — 16 vulnerabilities reported; no fixes applied
 
+## FINAL AUTHORITATIVE CLOSING SIGN-OFF — 2026-08-31
+
+This closing section supersedes every earlier section in this historical report, including sections appearing above it with `BLOCKED`, `NOT RUN`, or stale deployment/configuration conclusions.
+
+- Production: `https://pliny.vercel.app` returned HTTP 200. Final verified application deployment is `dpl_4rxJbYw7zqdae2KSPHofKs4ffT7P`, **READY**, deployed from commit `80ee5ffe73669fb70a042629f850dccf3b655674` on GitHub `main`.
+- Vercel Production variables: all application variables in the current `.env.local.example` contract are present in Production, including `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`; provider secrets are sensitive and Upstash integration variables are encrypted. Upstash names are server-only and absent from the browser bundle. The temporary `AI_MAX_REQUESTS_PER_DAY=30` QA override was restored to 20; the INR budget was unchanged.
+- Supabase: project `lnvosbeeybisdixfwqdo` is healthy; Auth Site URL and the exact production/local login redirects are configured as externally supplied; RLS, owner scoping, private `documents` Storage, authenticated access, and `vector(1024)` remain intact.
+- Automated validation: lint, TypeScript, offline eval 14/14, citations, embeddings, sanitization, report, ingestion, build, and diff-check all passed. `npm audit --omit=dev` remains non-zero only for 7 high, 3 moderate, and 2 low residual transitive findings; direct Next/xlsx/PostCSS paths were remediated and no force fix was run.
+- Production QA: login/session/workspace, Claude.pdf 10/10 readiness, Source Inspector evidence, desktop/mobile layout, no horizontal overflow, Markdown export, print report, Upstash limiter, and final-deployment runtime error inspection passed. Deliberate limiter probes generated expected 429 browser console messages; no page errors or final-deployment error/fatal runtime logs were found.
+- Authorized live provider checks: grounded Claude.pdf **PASS**; unsupported request **FAIL** because it did not return `insufficient_evidence`; original cross-document request **FAIL** because its saved citation set covered only the CSV, although the multi-document scope fix is deployed in `80ee5ff`; CSV chart **PASS** with rendered chart and resolving CSV citation. Exactly four provider requests were used; no fifth request is claimed.
+
+### Final verdict
+
+**CONDITIONAL** — deployment and infrastructure hardening are complete, but READY is not claimed because two authorized live provider checks did not pass and residual transitive npm-audit findings remain. Further provider-backed verification requires new explicit authorization.
+
 ## Final result
 
 **BLOCKED — focused diagnosis found the live Supabase foundational schema missing from the PostgREST schema cache (`PGRST205` for `collections` and `documents`).** The smallest safe fix is the proposed owner-scoped migration in `supabase/manual-migrations/2026-08-29-proposed-foundational-schema.sql`; it requires explicit approval before remote application. Authenticated SELECT/INSERT and the `Claude.pdf` workflow remain unverified in this continuation because the required browser surface was unavailable.
@@ -338,6 +353,85 @@ The user reports that the foundational migration has since been applied and that
 - No demo credentials were used outside the required browser surface. No remote SQL or schema change was performed.
 
 ### Continuation validation
+
+## FINAL AUTHORITATIVE PRODUCTION SIGN-OFF — 2026-08-31
+
+This section is the final authority for this report and supersedes all historical blockers, intermediate verdicts, and earlier deployment/configuration statements above. Historical evidence is retained for traceability; it does not describe the current production state.
+
+### Current production deployment
+
+- Canonical URL: `https://pliny.vercel.app` — HTTP 200 after the final cap-restored deployment.
+- Latest verified application deployment: `dpl_4rxJbYw7zqdae2KSPHofKs4ffT7P` — **READY**.
+- Deployed application commit: `80ee5ffe73669fb70a042629f850dccf3b655674` (`Preserve explicit multi-document retrieval scope`).
+- Source: GitHub `Deepak92939339/Pliny`, `main`; Vercel project `pliny` on team `deepakpatro626472-2604s-projects`.
+- Vercel build logs show Next.js `15.5.24` compiling, type-checking, generating pages, and finalizing successfully.
+
+### Dependency and security remediation
+
+- Upgraded Next.js and `eslint-config-next` to the compatible patched maintenance release `15.5.24`; no major-version jump was made.
+- Removed the vulnerable direct `xlsx` dependency. `.xlsx` support remains through maintained `read-excel-file`; legacy `.xls` and macro-enabled `.xlsm` uploads are rejected with a clear message.
+- Added spreadsheet-ingestion regression coverage (`npm run test:ingestion`) covering multi-sheet parsing, row locations, invalid extensions/MIME, and malformed input.
+- Pinned the reachable PostCSS transitive path to `8.5.26` through the package override.
+- `npm audit --omit=dev` now reports 12 residual transitive production-tree findings: 7 high, 3 moderate, and 2 low; no critical finding, and the direct `next`, `xlsx`, and PostCSS paths are remediated. `npm audit fix --force` was not run. The remaining findings are recorded as a residual dependency risk, not silently ignored.
+
+### Vercel Production environment
+
+All application configuration below is scoped to `production`. Secret-bearing provider keys are stored as sensitive variables; the Upstash integration variables are encrypted. No values are recorded in this report.
+
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `AI_ENABLED`, `ANTHROPIC_DEFAULT_MODEL`, `ANTHROPIC_STRONG_MODEL`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_CHUNKS`, `AI_MAX_CHARS_PER_CHUNK`, `AI_MAX_REQUESTS_PER_MINUTE`, `AI_MAX_REQUESTS_PER_DAY`, `AI_DAILY_BUDGET_INR`, `EMBEDDINGS_ENABLED`, `EMBEDDINGS_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`, `EMBEDDING_BATCH_SIZE`, `EMBEDDING_MAX_CHUNKS_PER_DOCUMENT`, `EMBEDDING_QUERY_MAX_CHARS`, `OCR_ENABLED`, `OCR_MAX_PAGES`, `UPLOAD_MAX_REQUESTS_PER_HOUR`, `PROCESS_MAX_REQUESTS_PER_HOUR`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN` are present in Production.
+
+The Upstash integration also supplies encrypted Production variables `UPSTASH_REDIS_REST_KV_REST_API_READ_ONLY_TOKEN`, `UPSTASH_REDIS_REST_KV_REST_API_TOKEN`, `UPSTASH_REDIS_REST_KV_REST_API_URL`, `UPSTASH_REDIS_REST_KV_URL`, and `UPSTASH_REDIS_REST_REDIS_URL`. Application code explicitly reads only `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`; both aliases were corrected to the HTTPS REST endpoint/token pair. A direct REST ping succeeded without exposing the values. The variables are referenced only by server-side rate-limit code, and no Upstash name appeared in the browser bundle.
+
+AI generation, Voyage embeddings, `voyage-4`, 1024-dimensional vectors, configured Haiku/Sonnet routing, batching, bounded retries, upload/process limits, and existing cost controls are enabled. `AI_MAX_REQUESTS_PER_DAY` was temporarily raised to 30 only for the authorized live QA window, then restored to 20; `AI_DAILY_BUDGET_INR` was not changed. `SUPABASE_SERVICE_ROLE_KEY` and `VERCEL_OIDC_TOKEN` were not added.
+
+### Supabase production posture
+
+- Project `lnvosbeeybisdixfwqdo` (`vector`) remains healthy and unchanged.
+- The user-provided external configuration is applied: Auth Site URL `https://pliny.vercel.app`, with redirects `https://pliny.vercel.app/login` and `http://localhost:3000/login`. The application uses `/login` for its password callback route.
+- `collections`, `documents`, `document_chunks`, `chat_messages`, and `ai_usage_events` exist with RLS enabled. Owner/parent-scoped policies remain effective; no unconditional policy was introduced.
+- The `documents` Storage bucket remains private. Anonymous table/storage probes remain denied/empty, authenticated owner access works, and existing user data is intact.
+- `document_chunks.embedding` remains `vector(1024)`. `match_document_chunks` remains security-invoker and is not executable by `anon`.
+- Existing readiness remains intact: `Claude.pdf` is 10/10 embedded and `pliny-qa-expenses.csv` is 1/1 embedded.
+
+### Automated validation
+
+All required checks passed on the validated worktree and deployment source:
+
+- `npm run lint` — PASS
+- `npx tsc --noEmit` — PASS
+- `npm run eval` — PASS (14/14 offline evaluations)
+- `npm run test:citations` — PASS
+- `npm run test:embeddings` — PASS
+- `npm run test:sanitization` — PASS
+- `npm run test:report` — PASS
+- `npm run test:ingestion` — PASS
+- `npm run build` — PASS
+- `git diff --check` — PASS
+- `npm audit --omit=dev` — expected non-zero exit with the residual findings listed above; no force fix was run.
+
+### Production QA
+
+- Desktop landing/login/dashboard/workspace at 1440 × 1024 — PASS.
+- Password login, `/dashboard` redirect, reload session persistence, and Supabase-backed workspace access — PASS.
+- Upstash-backed process limiter — PASS: the bounded probe returned `400,400,400,400,400,429` before the final deployment and `429` responses after the limiter key was saturated; no Redis `503` occurred after the alias correction.
+- Claude.pdf readiness and 10/10 vector verification — PASS.
+- Source Inspector with non-empty cited evidence — PASS on the populated QA workspace; mobile source-sheet surface also opened.
+- Markdown export and print report — PASS. Report-copy controls were present; clipboard confirmation is not treated as an independent pass in headless Chrome.
+- Mobile 390 × 844 layout — PASS; no horizontal overflow and no page errors.
+- Browser console/failed requests — the only final-run console errors were the expected browser messages for deliberate `429 /api/process-document` limiter probes. No page errors occurred. Final-deployment Vercel runtime logs contain no error/fatal entries. Historical Redis URL errors belong to the superseded deployment and are not present in the final deployment logs.
+
+### Exactly four authorized live provider checks
+
+The four authorized production requests were issued without recording provider payloads or complete document contents:
+
+1. Grounded Claude.pdf question — **PASS**: HTTP 200; four resolving Claude.pdf citations and non-empty evidence.
+2. Unsupported question — **FAIL**: HTTP 200, but the persisted response mentioned the unsupported birthday subject, included one CSV citation, and did not return `insufficient_evidence`.
+3. Cross-document request — **FAIL on the original live response**: HTTP 200, but the persisted citation set contained only the CSV document. The explicit multi-document scope/retrieval-coverage fix is deployed in `80ee5ff`; no fifth provider request was made because authorization was exactly four requests.
+4. Post-fix CSV chart request — **PASS**: HTTP 200; chart rendered and the CSV citation resolved to non-empty source evidence.
+
+### Final verdict
+
+**CONDITIONAL** — the dependency hardening, final deployment, Auth configuration, Upstash limiter, automated suite, authentication/session flow, storage/RLS/vector posture, source inspection, exports, responsive layout, and two of the four authorized live provider checks pass. READY cannot be claimed because the authorized unsupported and original cross-document live checks did not pass, and the production audit still has residual transitive findings. The cross-document fix is deployed and the cap is restored to 20; further provider-backed verification requires new explicit authorization.
 
 - `git diff --check` — PASS
 - `npm run lint` — PASS
@@ -475,3 +569,18 @@ The remaining application-authentication, live document, retrieval, citation, re
 - `npm run test:report` — PASS
 - `npm run build` — PASS
 - `git diff --check` — PASS
+
+## FINAL AUTHORITATIVE CLOSING SIGN-OFF — 2026-08-31
+
+This closing section supersedes every earlier section in this historical report, including sections appearing above it with `BLOCKED`, `NOT RUN`, or stale deployment/configuration conclusions.
+
+- Production: `https://pliny.vercel.app` returned HTTP 200. Final verified application deployment is `dpl_4rxJbYw7zqdae2KSPHofKs4ffT7P`, **READY**, deployed from commit `80ee5ffe73669fb70a042629f850dccf3b655674` on GitHub `main`.
+- Vercel Production variables: all application variables in the current `.env.local.example` contract are present in Production, including `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`; provider secrets are sensitive and Upstash integration variables are encrypted. Upstash names are server-only and absent from the browser bundle. The temporary `AI_MAX_REQUESTS_PER_DAY=30` QA override was restored to 20; the INR budget was unchanged.
+- Supabase: project `lnvosbeeybisdixfwqdo` is healthy; Auth Site URL and the exact production/local login redirects are configured as externally supplied; RLS, owner scoping, private `documents` Storage, authenticated access, and `vector(1024)` remain intact.
+- Automated validation: lint, TypeScript, offline eval 14/14, citations, embeddings, sanitization, report, ingestion, build, and diff-check all passed. `npm audit --omit=dev` remains non-zero only for 7 high, 3 moderate, and 2 low residual transitive findings; direct Next/xlsx/PostCSS paths were remediated and no force fix was run.
+- Production QA: login/session/workspace, Claude.pdf 10/10 readiness, Source Inspector evidence, desktop/mobile layout, no horizontal overflow, Markdown export, print report, Upstash limiter, and final-deployment runtime error inspection passed. Deliberate limiter probes generated expected 429 browser console messages; no page errors or final-deployment error/fatal runtime logs were found.
+- Authorized live provider checks: grounded Claude.pdf **PASS**; unsupported request **FAIL** because it did not return `insufficient_evidence`; original cross-document request **FAIL** because its saved citation set covered only the CSV, although the multi-document scope fix is deployed in `80ee5ff`; CSV chart **PASS** with rendered chart and resolving CSV citation. Exactly four provider requests were used; no fifth request is claimed.
+
+### Final verdict
+
+**CONDITIONAL** — deployment and infrastructure hardening are complete, but READY is not claimed because two authorized live provider checks did not pass and residual transitive npm-audit findings remain. Further provider-backed verification requires new explicit authorization.
