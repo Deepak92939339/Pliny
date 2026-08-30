@@ -337,6 +337,20 @@ This closing section supersedes every earlier section in this historical report,
 
 **CONDITIONAL** — deployment and infrastructure hardening are complete, but READY is not claimed because two authorized live provider checks did not pass and residual transitive npm-audit findings remain. Further provider-backed verification requires new explicit authorization.
 
+## FINAL TARGETED VERIFICATION — 2026-08-31
+
+This is the latest authoritative result and supersedes all earlier conclusions in this historical report, including the prior invalid cross-document harness result. No broad QA, dependency remediation, build, or previously passed test was rerun for this targeted gate.
+
+- Owner-scoped preflight passed before the provider request. The exact collection selected by database ID was `b949b060-38b7-42a2-a9c7-5e317676e0ed`; `Claude.pdf` was document `82df6968-7c4e-4f45-823b-222b820bad6f` with 10/10 embedded chunks, and `pliny-qa-expenses.csv` was document `64d87665-1801-43d7-af39-5e125c66c98b` with 1/1 embedded chunk. Both were ready, owner-scoped, and dimension 1024.
+- The preflight daily event count was 32. `AI_MAX_REQUESTS_PER_DAY` was temporarily raised to 33 only; `AI_DAILY_BUDGET_INR` was not changed. The temporary-cap deployment was `dpl_7qXF2kRiQsewhSnC9MBca6EvjjGR`, **READY**, on commit `a20deaef74b72df2c542ee8d3d1e0ae4e49b8121`.
+- Exactly one additional authenticated production provider request was sent with the exact collection and document scope. It returned HTTP 200 and `answered`, but the application response contained only the `pliny-qa-expenses.csv` citation. No Claude.pdf citation or Claude document ID was returned, so the required two-document evidence gate failed. The failure boundary is retrieval/citation coverage between the selected-document request and the grounded answer; it is not an authentication, HTTP, deployment, or provider-availability failure. No additional provider request was made.
+- The request cap was restored to 20 without changing the INR budget. Final production deployment `dpl_6LpcCU6hzKWfxmLcA9PyfrQkymTB` is **READY**, aliases `https://pliny.vercel.app`, and is deployed from commit `a20deaef74b72df2c542ee8d3d1e0ae4e49b8121` on GitHub `main`.
+- Final production returned HTTP 200. The final deployment had no error/fatal runtime logs, and no runtime error clusters were found in the inspected window.
+
+### Final verdict
+
+**CONDITIONAL** — the exact owner/document preflight, cap restoration, final deployment, HTTP health, and runtime error checks passed. The single authorized cross-document request failed because Claude.pdf evidence was absent from the grounded citation set. READY is not claimed, and no further provider request was made.
+
 ## FINAL TARGETED SIGN-OFF — 2026-08-31
 
 This is the final authoritative section and supersedes all earlier sections, including the previous closing sign-off above. Historical results remain only as audit history.
