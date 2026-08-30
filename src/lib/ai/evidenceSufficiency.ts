@@ -1,4 +1,5 @@
 import type { CitationValidationResult } from "../citations/validateCitations.ts";
+import { getMissingRequiredCitationDocumentIds, isQualifyingRetrievalCandidate } from "../search/documentCoverage.ts";
 import type { EvidenceStatus, RetrievalReason, SearchChunkResult } from "../../types/index.ts";
 
 const MIN_MEANINGFUL_CONTENT_CHARS = 40;
@@ -54,13 +55,17 @@ export type EvidenceSufficiencyResult = {
   reason: string;
   meaningfulSourceCount: number;
   matchedTermCount: number;
+  missingCitationDocumentIds: string[];
+  missingSourceDocumentIds: string[];
   requiredTermCount: number;
   validCitationCount: number;
 };
 
 type EvidenceSufficiencyOptions = {
+  citedDocumentIds?: readonly string[];
   citationValidation?: CitationValidationResult | null;
   question: string;
+  requiredDocumentIds?: readonly string[];
   retrievalReason: RetrievalReason;
   sources: readonly SearchChunkResult[];
 };
@@ -101,8 +106,10 @@ function getSemanticScore(source: SearchChunkResult) {
 }
 
 export function assessEvidenceSufficiency({
+  citedDocumentIds = [],
   citationValidation,
   question,
+  requiredDocumentIds = [],
   retrievalReason,
   sources,
 }: EvidenceSufficiencyOptions): EvidenceSufficiencyResult {
@@ -116,7 +123,24 @@ export function assessEvidenceSufficiency({
   const evidenceIsBounded = sources.length > 0 && sources.length <= MAX_EVIDENCE_SOURCES && sources.every((source) => source.content.length <= MAX_EVIDENCE_CHARS_PER_SOURCE);
   const retrievalIsUseful = retrievalReason !== "no_chunks_found" && retrievalReason !== "broad_context_fallback";
   const citationIsValid = !citationValidation || !citationValidation.rejectedAnswer;
-  const sufficient = evidenceIsBounded && meaningfulSources.length > 0 && retrievalIsUseful && (hasLexicalSupport || hasSemanticSupport) && citationIsValid;
+  const uniqueRequiredDocumentIds = Array.from(new Set(requiredDocumentIds));
+  const requiresMultipleDocuments = uniqueRequiredDocumentIds.length > 1;
+  const qualifyingSources = sources.filter(isQualifyingRetrievalCandidate);
+  const missingSourceDocumentIds = requiresMultipleDocuments
+    ? uniqueRequiredDocumentIds.filter((documentId) => !qualifyingSources.some((source) => source.documentId === documentId))
+    : [];
+  const missingCitationDocumentIds =
+    requiresMultipleDocuments && citationValidation
+      ? getMissingRequiredCitationDocumentIds(citedDocumentIds, uniqueRequiredDocumentIds)
+      : [];
+  const sufficient =
+    evidenceIsBounded &&
+    meaningfulSources.length > 0 &&
+    retrievalIsUseful &&
+    (hasLexicalSupport || hasSemanticSupport) &&
+    citationIsValid &&
+    missingSourceDocumentIds.length === 0 &&
+    missingCitationDocumentIds.length === 0;
 
   let reason = "Evidence is sufficiently bounded, relevant, and citation-valid.";
 
@@ -130,6 +154,10 @@ export function assessEvidenceSufficiency({
     reason = "Retrieved passages do not provide enough lexical or semantic support for the question.";
   } else if (!citationIsValid) {
     reason = "The generated answer contained invalid or missing citations.";
+  } else if (missingSourceDocumentIds.length > 0) {
+    reason = "At least one explicitly required document lacks qualifying retrieved evidence.";
+  } else if (missingCitationDocumentIds.length > 0) {
+    reason = "The generated answer did not cite every explicitly required document.";
   }
 
   return {
@@ -138,6 +166,8 @@ export function assessEvidenceSufficiency({
     reason,
     meaningfulSourceCount: meaningfulSources.length,
     matchedTermCount: matchedTerms.size,
+    missingCitationDocumentIds,
+    missingSourceDocumentIds,
     requiredTermCount,
     validCitationCount: citationValidation?.validMarkers.length ?? 0,
   };

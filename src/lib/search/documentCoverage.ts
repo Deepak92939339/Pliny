@@ -1,6 +1,12 @@
 import type { SearchChunkResult } from "../../types/index.ts";
 
 const MIN_MEANINGFUL_CONTENT_CHARS = 40;
+const MIN_SEMANTIC_SIMILARITY = 0.55;
+
+export type DocumentAwareSelection = {
+  missingRequiredDocumentIds: string[];
+  results: SearchChunkResult[];
+};
 
 function normalizeText(value: string) {
   return value
@@ -29,6 +35,22 @@ function getContentDedupKey(result: SearchChunkResult) {
 
 function hasMeaningfulContent(result: SearchChunkResult) {
   return normalizeText(result.content).length >= MIN_MEANINGFUL_CONTENT_CHARS;
+}
+
+export function isQualifyingRetrievalCandidate(result: SearchChunkResult) {
+  if (!hasMeaningfulContent(result)) {
+    return false;
+  }
+
+  const keywordScore = typeof result.keywordScore === "number" && Number.isFinite(result.keywordScore) ? result.keywordScore : 0;
+  const semanticSimilarity =
+    typeof result.semanticSimilarity === "number" && Number.isFinite(result.semanticSimilarity)
+      ? result.semanticSimilarity
+      : result.retrievalMode === "semantic" && typeof result.relevanceScore === "number" && Number.isFinite(result.relevanceScore)
+        ? result.relevanceScore
+        : -1;
+
+  return keywordScore > 0 || semanticSimilarity >= MIN_SEMANTIC_SIMILARITY;
 }
 
 function dedupeResults(results: SearchChunkResult[]) {
@@ -103,4 +125,79 @@ export function ensureDocumentCoverage(
   }
 
   return selected.slice(0, limit);
+}
+
+export function selectDocumentAwareResults(
+  rankedResults: SearchChunkResult[],
+  requiredDocumentIds: string[],
+  limit: number
+): DocumentAwareSelection {
+  const uniqueRequiredDocumentIds = Array.from(new Set(requiredDocumentIds)).filter(Boolean);
+  const candidates = dedupeResults(rankedResults).filter(isQualifyingRetrievalCandidate);
+
+  if (uniqueRequiredDocumentIds.length < 2) {
+    return {
+      missingRequiredDocumentIds: [],
+      results: candidates.slice(0, limit),
+    };
+  }
+
+  const missingRequiredDocumentIds = uniqueRequiredDocumentIds.filter(
+    (documentId) => !candidates.some((candidate) => candidate.documentId === documentId)
+  );
+
+  if (limit < uniqueRequiredDocumentIds.length) {
+    const limitedResults = candidates.slice(0, limit);
+
+    return {
+      missingRequiredDocumentIds: uniqueRequiredDocumentIds.filter(
+        (documentId) => !limitedResults.some((result) => result.documentId === documentId)
+      ),
+      results: limitedResults,
+    };
+  }
+
+  if (missingRequiredDocumentIds.length > 0) {
+    return {
+      missingRequiredDocumentIds,
+      results: candidates.slice(0, limit),
+    };
+  }
+
+  const selected = candidates.slice(0, limit);
+
+  for (const documentId of uniqueRequiredDocumentIds) {
+    if (selected.some((result) => result.documentId === documentId)) {
+      continue;
+    }
+
+    const candidate = candidates.find(
+      (result) => result.documentId === documentId && !selected.some((selectedResult) => selectedResult.id === result.id)
+    );
+    const removableIndex = [...selected.keys()]
+      .reverse()
+      .find((index) => {
+        const selectedDocumentId = selected[index].documentId;
+        const selectedCount = selected.filter((selectedResult) => selectedResult.documentId === selectedDocumentId).length;
+
+        return selectedCount > 1 || !uniqueRequiredDocumentIds.includes(selectedDocumentId);
+      });
+
+    if (candidate && removableIndex !== undefined) {
+      selected.splice(removableIndex, 1, candidate);
+    }
+  }
+
+  return {
+    missingRequiredDocumentIds: uniqueRequiredDocumentIds.filter(
+      (documentId) => !selected.some((result) => result.documentId === documentId)
+    ),
+    results: selected.slice(0, limit),
+  };
+}
+
+export function getMissingRequiredCitationDocumentIds(citedDocumentIds: readonly string[], requiredDocumentIds: readonly string[]) {
+  const cited = new Set(citedDocumentIds);
+
+  return Array.from(new Set(requiredDocumentIds)).filter((documentId) => !cited.has(documentId));
 }

@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 
 const searchChunksSchema = z.object({
   collection_id: z.string().uuid("Invalid project id."),
+  document_ids: z.array(z.string().uuid("Invalid document id.")).max(10, "Too many documents selected.").optional(),
   query: z.string().trim().min(2, "Enter a question to search.").max(500, "Question is too long."),
 });
 
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsedBody.error.issues[0]?.message ?? "Invalid search request." }, { status: 400 });
   }
 
-  const { collection_id: collectionId, query } = parsedBody.data;
+  const { collection_id: collectionId, document_ids: documentIds, query } = parsedBody.data;
 
   const { data: collection, error: collectionError } = await supabase
     .from("collections")
@@ -65,8 +66,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
 
-  const { error: chunksError, results, retrievalReason } = await retrieveRelevantChunks(supabase, {
+  const { error: chunksError, missingRequiredDocumentIds, results, retrievalReason } = await retrieveRelevantChunks(supabase, {
     collectionId,
+    documentIds,
     query,
     userId: user.id,
   });
@@ -78,6 +80,7 @@ export async function POST(request: Request) {
 
   const response: SearchResponse = {
     collectionId,
+    missingRequiredDocumentIds,
     query,
     retrievalReason,
     results,

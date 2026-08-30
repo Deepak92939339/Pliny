@@ -113,12 +113,16 @@ export type SearchChunkResult = {
   filename: string;
   locationLabel?: string | null;
   metadata?: Record<string, string | number | boolean | null> | null;
+  fusionScore?: number | null;
+  keywordScore?: number | null;
   relevanceScore?: number | null;
   retrievalMode?: RetrievalMode;
+  semanticSimilarity?: number | null;
 };
 
 export type SearchResponse = {
   collectionId: string;
+  missingRequiredDocumentIds?: string[];
   query: string;
   retrievalReason: RetrievalReason;
   results: SearchChunkResult[];

@@ -695,6 +695,10 @@ ${sanitizeSourceContent(chunk.content)}
 function buildPrompt(question: string, chunks: SearchChunkResult[], retrievalReason: RetrievalReason, documentScope?: DocumentScope | null) {
   const context = chunks.map((chunk, index) => formatPromptSource(chunk, index)).join("\n\n");
   const scopedDocumentNames = documentScope?.documents.map((document) => document.filename).join('", "');
+  const requiredDocumentInstruction =
+    documentScope && documentScope.documents.length > 1
+      ? `This is an explicit cross-document question. Use qualifying evidence from every scoped document and include at least one resolving [[s.X]] citation for each document. If any scoped document lacks support for its requested fact, answer exactly INSUFFICIENT_EVIDENCE.`
+      : "";
   const contextNote =
     documentScope
       ? `The user appears to be asking about the uploaded document${documentScope.documents.length === 1 ? "" : "s"} "${escapePromptText(scopedDocumentNames ?? documentScope.document.filename)}". The excerpts below are scoped to these document${documentScope.documents.length === 1 ? "" : "s"}. Answer from these excerpts; if they do not contain enough detail, say what is missing.`
@@ -713,6 +717,7 @@ ${escapePromptText(question)}
 Use only the excerpts below to answer. Include source citations in the form [[s.X]] for facts drawn from source index X.
 Each source is labeled with id="s.X"; use that id number for citations.
 ${contextNote}
+${requiredDocumentInstruction}
 
 <sources>
 ${context}
@@ -1164,11 +1169,13 @@ export async function POST(request: Request) {
 
   const documentScope = getDocumentScope(message, documents);
 
-  if (documentScope && documentScope.document.status !== "ready") {
+  const unavailableScopedDocument = documentScope?.documents.find((document) => document.status !== "ready");
+
+  if (documentScope && unavailableScopedDocument) {
     const statusAnswer =
-      documentScope.document.status === "processing"
-        ? `I found \`${documentScope.document.filename}\`, but it is still processing. Try again when the document is ready.`
-        : `I found \`${documentScope.document.filename}\`, but it needs retry before Pliny can answer from it.`;
+      unavailableScopedDocument.status === "processing"
+        ? `I found \`${unavailableScopedDocument.filename}\`, but it is still processing. Try again when the document is ready.`
+        : `I found \`${unavailableScopedDocument.filename}\`, but it needs retry before Pliny can answer from it.`;
 
     return saveSyntheticChatResponse({
       answer: statusAnswer,
@@ -1201,9 +1208,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "AI is disabled for this environment." }, { status: 403 });
   }
 
-  const { error: chunksError, results: retrievedChunks, retrievalReason } = await retrieveRelevantChunks(supabase, {
+  const requiredDocumentIds = documentScope?.documents.map((document) => document.id) ?? [];
+  const {
+    error: chunksError,
+    missingRequiredDocumentIds,
+    results: retrievedChunks,
+    retrievalReason,
+  } = await retrieveRelevantChunks(supabase, {
     collectionId,
-    documentIds: documentScope?.documents.map((document) => document.id),
+    documentIds: requiredDocumentIds,
     limit: config.maxChunks,
     query: message,
     userId: user.id,
@@ -1228,6 +1241,24 @@ export async function POST(request: Request) {
     question: message,
     retrievedChunkCount: retrievedChunks.length,
   });
+
+  if (missingRequiredDocumentIds.length > 0) {
+    return saveInsufficientEvidenceResponse({
+      collectionId,
+      closestMatches: retrievedChunks.slice(0, 3),
+      metadata: buildResponseMetadata({
+        evidenceStatus: "partial",
+        maxOutputTokens: modelRoute.maxOutputTokens,
+        modelReason: modelRoute.reason,
+        retrievalReason,
+        selectedModel: modelRoute.selectedModel,
+      }),
+      question: message,
+      reason: "At least one explicitly required document did not contain qualifying evidence for its requested fact.",
+      supabase,
+      userId: user.id,
+    });
+  }
 
   if (retrievedChunks.length === 0) {
     const noContextAnswer = documentScope
@@ -1316,6 +1347,7 @@ export async function POST(request: Request) {
   const prompt = buildPrompt(message, promptChunks, retrievalReason, documentScope);
   const retrievedEvidence = assessEvidenceSufficiency({
     question: message,
+    requiredDocumentIds,
     retrievalReason,
     sources: promptChunks,
   });
@@ -1423,7 +1455,7 @@ export async function POST(request: Request) {
     let answer = draftAnswer;
     let citationValidation = validateCitations(answer, promptChunks);
 
-    if (citationValidation.rejectedAnswer) {
+    if (citationValidation.rejectedAnswer && requiredDocumentIds.length < 2) {
       logCitationValidationFailure("initial", citationValidation, {
         retrievedChunkCount: promptChunks.length,
       });
@@ -1471,17 +1503,21 @@ export async function POST(request: Request) {
       }
     }
 
-    const citations = buildCitations(answer, promptChunks);
+    const generatedCitations = buildCitations(answer, promptChunks);
     const finalEvidence = assessEvidenceSufficiency({
+      citedDocumentIds: generatedCitations.map((citation) => citation.documentId),
       citationValidation,
       question: message,
+      requiredDocumentIds,
       retrievalReason,
       sources: promptChunks,
     });
     const isInsufficientEvidence = !finalEvidence.sufficient;
+    const responseAnswer = isInsufficientEvidence && requiredDocumentIds.length > 1 ? NO_CONTEXT_ANSWER : answer;
+    const citations = isInsufficientEvidence && requiredDocumentIds.length > 1 ? [] : generatedCitations;
     const response: ChatResponse = isInsufficientEvidence
       ? {
-          answer,
+          answer: responseAnswer,
           citations,
           closestMatches: promptChunks.slice(0, 3),
           collectionId,
@@ -1501,7 +1537,7 @@ export async function POST(request: Request) {
           status: "insufficient_evidence",
         }
       : {
-      answer,
+      answer: responseAnswer,
       citations,
       collectionId,
       metadata: buildResponseMetadata({
@@ -1520,7 +1556,7 @@ export async function POST(request: Request) {
     const assistantMessageError = await saveChatMessage(supabase, {
       citations,
       collection_id: collectionId,
-      content: answer,
+      content: responseAnswer,
       role: "assistant",
       user_id: user.id,
     });

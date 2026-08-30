@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { embedText, getEmbeddingConfig, isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
-import { ensureDocumentCoverage } from "@/lib/search/documentCoverage";
+import { selectDocumentAwareResults } from "@/lib/search/documentCoverage";
 import type { RetrievalReason, SearchChunkResult } from "@/types";
 
 const STOP_WORDS = new Set([
@@ -11,22 +11,38 @@ const STOP_WORDS = new Set([
   "as",
   "at",
   "be",
+  "both",
   "by",
+  "compare",
+  "conclusion",
+  "csv",
   "document",
+  "docx",
+  "explain",
+  "fact",
+  "facts",
   "file",
   "for",
   "from",
+  "give",
+  "grounded",
+  "handles",
   "how",
+  "important",
   "in",
   "is",
   "it",
+  "its",
   "listed",
   "me",
   "of",
   "on",
+  "one",
   "or",
   "pdf",
   "please",
+  "requires",
+  "using",
   "show",
   "that",
   "the",
@@ -36,6 +52,7 @@ const STOP_WORDS = new Set([
   "tell",
   "to",
   "was",
+  "way",
   "were",
   "what",
   "when",
@@ -44,10 +61,13 @@ const STOP_WORDS = new Set([
   "who",
   "why",
   "with",
+  "xlsx",
 ]);
 
 const MIN_MEANINGFUL_CONTENT_CHARS = 40;
 const MAX_RESULTS_PER_DOCUMENT_SOFT = 2;
+const MAX_CANDIDATES_PER_DOCUMENT = 10;
+const MIN_CANDIDATES_PER_DOCUMENT = 3;
 
 type DocumentMeta = {
   filename?: string | null;
@@ -91,6 +111,7 @@ type RetrieveRelevantChunksOptions = {
 
 type RetrieveRelevantChunksResult = {
   error: unknown | null;
+  missingRequiredDocumentIds: string[];
   retrievalReason: RetrievalReason;
   results: SearchChunkResult[];
   searchTerms: string[];
@@ -109,7 +130,7 @@ function getSearchTerms(query: string) {
   const matches = normalizeText(query).split(" ").filter(Boolean);
   const terms = matches.filter((term) => term.length > 1 && !STOP_WORDS.has(term));
 
-  return Array.from(new Set(terms)).slice(0, 12);
+  return Array.from(new Set(terms)).slice(0, 24);
 }
 
 function countOccurrences(value: string, term: string) {
@@ -234,6 +255,7 @@ function mapSemanticChunk(row: SemanticChunkRow, filenamesByDocumentId: Map<stri
     metadata: row.metadata ?? null,
     relevanceScore: row.similarity,
     retrievalMode: "semantic",
+    semanticSimilarity: row.similarity,
   };
 }
 
@@ -316,8 +338,16 @@ function cleanRetrievedResults(results: SearchChunkResult[], limit: number, requ
   const deduped = dedupeResults(results);
   const meaningful = deduped.filter(hasMeaningfulContent);
   const candidates = meaningful.length > 0 ? meaningful : deduped;
+  const balanced = balanceAcrossDocuments(candidates, limit);
 
-  return ensureDocumentCoverage(balanceAcrossDocuments(candidates, limit), candidates.concat(fallbackResults), requiredDocumentIds, limit);
+  if (requiredDocumentIds.length < 2) {
+    return {
+      missingRequiredDocumentIds: [],
+      results: balanced,
+    };
+  }
+
+  return selectDocumentAwareResults([...balanced, ...candidates, ...fallbackResults], requiredDocumentIds, limit);
 }
 
 function rankKeywordResults(rows: SearchChunkResult[], query: string, terms: string[], limit: number) {
@@ -345,9 +375,43 @@ function rankKeywordResults(rows: SearchChunkResult[], query: string, terms: str
     .slice(0, limit)
     .map(({ result, score }) => ({
       ...result,
+      keywordScore: score,
       relevanceScore: score,
       retrievalMode: "keyword" as const,
     }));
+}
+
+function getCandidateLimitPerDocument(limit: number, documentCount: number) {
+  if (documentCount <= 0) {
+    return Math.max(limit * 3, limit);
+  }
+
+  return Math.min(
+    Math.max(Math.ceil((limit * 3) / documentCount), MIN_CANDIDATES_PER_DOCUMENT),
+    MAX_CANDIDATES_PER_DOCUMENT
+  );
+}
+
+function getFilenameTerms(filename: string) {
+  return new Set(normalizeText(filename).split(" ").filter(Boolean));
+}
+
+function rankScopedKeywordResults(rows: SearchChunkResult[], query: string, terms: string[], documentIds: string[], limit: number) {
+  if (documentIds.length === 0) {
+    return rankKeywordResults(rows, query, terms, 20);
+  }
+
+  const candidateLimit = getCandidateLimitPerDocument(limit, documentIds.length);
+
+  return documentIds
+    .flatMap((documentId) => {
+      const documentRows = rows.filter((row) => row.documentId === documentId);
+      const filenameTerms = getFilenameTerms(documentRows[0]?.filename ?? "");
+      const documentTerms = terms.filter((term) => !filenameTerms.has(term));
+
+      return rankKeywordResults(documentRows, query, documentTerms, candidateLimit);
+    })
+    .sort((left, right) => (right.keywordScore ?? 0) - (left.keywordScore ?? 0));
 }
 
 async function getDocumentFilenames(supabase: SupabaseClient, documentIds: string[]) {
@@ -367,12 +431,14 @@ async function getDocumentFilenames(supabase: SupabaseClient, documentIds: strin
 async function retrieveSemanticResults({
   collectionId,
   documentIds,
+  limit,
   query,
   supabase,
   userId,
 }: {
   collectionId: string;
   documentIds?: string[];
+  limit: number;
   query: string;
   supabase: SupabaseClient;
   userId?: string;
@@ -386,18 +452,44 @@ async function retrieveSemanticResults({
     inputType: "query",
     maxCharacters: embeddingConfig.queryMaxCharacters,
   });
-  const { data, error } = await supabase.rpc("match_document_chunks", {
-    match_collection_id: collectionId,
-    match_count: 20,
-    match_user_id: userId,
-    query_embedding: queryEmbedding.embedding,
-  });
+  let rows: SemanticChunkRow[] = [];
 
-  if (error) {
-    throw error;
+  if (documentIds && documentIds.length > 0) {
+    const matchCount = getCandidateLimitPerDocument(limit, documentIds.length);
+    const scopedMatches = await Promise.all(
+      documentIds.map((documentId) =>
+        supabase.rpc("match_document_chunks_for_document", {
+          match_collection_id: collectionId,
+          match_count: matchCount,
+          match_document_id: documentId,
+          match_user_id: userId,
+          query_embedding: queryEmbedding.embedding,
+        })
+      )
+    );
+    const scopedError = scopedMatches.find((match) => match.error)?.error;
+
+    if (scopedError) {
+      throw scopedError;
+    }
+
+    rows = scopedMatches
+      .flatMap((match) => (match.data ?? []) as SemanticChunkRow[])
+      .sort((left, right) => right.similarity - left.similarity);
+  } else {
+    const { data, error } = await supabase.rpc("match_document_chunks", {
+      match_collection_id: collectionId,
+      match_count: 20,
+      match_user_id: userId,
+      query_embedding: queryEmbedding.embedding,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    rows = (data ?? []) as SemanticChunkRow[];
   }
-
-  const rows = (data ?? []) as SemanticChunkRow[];
   const filenamesByDocumentId = await getDocumentFilenames(
     supabase,
     rows.map((row) => row.document_id)
@@ -405,13 +497,7 @@ async function retrieveSemanticResults({
 
   const mappedRows = rows.map((row) => mapSemanticChunk(row, filenamesByDocumentId));
 
-  if (!documentIds || documentIds.length === 0) {
-    return mappedRows;
-  }
-
-  const allowedDocumentIds = new Set(documentIds);
-
-  return mappedRows.filter((row) => allowedDocumentIds.has(row.documentId));
+  return mappedRows;
 }
 
 function mergeWithReciprocalRankFusion({
@@ -427,8 +513,10 @@ function mergeWithReciprocalRankFusion({
   const ranked = new Map<
     string,
     {
+      keywordScore: number | null;
       result: SearchChunkResult;
       score: number;
+      semanticSimilarity: number | null;
     }
   >();
 
@@ -436,10 +524,20 @@ function mergeWithReciprocalRankFusion({
     results.forEach((result, index) => {
       const current = ranked.get(result.id);
       const score = 1 / (reciprocalRankK + index + 1);
+      const keywordScore =
+        typeof result.keywordScore === "number" && Number.isFinite(result.keywordScore)
+          ? Math.max(current?.keywordScore ?? -1, result.keywordScore)
+          : current?.keywordScore ?? null;
+      const semanticSimilarity =
+        typeof result.semanticSimilarity === "number" && Number.isFinite(result.semanticSimilarity)
+          ? Math.max(current?.semanticSimilarity ?? -1, result.semanticSimilarity)
+          : current?.semanticSimilarity ?? null;
 
       ranked.set(result.id, {
-        result,
+        keywordScore,
+        result: current?.result ?? result,
         score: (current?.score ?? 0) + score,
+        semanticSimilarity,
       });
     });
   }
@@ -450,7 +548,14 @@ function mergeWithReciprocalRankFusion({
   return Array.from(ranked.values())
     .sort((left, right) => right.score - left.score)
     .slice(0, limit)
-    .map(({ result }) => result);
+    .map(({ keywordScore, result, score, semanticSimilarity }) => ({
+      ...result,
+      fusionScore: score,
+      keywordScore,
+      relevanceScore: semanticSimilarity ?? keywordScore ?? result.relevanceScore,
+      retrievalMode: keywordScore !== null && semanticSimilarity !== null ? "hybrid" : result.retrievalMode,
+      semanticSimilarity,
+    }));
 }
 
 export async function retrieveRelevantChunks(
@@ -478,6 +583,7 @@ export async function retrieveRelevantChunks(
   if (error) {
     return {
       error,
+      missingRequiredDocumentIds: scopedDocumentIds.length > 1 ? scopedDocumentIds : [],
       retrievalReason: "no_chunks_found",
       results: [],
       searchTerms: terms,
@@ -489,19 +595,21 @@ export async function retrieveRelevantChunks(
   if (rows.length === 0) {
     return {
       error: null,
+      missingRequiredDocumentIds: scopedDocumentIds.length > 1 ? scopedDocumentIds : [],
       retrievalReason: "no_chunks_found",
       results: [],
       searchTerms: terms,
     };
   }
 
-  const keywordResults = rankKeywordResults(rows, query, terms, 20);
+  const keywordResults = rankScopedKeywordResults(rows, query, terms, scopedDocumentIds, limit);
   let semanticResults: SearchChunkResult[] = [];
 
   try {
     semanticResults = await retrieveSemanticResults({
       collectionId,
       documentIds: scopedDocumentIds,
+      limit,
       query,
       supabase,
       userId,
@@ -513,52 +621,65 @@ export async function retrieveRelevantChunks(
   }
 
   if (keywordResults.length > 0 && semanticResults.length > 0) {
+    const selection = cleanRetrievedResults(
+      mergeWithReciprocalRankFusion({
+        keywordResults,
+        limit: Math.max(limit * 3, limit, scopedDocumentIds.length * MIN_CANDIDATES_PER_DOCUMENT),
+        semanticResults,
+      }),
+      limit,
+      scopedDocumentIds,
+      rows
+    );
+
     return {
       error: null,
+      missingRequiredDocumentIds: selection.missingRequiredDocumentIds,
       retrievalReason: "hybrid_match",
-      results: cleanRetrievedResults(
-        mergeWithReciprocalRankFusion({
-          keywordResults,
-          limit: Math.max(limit * 3, limit),
-          semanticResults,
-        }),
-        limit,
-        scopedDocumentIds,
-        rows
-      ),
+      results: selection.results,
       searchTerms: terms,
     };
   }
 
   if (semanticResults.length > 0) {
+    const selection = cleanRetrievedResults(semanticResults, limit, scopedDocumentIds, rows);
+
     return {
       error: null,
+      missingRequiredDocumentIds: selection.missingRequiredDocumentIds,
       retrievalReason: "semantic_match",
-      results: cleanRetrievedResults(semanticResults, limit, scopedDocumentIds, rows),
+      results: selection.results,
       searchTerms: terms,
     };
   }
 
   if (keywordResults.length > 0) {
+    const selection = cleanRetrievedResults(keywordResults, limit, scopedDocumentIds, rows);
+
     return {
       error: null,
+      missingRequiredDocumentIds: selection.missingRequiredDocumentIds,
       retrievalReason: "direct_keyword_match",
-      results: cleanRetrievedResults(keywordResults, limit, scopedDocumentIds, rows),
+      results: selection.results,
       searchTerms: terms,
     };
   }
 
   if (rows.length > 0) {
+    const selection = cleanRetrievedResults(rows, Math.min(limit, 3), scopedDocumentIds, rows);
+
     return {
       error: null,
+      missingRequiredDocumentIds: selection.missingRequiredDocumentIds,
       retrievalReason: "broad_context_fallback",
-      results: cleanRetrievedResults(rows, Math.min(limit, 3)),
+      results: selection.results,
       searchTerms: terms,
     };
   }
 
   return {
     error: null,
+    missingRequiredDocumentIds: scopedDocumentIds.length > 1 ? scopedDocumentIds : [],
     retrievalReason: "no_chunks_found",
     results: [],
     searchTerms: terms,
