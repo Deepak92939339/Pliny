@@ -161,6 +161,7 @@ type DocumentMatchClassification =
 
 type DocumentScope = {
   document: WorkspaceDocument;
+  documents: WorkspaceDocument[];
   reason: "filename_match";
 };
 
@@ -609,16 +610,18 @@ function getDocumentScope(message: string, documents: WorkspaceDocument[]): Docu
     return null;
   }
 
-  const bestMatch = findDocumentMatches(message, documents).find(
-    (match) => match.classification === "exact_file_match" || match.classification === "strong_title_match"
-  );
+  const matchedDocuments = findDocumentMatches(message, documents)
+    .filter((match) => match.classification === "exact_file_match" || match.classification === "strong_title_match")
+    .map((match) => match.document)
+    .filter((document, index, allDocuments) => allDocuments.findIndex((candidate) => candidate.id === document.id) === index);
 
-  if (!bestMatch) {
+  if (matchedDocuments.length === 0) {
     return null;
   }
 
   return {
-    document: bestMatch.document,
+    document: matchedDocuments[0],
+    documents: matchedDocuments,
     reason: "filename_match",
   };
 }
@@ -690,9 +693,10 @@ ${sanitizeSourceContent(chunk.content)}
 
 function buildPrompt(question: string, chunks: SearchChunkResult[], retrievalReason: RetrievalReason, documentScope?: DocumentScope | null) {
   const context = chunks.map((chunk, index) => formatPromptSource(chunk, index)).join("\n\n");
+  const scopedDocumentNames = documentScope?.documents.map((document) => document.filename).join('", "');
   const contextNote =
     documentScope
-      ? `The user appears to be asking about the uploaded document "${escapePromptText(documentScope.document.filename)}". The excerpts below are scoped to that document. Answer from these excerpts; if they do not contain enough detail, say what is missing.`
+      ? `The user appears to be asking about the uploaded document${documentScope.documents.length === 1 ? "" : "s"} "${escapePromptText(scopedDocumentNames ?? documentScope.document.filename)}". The excerpts below are scoped to these document${documentScope.documents.length === 1 ? "" : "s"}. Answer from these excerpts; if they do not contain enough detail, say what is missing.`
       : retrievalReason === "broad_context_fallback"
       ? 'The retrieved excerpts are broad or weak context. Begin by saying: "The retrieved documents do not directly answer this. The closest evidence says..." Then answer only with supported details. If even the closest evidence is not relevant, say what is missing.'
       : retrievalReason === "semantic_match"
@@ -1103,7 +1107,7 @@ export async function POST(request: Request) {
 
   const { error: chunksError, results: retrievedChunks, retrievalReason } = await retrieveRelevantChunks(supabase, {
     collectionId,
-    documentIds: documentScope ? [documentScope.document.id] : undefined,
+    documentIds: documentScope?.documents.map((document) => document.id),
     limit: config.maxChunks,
     query: message,
     userId: user.id,
@@ -1116,7 +1120,7 @@ export async function POST(request: Request) {
 
   if (process.env.NODE_ENV !== "production") {
     console.info("[chat] retrieval summary", {
-      documentScope: documentScope?.document.filename,
+      documentScope: documentScope?.documents.map((document) => document.filename).join(", "),
       retrievedChunkCount: retrievedChunks.length,
       retrievalReason,
       sourceCountSentToModel: Math.min(retrievedChunks.length, config.maxChunks),

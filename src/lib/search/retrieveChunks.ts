@@ -308,12 +308,59 @@ function balanceAcrossDocuments(results: SearchChunkResult[], limit: number) {
   return selected.slice(0, limit);
 }
 
-function cleanRetrievedResults(results: SearchChunkResult[], limit: number) {
+function ensureDocumentCoverage(
+  results: SearchChunkResult[],
+  fallbackResults: SearchChunkResult[],
+  requiredDocumentIds: string[],
+  limit: number
+) {
+  const uniqueRequiredDocumentIds = Array.from(new Set(requiredDocumentIds));
+
+  if (uniqueRequiredDocumentIds.length < 2 || limit < uniqueRequiredDocumentIds.length) {
+    return results.slice(0, limit);
+  }
+
+  const selected = results.slice(0, limit);
+  const candidates = dedupeResults([...results, ...fallbackResults]).filter(hasMeaningfulContent);
+
+  for (const documentId of uniqueRequiredDocumentIds) {
+    if (selected.some((result) => result.documentId === documentId)) {
+      continue;
+    }
+
+    const candidate = candidates.find(
+      (result) => result.documentId === documentId && !selected.some((selectedResult) => selectedResult.id === result.id)
+    );
+
+    if (!candidate) {
+      continue;
+    }
+
+    const removableIndex = [...selected.keys()]
+      .reverse()
+      .find((index) => {
+        const selectedDocumentId = selected[index].documentId;
+        const selectedCount = selected.filter((result) => result.documentId === selectedDocumentId).length;
+
+        return selectedCount > 1 || !uniqueRequiredDocumentIds.includes(selectedDocumentId);
+      });
+
+    if (removableIndex === undefined) {
+      continue;
+    }
+
+    selected.splice(removableIndex, 1, candidate);
+  }
+
+  return selected.slice(0, limit);
+}
+
+function cleanRetrievedResults(results: SearchChunkResult[], limit: number, requiredDocumentIds: string[] = [], fallbackResults: SearchChunkResult[] = []) {
   const deduped = dedupeResults(results);
   const meaningful = deduped.filter(hasMeaningfulContent);
   const candidates = meaningful.length > 0 ? meaningful : deduped;
 
-  return balanceAcrossDocuments(candidates, limit);
+  return ensureDocumentCoverage(balanceAcrossDocuments(candidates, limit), candidates.concat(fallbackResults), requiredDocumentIds, limit);
 }
 
 function rankKeywordResults(rows: SearchChunkResult[], query: string, terms: string[], limit: number) {
@@ -514,7 +561,9 @@ export async function retrieveRelevantChunks(
           limit: Math.max(limit * 3, limit),
           semanticResults,
         }),
-        limit
+        limit,
+        scopedDocumentIds,
+        rows
       ),
       searchTerms: terms,
     };
@@ -524,7 +573,7 @@ export async function retrieveRelevantChunks(
     return {
       error: null,
       retrievalReason: "semantic_match",
-      results: cleanRetrievedResults(semanticResults, limit),
+      results: cleanRetrievedResults(semanticResults, limit, scopedDocumentIds, rows),
       searchTerms: terms,
     };
   }
@@ -533,7 +582,7 @@ export async function retrieveRelevantChunks(
     return {
       error: null,
       retrievalReason: "direct_keyword_match",
-      results: cleanRetrievedResults(keywordResults, limit),
+      results: cleanRetrievedResults(keywordResults, limit, scopedDocumentIds, rows),
       searchTerms: terms,
     };
   }
