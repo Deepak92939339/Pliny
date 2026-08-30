@@ -44,6 +44,7 @@ Pliny AI is a private document-intelligence workspace. Users create workspaces, 
 - React Hook Form
 - pdf-parse
 - mammoth DOCX extraction
+- read-excel-file XLSX extraction
 - Tesseract OCR fallback
 - Upstash Redis rate limiting
 
@@ -80,7 +81,7 @@ Sign in -> Create project -> Upload supported file -> Process text -> Optional e
 
 1. Supabase Auth protects dashboard and project routes.
 2. Uploads go through a server route that validates ownership, file size, extension, MIME type, and format-specific safety checks before writing to Storage.
-3. Processing uses a plugin registry. Active processors support PDF, DOCX, XLSX, CSV, Markdown, and TXT.
+3. Processing uses a plugin registry. Active processors support PDF, DOCX, XLSX, CSV, Markdown, and TXT. Legacy `.xls` and macro-enabled `.xlsm` files are rejected; upload `.xlsx` or CSV instead.
 4. PDF processing extracts selectable text first, then tries a bounded OCR fallback for low-text documents.
 5. Text is split into chunks with location metadata and saved in `document_chunks`.
 6. When embeddings are enabled, Voyage chunk embeddings are stored in Supabase Postgres with pgvector.

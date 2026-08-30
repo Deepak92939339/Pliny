@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import readXlsxFile from "read-excel-file/node";
 import {
   assertMaxBytes,
   countWords,
@@ -8,7 +8,7 @@ import {
   type DocumentProcessorPlugin,
   type DocumentProcessingMetadata,
   type ExtractedUnit,
-} from "@/lib/document-processing/types";
+} from "../types.ts";
 
 const MAX_SPREADSHEET_SIZE_BYTES = 15 * 1024 * 1024;
 const MAX_SHEETS_PROCESSED = 20;
@@ -18,9 +18,15 @@ const MAX_CELL_CHARACTERS = 500;
 const SPREADSHEET_ROWS_PER_UNIT = 40;
 const SPREADSHEET_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-excel",
   "application/octet-stream",
 ]);
+
+type SpreadsheetCell = string | number | boolean | Date | null;
+
+type ParsedSheet = {
+  data: SpreadsheetCell[][];
+  sheet: string;
+};
 
 type SpreadsheetRow = {
   rowNumber: number;
@@ -34,30 +40,6 @@ type SheetExtraction = {
   sheetName: string;
 };
 
-function hasSpreadsheetExtension(filename: string) {
-  const normalizedName = filename.toLowerCase();
-
-  return normalizedName.endsWith(".xlsx") || normalizedName.endsWith(".xls");
-}
-
-function isLegacyXls(filename: string) {
-  return filename.toLowerCase().endsWith(".xls");
-}
-
-function hasOleMagicBytes(bytes: Uint8Array) {
-  return (
-    bytes.byteLength >= 8 &&
-    bytes[0] === 0xd0 &&
-    bytes[1] === 0xcf &&
-    bytes[2] === 0x11 &&
-    bytes[3] === 0xe0 &&
-    bytes[4] === 0xa1 &&
-    bytes[5] === 0xb1 &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0xe1
-  );
-}
-
 function trimCellValue(value: string, warnings: Set<string>) {
   const normalizedValue = normalizeExtractedText(value);
 
@@ -70,47 +52,27 @@ function trimCellValue(value: string, warnings: Set<string>) {
   return `${normalizedValue.slice(0, MAX_CELL_CHARACTERS).trimEnd()}...`;
 }
 
-function getCellText(cell: XLSX.CellObject | undefined, warnings: Set<string>) {
-  if (!cell) {
+function getCellText(cell: SpreadsheetCell | undefined, warnings: Set<string>) {
+  if (cell === undefined || cell === null) {
     return "";
   }
 
-  const rawValue = cell.w ?? cell.v;
-
-  if (rawValue === undefined || rawValue === null) {
-    return "";
+  if (cell instanceof Date) {
+    return cell.toISOString().slice(0, 10);
   }
 
-  if (rawValue instanceof Date) {
-    return rawValue.toISOString().slice(0, 10);
-  }
-
-  return trimCellValue(String(rawValue), warnings);
-}
-
-function getSheetRange(sheet: XLSX.WorkSheet) {
-  if (!sheet["!ref"]) {
-    return null;
-  }
-
-  try {
-    return XLSX.utils.decode_range(sheet["!ref"]);
-  } catch {
-    return null;
-  }
+  return trimCellValue(String(cell), warnings);
 }
 
 function extractRowsFromSheet(
-  sheet: XLSX.WorkSheet,
+  sheet: ParsedSheet,
   sheetName: string,
   warnings: Set<string>
 ): {
   metadata: DocumentProcessingMetadata;
   rows: SpreadsheetRow[];
 } {
-  const range = getSheetRange(sheet);
-
-  if (!range) {
+  if (sheet.data.length === 0) {
     return {
       metadata: {
         columnCount: 0,
@@ -118,14 +80,14 @@ function extractRowsFromSheet(
         sheetName,
         sourceType: "spreadsheet",
       },
-      rows: [] satisfies SpreadsheetRow[],
+      rows: [],
     };
   }
 
-  const totalRows = range.e.r - range.s.r + 1;
-  const totalColumns = range.e.c - range.s.c + 1;
-  const rowEnd = Math.min(range.e.r, range.s.r + MAX_ROWS_PER_SHEET - 1);
-  const columnEnd = Math.min(range.e.c, range.s.c + MAX_COLUMNS_PER_SHEET - 1);
+  const totalRows = sheet.data.length;
+  const totalColumns = Math.max(...sheet.data.map((row) => row.length), 0);
+  const rowEnd = Math.min(totalRows, MAX_ROWS_PER_SHEET);
+  const columnEnd = Math.min(totalColumns, MAX_COLUMNS_PER_SHEET);
   const rows: SpreadsheetRow[] = [];
 
   if (totalRows > MAX_ROWS_PER_SHEET) {
@@ -136,14 +98,12 @@ function extractRowsFromSheet(
     warnings.add(`Sheet "${sheetName}" was limited to the first ${MAX_COLUMNS_PER_SHEET} columns.`);
   }
 
-  for (let rowIndex = range.s.r; rowIndex <= rowEnd; rowIndex += 1) {
+  for (let rowIndex = 0; rowIndex < rowEnd; rowIndex += 1) {
     const values: string[] = [];
+    const row = sheet.data[rowIndex] ?? [];
 
-    for (let columnIndex = range.s.c; columnIndex <= columnEnd; columnIndex += 1) {
-      const address = XLSX.utils.encode_cell({ c: columnIndex, r: rowIndex });
-      const cell = sheet[address] as XLSX.CellObject | undefined;
-
-      values.push(getCellText(cell, warnings));
+    for (let columnIndex = 0; columnIndex < columnEnd; columnIndex += 1) {
+      values.push(getCellText(row[columnIndex], warnings));
     }
 
     if (values.some((value) => value.length > 0)) {
@@ -175,7 +135,7 @@ function normalizeHeaders(row: SpreadsheetRow, fallbackColumnCount: number) {
   return Array.from({ length: columnCount }, (_, index) => row.values[index]?.trim() || `Column ${index + 1}`);
 }
 
-function extractReadableSheet(sheet: XLSX.WorkSheet, sheetName: string, warnings: Set<string>): SheetExtraction | null {
+function extractReadableSheet(sheet: ParsedSheet, sheetName: string, warnings: Set<string>): SheetExtraction | null {
   const { metadata, rows } = extractRowsFromSheet(sheet, sheetName, warnings);
 
   if (rows.length === 0) {
@@ -258,13 +218,9 @@ function buildSpreadsheetUnits(sheets: SheetExtraction[]) {
   return units;
 }
 
-function parseWorkbook(input: { bytes: Uint8Array; filename: string }) {
+async function parseWorkbook(bytes: Uint8Array) {
   try {
-    return XLSX.read(Buffer.from(input.bytes), {
-      cellDates: true,
-      dense: false,
-      type: "buffer",
-    });
+    return (await readXlsxFile(Buffer.from(bytes))) as ParsedSheet[];
   } catch {
     throw new DocumentProcessingError("Could not read spreadsheet file.", 422);
   }
@@ -272,25 +228,25 @@ function parseWorkbook(input: { bytes: Uint8Array; filename: string }) {
 
 export const xlsxProcessor: DocumentProcessorPlugin = {
   canProcess(input) {
-    if (!hasSpreadsheetExtension(input.filename)) {
+    if (!input.filename.toLowerCase().endsWith(".xlsx")) {
       return false;
     }
 
     return SPREADSHEET_MIME_TYPES.has(input.mimeType) || input.mimeType === "";
   },
-  extensions: [".xlsx", ".xls"],
+  extensions: [".xlsx"],
   async extract(input) {
-    const workbook = parseWorkbook(input);
+    const workbook = await parseWorkbook(input.bytes);
     const warnings = new Set<string>();
-    const sheetNames = workbook.SheetNames.slice(0, MAX_SHEETS_PROCESSED);
+    const sheetNames = workbook.slice(0, MAX_SHEETS_PROCESSED).map((sheet) => sheet.sheet);
 
-    if (workbook.SheetNames.length > MAX_SHEETS_PROCESSED) {
+    if (workbook.length > MAX_SHEETS_PROCESSED) {
       warnings.add(`Only the first ${MAX_SHEETS_PROCESSED} sheets were processed.`);
     }
 
     const readableSheets = sheetNames
       .map((sheetName) => {
-        const sheet = workbook.Sheets[sheetName];
+        const sheet = workbook.find((candidate) => candidate.sheet === sheetName);
 
         return sheet ? extractReadableSheet(sheet, sheetName, warnings) : null;
       })
@@ -325,18 +281,14 @@ export const xlsxProcessor: DocumentProcessorPlugin = {
       throw new DocumentProcessingError("Macro-enabled spreadsheets are not supported.", 400);
     }
 
-    if (!hasSpreadsheetExtension(filename)) {
-      throw new DocumentProcessingError("Only .xlsx and .xls spreadsheet files are supported by the XLSX processor.", 400);
+    if (!filename.endsWith(".xlsx")) {
+      throw new DocumentProcessingError("Only .xlsx spreadsheet files are supported. Upload a CSV for other spreadsheet data.", 400);
     }
 
     assertMaxBytes(input.bytes, MAX_SPREADSHEET_SIZE_BYTES, "Spreadsheet");
 
-    if (filename.endsWith(".xlsx") && !hasZipMagicBytes(input.bytes)) {
+    if (!hasZipMagicBytes(input.bytes)) {
       throw new DocumentProcessingError("This file does not appear to be a valid XLSX package.", 400);
-    }
-
-    if (isLegacyXls(filename) && !hasOleMagicBytes(input.bytes)) {
-      throw new DocumentProcessingError("This file does not appear to be a valid XLS file.", 400);
     }
   },
 };

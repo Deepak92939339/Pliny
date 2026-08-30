@@ -6,7 +6,7 @@ import { useDropzone, type FileRejection } from "react-dropzone";
 import { cn } from "@/lib/utils";
 
 const MAX_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024;
-const ACTIVE_EXTENSIONS = [".pdf", ".docx", ".xlsx", ".xls", ".txt", ".md", ".markdown", ".csv"];
+const ACTIVE_EXTENSIONS = [".pdf", ".docx", ".xlsx", ".txt", ".md", ".markdown", ".csv"];
 
 type DocumentUploadDropzoneProps = {
   className?: string;
@@ -49,7 +49,7 @@ function getRejectionMessage(rejections: FileRejection[]) {
   }
 
   if (rejection.errors.some((error) => error.code === "file-invalid-type")) {
-    return "Only PDF, DOCX, XLSX, CSV, MD, and TXT files can be uploaded.";
+    return "Only PDF, DOCX, XLSX, CSV, MD, and TXT files can be uploaded. Legacy .xls files are not supported.";
   }
 
   return "This file could not be uploaded. Please choose a supported file.";
@@ -84,7 +84,7 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       setSuccessMessage(null);
 
       if (!isSupportedFile(file)) {
-        setErrorMessage("Only PDF, DOCX, XLSX, CSV, MD, and TXT files can be uploaded.");
+        setErrorMessage("Only PDF, DOCX, XLSX, CSV, MD, and TXT files can be uploaded. Legacy .xls files are not supported.");
         return;
       }
 
@@ -162,7 +162,6 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       "application/pdf": [".pdf"],
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
-      "application/vnd.ms-excel": [".xls", ".csv"],
       "text/csv": [".csv"],
       "text/markdown": [".md", ".markdown"],
       "text/plain": [".txt", ".md", ".markdown", ".csv"],

@@ -37,7 +37,7 @@ Verified from `package.json`, `.env.local.example`, and the codebase.
 | PDF parsing | `pdf-parse` |
 | PDF OCR fallback | `pdfjs-dist`, `tesseract.js`, `@napi-rs/canvas`, `@tesseract.js-data/eng` |
 | DOCX parsing | `mammoth` |
-| Spreadsheet parsing | `xlsx` |
+| Spreadsheet parsing | `read-excel-file` for `.xlsx` |
 | Charts | Recharts with a guarded chart parser |
 | Theme support | `next-themes` and local theme tokens |
 | Notifications | `sonner` is installed |
@@ -202,7 +202,7 @@ File support and extraction:
 - file kind inference,
 - processor plugin types,
 - chunk generation,
-- plugins for PDF, DOCX, XLS/XLSX, CSV, Markdown, and TXT.
+- plugins for PDF, DOCX, XLSX, CSV, Markdown, and TXT. Legacy `.xls` and macro-enabled `.xlsm` files are rejected.
 
 ### `src/lib/supabase`
 
@@ -261,7 +261,7 @@ Project docs:
 - [x] PDF text extraction.
 - [x] Bounded OCR fallback for low-text PDFs when enabled.
 - [x] DOCX extraction.
-- [x] XLS/XLSX extraction.
+- [x] XLSX extraction; legacy XLS is intentionally rejected.
 - [x] CSV extraction.
 - [x] Markdown extraction.
 - [x] TXT extraction.

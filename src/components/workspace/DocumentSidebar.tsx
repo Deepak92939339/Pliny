@@ -76,7 +76,7 @@ export function DocumentManagementPanel({
             <div>
               <p className="text-[13px] font-medium text-[color:var(--editorial-ink-soft)]">No documents yet</p>
               <p className="mt-1 text-xs leading-5 text-[color:var(--editorial-muted)]">
-                Drop PDFs, DOCX, XLSX, CSV, Markdown, or text files to start.
+                Drop PDFs, DOCX, XLSX, CSV, Markdown, or text files to start. Legacy .xls files are not supported.
               </p>
             </div>
           </div>

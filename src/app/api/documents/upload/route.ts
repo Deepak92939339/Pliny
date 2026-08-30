@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getFileExtension } from "@/lib/document-processing/fileKinds";
 import { getProcessorForFile, supportedFileExtensions } from "@/lib/document-processing/registry";
 import { checkRouteRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
@@ -181,6 +182,13 @@ export async function POST(request: Request) {
   });
 
   if (!processor) {
+    if ([".xls", ".xlsm"].includes(getFileExtension(displayFilename))) {
+      return NextResponse.json(
+        { error: "Legacy and macro-enabled spreadsheets are not supported. Upload an .xlsx or CSV file instead." },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       {
         error: `Unsupported file type. Supported formats: ${supportedFileExtensions.join(", ")}.`,
