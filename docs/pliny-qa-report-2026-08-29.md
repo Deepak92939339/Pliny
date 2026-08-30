@@ -194,6 +194,80 @@ The smoke-test gate failed on the single allowed Voyage 429, so the following we
 - `npm run build` — PASS
 - `git diff --check` — PASS
 
+## Authoritative production sign-off — 2026-08-31
+
+This section is authoritative and supersedes every earlier `Final result`, `Continuation result`, and historical blocker in this report. Earlier sections remain as historical evidence of the issues that were diagnosed and remediated.
+
+### Deployment
+
+- Production URL: `https://pliny.vercel.app`
+- Deployment: `dpl_G28qQ33CEusCSAnQWXiSbozBYrPf`
+- Status: **READY**
+- Deployed commit: `b6e876072604137f5b3a0093365fb52745acdae4`
+- Source: GitHub `Deepak92939339/Pliny`, branch `main`; Vercel project `pliny` on team `deepakpatro626472-2604s-projects`.
+- Build completed successfully in Vercel. No Vercel 5xx runtime errors were found; observed production API failures were expected 429 budget/provider-limit responses.
+
+### Production environment configuration
+
+The following names are present in Vercel Production scope. `ANTHROPIC_API_KEY` and `VOYAGE_API_KEY` are stored as sensitive variables; all other listed values are plain configuration or publishable Supabase configuration.
+
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `AI_ENABLED`, `ANTHROPIC_DEFAULT_MODEL`, `ANTHROPIC_STRONG_MODEL`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_CHUNKS`, `AI_MAX_CHARS_PER_CHUNK`, `AI_MAX_REQUESTS_PER_MINUTE`, `AI_MAX_REQUESTS_PER_DAY`, `AI_DAILY_BUDGET_INR`, `EMBEDDINGS_ENABLED`, `EMBEDDINGS_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`, `EMBEDDING_BATCH_SIZE`, `EMBEDDING_MAX_CHUNKS_PER_DOCUMENT`, `EMBEDDING_QUERY_MAX_CHARS`, `OCR_ENABLED`, `OCR_MAX_PAGES`, `UPLOAD_MAX_REQUESTS_PER_HOUR`, and `PROCESS_MAX_REQUESTS_PER_HOUR` are Production-only.
+
+- AI generation is enabled; the configured default/strong models are `claude-haiku-4-5` and `claude-sonnet-4-6`.
+- Voyage embeddings are enabled with provider `voyage`, model `voyage-4`, dimension `1024`, and batch size `10`.
+- `SUPABASE_SERVICE_ROLE_KEY`, `VERCEL_OIDC_TOKEN`, `UPSTASH_REDIS_REST_URL`, and `UPSTASH_REDIS_REST_TOKEN` were not added. The first two are intentionally excluded; the Upstash pair is absent from `.env.local` and therefore remains a production configuration gap for upload/process rate limiting.
+
+### Supabase production posture
+
+- Project: `lnvosbeeybisdixfwqdo` (`vector`), status `ACTIVE_HEALTHY`.
+- `collections`, `documents`, `document_chunks`, `chat_messages`, and `ai_usage_events` exist with RLS enabled.
+- Owner-scoped and parent-scoped authenticated policies remain effective; no unconditional `using (true)` policy was introduced.
+- Anonymous REST probes returned zero rows for all five application tables; anonymous Storage listing returned zero objects.
+- The `documents` Storage bucket is private.
+- `document_chunks.embedding` remains `vector(1024)` and the `vector` extension is installed.
+- `match_document_chunks` is security invoker, executable by `authenticated`, and no longer executable by `anon`.
+- Existing ready data is intact: `Claude.pdf` has 10/10 embedded chunks and `pliny-qa-expenses.csv` has 1/1 embedded chunk.
+- Password login and `auth.getUser()` succeeded with the authorized demo account. Supabase management CLI authentication was not available in this runner, so the Auth Site URL and redirect allow-list were not independently updated or confirmed. The exact required production callback is `https://pliny.vercel.app/login`; the required development callback is `http://localhost:3000/login`.
+
+### Automated validation
+
+- `npm run lint` — PASS
+- `npx tsc --noEmit` — PASS
+- `npm run eval` — PASS, 14/14 offline evaluations
+- `npm run test:citations` — PASS
+- `npm run test:embeddings` — PASS
+- `npm run test:sanitization` — PASS
+- `npm run test:report` — PASS
+- `npm run build` — PASS
+- `git diff --check` — PASS
+
+### Production functional QA
+
+- Public landing page at desktop and mobile sizes — PASS; expected warm editorial Pliny interface rendered, with no horizontal overflow and zero public-page console errors.
+- Login, dashboard, workspace navigation, workspace composer, Claude.pdf visibility/readiness, CSV visibility, Source Inspector evidence, print report opening, mobile workspace no-overflow, and mobile source sheet — PASS.
+- The focused production browser check found zero console errors and zero page errors. Two failed browser requests were navigational route requests observed during page transitions; the corresponding Vercel runtime entries were HTTP 200, with no production 5xx cluster.
+- New grounded-answer, unsupported-question, cross-document, and post-fix CSV chart requests were blocked by the existing AI daily guard: the demo user has 25 AI usage events today while Production is configured for a 20-request daily cap. This history was not deleted and the cap was not weakened. The current run therefore makes no new success claim for those model-backed gates.
+- Markdown download passed and the print report opened. Clipboard report-copy confirmation was not treated as a functional pass because the headless browser clipboard permission did not confirm the UI state.
+
+### Chart regression
+
+**NOT RUN in the final production pass.** The authorized one-request CSV chart gate was blocked before provider invocation by the configured daily AI cap. No chart regression success is claimed for this post-fix deployment.
+
+### npm audit triage
+
+`npm audit --omit=dev` reports 16 production-tree vulnerabilities: 11 high, 3 moderate, and 2 low. The two direct high-severity packages are `next` and `xlsx`; both are reachable production dependencies, with `xlsx` used in spreadsheet ingestion. High-severity transitive findings include `sharp`, `ws`, `hono`, `fast-uri`, `ip-address`, `js-yaml`, `nanoid`, `postcss`, and `brace-expansion`. No `npm audit fix --force` was run and no unbounded dependency upgrade was introduced; remediation needs a separately tested dependency pass.
+
+### Remaining conditions
+
+1. Configure and verify Supabase Auth Site URL/redirect allow-list through a valid Supabase management session.
+2. Provide the existing Upstash production URL/token if upload/process rate limiting is required in this deployment; the application currently fails closed without them.
+3. After the AI daily window resets or an approved QA budget is available, run the single authorized CSV chart-generation request and resume the blocked grounded/unsupported/cross-document chat assertions.
+4. Remediate and regression-test the direct high-severity `next` and `xlsx` advisories.
+
+### Final verdict
+
+**CONDITIONAL** — Pliny is deployed and reachable at the canonical production URL with a successful build, authenticated workspace access, intact Supabase RLS/Storage/vector posture, and green automated validation. Full production RAG sign-off remains conditional on Auth redirect configuration, Upstash rate-limit configuration, the post-fix live chart request, and dependency-audit remediation.
+
 ## Authenticated functional QA continuation — 2026-08-30
 
 ### Passed workflows
