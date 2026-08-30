@@ -19,7 +19,7 @@ export default function GlobalError({
       <body className="min-h-screen bg-zinc-950 text-zinc-100">
         <main className="flex min-h-screen items-center justify-center px-6">
           <section className="max-w-md rounded-xl border border-white/10 bg-zinc-900/80 p-6 text-center shadow-2xl shadow-black/25">
-            <p className="text-sm font-medium text-[#D27E63]">Vector</p>
+            <p className="text-sm font-medium text-[#D27E63]">Pliny</p>
             <h1 className="mt-3 text-2xl font-semibold">Something went wrong</h1>
             <p className="mt-3 text-sm leading-6 text-zinc-400">
               The app hit an unexpected error. Try again, or reload the page if the problem continues.

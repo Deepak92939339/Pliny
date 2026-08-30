@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    middlewareClientMaxBodySize: "16mb",
+  },
   async headers() {
     const contentSecurityPolicyReportOnly = [
       "default-src 'self'",

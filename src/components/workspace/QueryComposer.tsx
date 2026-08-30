@@ -96,7 +96,7 @@ export function QueryComposer({ isSearching = false, onSubmit }: QueryComposerPr
           </div>
         </form>
         <p className="mt-2 text-center text-xs text-[color:var(--editorial-muted)]">
-          Vector searches your uploaded documents only
+          Pliny searches your uploaded documents only
         </p>
       </div>
     </div>

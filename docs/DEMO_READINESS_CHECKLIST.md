@@ -1,6 +1,6 @@
-# Pliny.AI Demo Readiness Checklist
+# Pliny AI Demo Readiness Checklist
 
-Run this checklist before showing Pliny.AI to anyone outside the build loop.
+Run this checklist before showing Pliny AI to anyone outside the build loop.
 
 ## 1. Environment
 
@@ -43,7 +43,7 @@ Run this checklist before showing Pliny.AI to anyone outside the build loop.
 - [ ] Closing Source Inspector returns to the Documents panel.
 - [ ] No raw chart JSON appears in normal prose.
 - [ ] New factual answers do not display invalid citation markers as trusted citations.
-- [ ] If citation validation fails, Pliny.AI returns a weak-evidence refusal instead of uncited prose.
+- [ ] If citation validation fails, Pliny AI returns a weak-evidence refusal instead of uncited prose.
 - [ ] Retrieval debug metadata is present in the answer payload for current-session debugging.
 
 ## 5. Spreadsheet Questions
@@ -70,7 +70,7 @@ Run this checklist before showing Pliny.AI to anyone outside the build loop.
 
 - [ ] Upload a test document with instructions to ignore rules or reveal prompts.
 - [ ] Ask about that document.
-- [ ] Confirm Pliny.AI treats the text as evidence, not instructions.
+- [ ] Confirm Pliny AI treats the text as evidence, not instructions.
 - [ ] Confirm it does not reveal hidden prompts, keys, or unrelated data.
 
 ## 8. Copy And Export

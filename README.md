@@ -1,4 +1,6 @@
-# Vector
+# Pliny AI
+
+Product mark: `pliny.ai`
 
 From complex documents to verifiable decisions.
 
@@ -6,7 +8,7 @@ Private document intelligence with traceable answers, source-backed analysis and
 
 Ask questions across private work files and verify answers with source passages.
 
-![Vector screenshot placeholder](./public/screenshot-placeholder.svg)
+![Pliny workspace screenshot placeholder](./public/screenshot-placeholder.svg)
 
 Live demo: pending deployment.
 
@@ -24,7 +26,7 @@ For the full manual live workflow, use: create workspace â†’ upload documents â†
 
 ## What It Does
 
-Vector is a private document-intelligence workspace. Users create workspaces, upload supported files, process text into searchable chunks, ask questions, inspect cited evidence, and generate decision-ready reports.
+Pliny AI is a private document-intelligence workspace. Users create workspaces, upload supported files, process text into searchable chunks, ask questions, inspect cited evidence, and generate decision-ready reports.
 
 ## Built With
 
@@ -164,6 +166,7 @@ EMBEDDINGS_ENABLED=false
 EMBEDDINGS_PROVIDER=voyage
 EMBEDDING_MODEL=voyage-4
 EMBEDDING_DIMENSIONS=1024
+EMBEDDING_BATCH_SIZE=10
 EMBEDDING_MAX_CHUNKS_PER_DOCUMENT=200
 EMBEDDING_QUERY_MAX_CHARS=2000
 OCR_ENABLED=true

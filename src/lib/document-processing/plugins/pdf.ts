@@ -13,7 +13,7 @@ import {
 const MIN_EXTRACTED_WORDS = 20;
 const MIN_EXTRACTED_CHARACTERS = 80;
 const MIN_AVERAGE_CHARACTERS_PER_PAGE = 100;
-const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_PDF_SIZE_BYTES = 15 * 1024 * 1024;
 
 type ExtractedPdfText = {
   pageCount: number;

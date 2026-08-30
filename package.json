@@ -1,5 +1,5 @@
 {
-  "name": "vector",
+  "name": "pliny",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "backfill:embeddings": "node scripts/backfill-embeddings.mjs",
+    "backfill:embeddings": "node --experimental-strip-types scripts/backfill-embeddings.mjs",
     "test:citations": "node --experimental-strip-types scripts/test-citations.mjs",
+    "test:embeddings": "node --experimental-strip-types scripts/test-embeddings.mjs",
     "test:sanitization": "node --experimental-strip-types scripts/test-sanitization.mjs",
     "test:report": "node --experimental-strip-types scripts/test-report.mjs",
     "eval": "node --experimental-strip-types scripts/run-evals.mjs"

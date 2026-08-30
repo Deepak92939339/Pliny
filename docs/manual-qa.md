@@ -1,6 +1,6 @@
-# Pliny.AI Manual QA Checklist
+# Pliny AI Manual QA Checklist
 
-Use this checklist to test Pliny.AI end to end with a real authenticated account before adding more backend features.
+Use this checklist to test Pliny AI end to end with a real authenticated account before adding more backend features.
 
 ## 1. Test Prerequisites
 
@@ -25,7 +25,7 @@ Create small files locally for upload testing. Keep them synthetic and safe to s
 Create a short PDF with 2-3 paragraphs and clear facts, for example:
 
 ```text
-Pliny.AI QA Memo
+Pliny AI QA Memo
 
 The renewal review meeting is scheduled for April 12, 2026. The team must confirm pricing changes before the meeting.
 

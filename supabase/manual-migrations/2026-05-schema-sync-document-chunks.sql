@@ -1,4 +1,4 @@
--- Vector manual schema sync for document chunk metadata.
+-- Pliny AI manual schema sync for document chunk metadata.
 -- Safe to run in Supabase SQL Editor. Additive/idempotent where possible.
 -- Root cause fixed: live PostgREST schema did not expose document_chunks.file_kind.
 

@@ -26,18 +26,18 @@ const jetBrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Vector",
-    template: "%s · Vector",
+    default: "Pliny AI",
+    template: "%s · Pliny",
   },
   description: "Upload your documents. Ask questions. Every answer cites the exact passage it came from.",
   openGraph: {
-    title: "Vector",
+    title: "Pliny AI",
     description: "From complex documents to verifiable decisions. Private document intelligence with traceable answers, source-backed analysis and decision-ready reports.",
-    siteName: "Vector",
+    siteName: "Pliny AI",
     type: "website",
   },
   icons: {
-    icon: "/icon.svg",
+    icon: "/brand/pliny-mark.png",
   },
   manifest: "/site.webmanifest",
 };

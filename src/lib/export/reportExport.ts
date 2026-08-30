@@ -4,7 +4,7 @@ import type { ChartData } from "@/lib/chart/types";
 import type { GeneratedReport, ReportSource, ReportTemplate, SearchChunkResult, WorkspaceSearchResult } from "@/types";
 
 export const STANDARD_VERIFICATION_NOTE =
-  "This report is generated from uploaded document sources. Citations point to retrieved passages used by Vector. Review source excerpts before relying on the output for legal, financial, audit, medical, or compliance decisions.";
+  "This report is generated from uploaded document sources. Citations point to retrieved passages used by Pliny AI. Review source excerpts before relying on the output for legal, financial, audit, medical, or compliance decisions.";
 
 export const SPREADSHEET_VERIFICATION_NOTE =
   "Spreadsheet reasoning depends on parsed table data. Review source rows and the original spreadsheet before relying on calculations.";
@@ -173,7 +173,7 @@ export function buildReportForTemplate(template: ReportTemplate, input: ReportBu
 export function buildChatTranscriptMarkdown({ generatedAt, results, workspaceName }: TranscriptBuildInput) {
   const exportedAt = generatedAt ?? new Date().toISOString();
   const lines = [
-    "# Vector Chat Transcript",
+    "# Pliny AI Chat Transcript",
     "",
     `Workspace: ${workspaceName || "Workspace"}`,
     `Exported: ${exportedAt}`,
@@ -276,7 +276,7 @@ export function isSourceSupportedResult(result: WorkspaceSearchResult) {
 }
 
 export function getReportMarkdownFilename(report: GeneratedReport) {
-  const workspaceSlug = slugify(report.workspaceName || "vector-workspace");
+  const workspaceSlug = slugify(report.workspaceName || "pliny-workspace");
   const templateSlug = slugify(report.template);
   const date = report.generatedAt.slice(0, 10);
 
@@ -284,7 +284,7 @@ export function getReportMarkdownFilename(report: GeneratedReport) {
 }
 
 export function getTranscriptMarkdownFilename(workspaceName?: string, generatedAt = new Date().toISOString()) {
-  return `${slugify(workspaceName || "vector-workspace")}-chat-transcript-${generatedAt.slice(0, 10)}.md`;
+  return `${slugify(workspaceName || "pliny-workspace")}-chat-transcript-${generatedAt.slice(0, 10)}.md`;
 }
 
 export function formatAnswerWithCitations(result: WorkspaceSearchResult) {
@@ -355,7 +355,7 @@ function formatAnswerForReport(answer: string, bundle: SourceBundle) {
 }
 
 function stripChartBlocks(answer: string) {
-  return answer.replace(/<chart>[\s\S]*?<\/chart>/g, "\n\n[Chart rendered in Vector]\n\n");
+  return answer.replace(/<chart>[\s\S]*?<\/chart>/g, "\n\n[Chart rendered in Pliny]\n\n");
 }
 
 function formatInsufficientEvidenceContent(result: WorkspaceSearchResult) {
@@ -492,7 +492,7 @@ function extractFindingLines(answer: string) {
   const withoutHeadings = answer
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#") && line !== "[Chart rendered in Vector]");
+    .filter((line) => line && !line.startsWith("#") && line !== "[Chart rendered in Pliny]");
   const listItems = withoutHeadings
     .map((line) => line.replace(/^[-*]\s+/, "").replace(/^\d+\.\s+/, "").trim())
     .filter(Boolean);
@@ -550,5 +550,5 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
 
-  return slug || "vector-export";
+  return slug || "pliny-export";
 }

@@ -1,8 +1,8 @@
-# Pliny.AI Professional Readiness Audit
+# Pliny AI Professional Readiness Audit
 
 Date: 2026-05-17
 
-Pliny.AI is a private document intelligence workspace for source-cited answers. This audit describes what the current codebase actually supports, where the system is strong enough for controlled demos, and what remains before a professional paid pilot.
+Pliny AI is a private document intelligence workspace for source-cited answers. This audit describes what the current codebase actually supports, where the system is strong enough for controlled demos, and what remains before a professional paid pilot.
 
 ## 1. Current System Map
 

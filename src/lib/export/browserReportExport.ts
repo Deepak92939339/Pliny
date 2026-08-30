@@ -42,7 +42,7 @@ function buildPrintDocument(report: GeneratedReport) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(report.title)} - Vector</title>
+  <title>${escapeHtml(report.title)} - Pliny AI</title>
   <style>
     :root {
       color: #171717;
@@ -160,7 +160,7 @@ function buildPrintDocument(report: GeneratedReport) {
 <body>
   <main>
     <div class="topbar">
-      <div class="brand">Vector</div>
+      <div class="brand">Pliny AI</div>
       <button class="print-button no-print" id="print-button" type="button">Print / Save PDF</button>
     </div>
     <h1>${escapeHtml(report.title)}</h1>

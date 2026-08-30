@@ -19,5 +19,5 @@
   <rect x="916" y="222" width="158" height="176" rx="12" fill="#18181B" stroke="#3F3F46"/>
   <rect x="948" y="254" width="96" height="12" rx="6" fill="#A1A1AA"/>
   <rect x="948" y="286" width="72" height="12" rx="6" fill="#71717A"/>
-  <text x="600" y="676" fill="#A1A1AA" font-family="Arial, sans-serif" font-size="18" text-anchor="middle">Vector workspace preview</text>
+  <text x="600" y="676" fill="#A1A1AA" font-family="Arial, sans-serif" font-size="18" text-anchor="middle">Pliny workspace preview</text>
 </svg>

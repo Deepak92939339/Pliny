@@ -162,7 +162,7 @@ evaluations.push({
   status: "NOT RUN",
 });
 
-console.log("\nVector evaluation suite");
+console.log("\nPliny AI evaluation suite");
 console.log("=======================");
 for (const category of ["unit/contract", "mocked integration", "live end-to-end"]) {
   console.log(`\n[${category}]`);

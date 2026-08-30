@@ -192,7 +192,7 @@ export function DocumentSidebar({
     >
       {isCollapsed ? (
         <div className="flex h-full flex-col items-center px-2 py-3">
-          <Link href="/dashboard" aria-label="Vector dashboard" className="flex size-10 items-center justify-center rounded-md hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-card)]">
+          <Link href="/dashboard" aria-label="Pliny dashboard" className="flex size-10 items-center justify-center rounded-md hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-card)]">
             <BrandMark
               className="h-8 gap-0"
               markClassName="size-8 border-transparent bg-[#0C1427] text-[#FCFBF8] dark:bg-[#F1EDE6] dark:text-[#0B0B0A]"
@@ -212,7 +212,7 @@ export function DocumentSidebar({
         <>
           <div className="shrink-0 px-3 pb-4 pt-3">
             <div className="flex items-center gap-2">
-              <Link href="/dashboard" aria-label="Vector dashboard" className="min-w-0 flex-1 rounded-md px-1 py-1 hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-card)]">
+              <Link href="/dashboard" aria-label="Pliny dashboard" className="min-w-0 flex-1 rounded-md px-1 py-1 hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-card)]">
                 <BrandMark
                   className="h-8 gap-2.5"
                   markClassName="size-8 border-transparent bg-[#0C1427] text-[#FCFBF8] dark:bg-[#F1EDE6] dark:text-[#0B0B0A]"

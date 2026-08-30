@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { NewWorkspaceDialog } from "@/components/dashboard/NewWorkspaceDialog";
@@ -35,22 +36,8 @@ function toWorkspaceCopy(message: string) {
 function DashboardLogo() {
   return (
     <span className="flex h-9 items-center gap-[7px]">
-      <svg className="size-6 shrink-0 text-[#BA5C3D]" viewBox="0 0 32 32" aria-hidden="true" fill="none">
-        <path
-          d="M16 3.8 25 7.2v7.2c0 6.1-3.8 10.8-9 13.6-5.2-2.8-9-7.5-9-13.6V7.2L16 3.8Z"
-          stroke="currentColor"
-          strokeWidth="1.9"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M11.2 11.2h5.2c2.5 0 4.4 1.5 4.4 3.7v5.1h-5.2c-2.5 0-4.4-1.5-4.4-3.7v-5.1Z"
-          stroke="currentColor"
-          strokeWidth="1.9"
-          strokeLinejoin="round"
-        />
-        <path d="m13.2 15.5 2 2 4.1-4.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <span className="dm-editorial-display text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#17202A]">Vector</span>
+      <Image src="/brand/pliny-mark.png" alt="" aria-hidden="true" width={1024} height={1024} className="size-6 shrink-0 object-contain" />
+      <span className="dm-editorial-display text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#17202A]">Pliny</span>
     </span>
   );
 }
@@ -58,9 +45,9 @@ function DashboardLogo() {
 export function DashboardView({ userEmail, collections, collectionsError }: DashboardViewProps) {
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-[#FAF7F2] text-[#17202A]">
-      <aside className="flex w-[272px] shrink-0 flex-col border-r border-[#E1D8CB] bg-[#F3EDE4]">
+      <aside className="hidden w-[272px] shrink-0 flex-col border-r border-[#E1D8CB] bg-[#F3EDE4] md:flex">
         <div className="shrink-0 px-4 pb-4 pt-4">
-          <Link href="/dashboard" aria-label="Vector dashboard" className="inline-flex rounded-md text-[#17202A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35">
+          <Link href="/dashboard" aria-label="Pliny dashboard" className="inline-flex rounded-md text-[#17202A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35">
             <DashboardLogo />
           </Link>
 

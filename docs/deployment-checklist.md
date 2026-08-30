@@ -1,6 +1,6 @@
 # Deployment Checklist
 
-Pliny.AI is not production-verified until these checks are complete.
+Pliny AI is not production-verified until these checks are complete.
 
 ## Supabase
 

@@ -1,19 +1,19 @@
-# Pliny.AI Known Limitations
+# Pliny AI Known Limitations
 
-This document keeps Pliny.AI honest. It should be reviewed before demos, pilot proposals, and deployment copy.
+This document keeps Pliny AI honest. It should be reviewed before demos, pilot proposals, and deployment copy.
 
 ## Product Status
 
-- Pliny.AI is a working MVP/prototype for private document intelligence.
+- Pliny AI is a working MVP/prototype for private document intelligence.
 - It is suitable for controlled demos with demo-safe data.
 - It may be suitable for limited paid pilots only after environment, RLS, retrieval, processing, and manual QA checks pass.
 - It is not a replacement for professional legal, financial, audit, medical, or compliance judgment.
 
 ## Compliance And Security Limits
 
-- Pliny.AI is not currently certified for SOC 2.
-- Pliny.AI is not currently certified for HIPAA.
-- Pliny.AI does not currently provide a formal enterprise compliance program.
+- Pliny AI is not currently certified for SOC 2.
+- Pliny AI is not currently certified for HIPAA.
+- Pliny AI does not currently provide a formal enterprise compliance program.
 - Team roles, admin controls, audit logs, and SSO/SAML are not implemented yet.
 - Security posture depends on correct Supabase RLS, Storage, environment, and deployment configuration.
 - Logs and monitoring should be reviewed before handling sensitive pilot data.
@@ -23,8 +23,8 @@ This document keeps Pliny.AI honest. It should be reviewed before demos, pilot p
 - AI can make mistakes.
 - Citations reduce risk but do not eliminate it.
 - A cited passage may still be incomplete, indirect, or too broad.
-- Pliny.AI does not currently perform quote-level citation confidence scoring.
-- Pliny.AI does not currently guarantee that every relevant document was retrieved.
+- Pliny AI does not currently perform quote-level citation confidence scoring.
+- Pliny AI does not currently guarantee that every relevant document was retrieved.
 - Weak-evidence refusal is implemented, but retrieval and citation behavior still require manual QA.
 
 ## Retrieval Limits
@@ -112,7 +112,7 @@ Not currently supported:
 
 Good:
 
-- "Pliny.AI helps you ask questions of uploaded documents and inspect cited source passages."
+- "Pliny AI helps you ask questions of uploaded documents and inspect cited source passages."
 - "The product is designed around source verification."
 - "This is a controlled MVP demo with known limitations."
 

@@ -1,6 +1,6 @@
 {
-  "name": "Vector",
-  "short_name": "Vector",
+  "name": "Pliny AI",
+  "short_name": "Pliny",
   "description": "From complex documents to verifiable decisions. Private document intelligence with traceable answers, source-backed analysis and decision-ready reports.",
   "start_url": "/",
   "display": "standalone",

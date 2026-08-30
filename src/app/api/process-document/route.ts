@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { chunkExtractedDocument, type ExtractedDocumentChunk } from "@/lib/document-processing/chunkExtractedDocument";
 import { getDocumentProcessor, getProcessorForExtension } from "@/lib/document-processing/registry";
+import { prepareChunkRowsWithEmbeddings } from "@/lib/document-processing/prepareChunkRowsWithEmbeddings";
 import { sanitizeExtractedDocument } from "@/lib/document-processing/sanitizeExtractedDocument";
 import { DocumentProcessingError, type DocumentProcessingMetadata, type SupportedFileKind } from "@/lib/document-processing/types";
-import { embedText, isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
+import { isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
 import { checkRouteRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import type { DocumentStatus } from "@/types";
@@ -48,6 +49,10 @@ type ErrorLike = {
   hint?: unknown;
   message?: unknown;
   name?: unknown;
+  providerBody?: unknown;
+  retryAfter?: unknown;
+  retryAfterMs?: unknown;
+  status?: unknown;
   stack?: unknown;
 };
 
@@ -79,6 +84,10 @@ function getEmbeddingMaxChunksPerDocument() {
   return getNumberEnv("EMBEDDING_MAX_CHUNKS_PER_DOCUMENT", 200, 0, 200);
 }
 
+function getEmbeddingBatchSize() {
+  return getNumberEnv("EMBEDDING_BATCH_SIZE", 10, 1, 25);
+}
+
 function logProcessStep(step: string, details?: Record<string, unknown>) {
   if (process.env.NODE_ENV === "production") {
     return;
@@ -89,9 +98,14 @@ function logProcessStep(step: string, details?: Record<string, unknown>) {
 
 function serializeError(error: unknown) {
   if (error instanceof Error) {
+    const errorLike = error as ErrorLike;
     return {
       message: error.message,
       name: error.name,
+      providerBody: typeof errorLike.providerBody === "string" ? errorLike.providerBody : undefined,
+      retryAfter: typeof errorLike.retryAfter === "string" ? errorLike.retryAfter : undefined,
+      retryAfterMs: typeof errorLike.retryAfterMs === "number" ? errorLike.retryAfterMs : undefined,
+      status: typeof errorLike.status === "number" ? errorLike.status : undefined,
       stack: process.env.NODE_ENV === "production" ? undefined : error.stack,
     };
   }
@@ -105,6 +119,10 @@ function serializeError(error: unknown) {
       hint: errorLike.hint,
       message: errorLike.message,
       name: errorLike.name,
+      providerBody: typeof errorLike.providerBody === "string" ? errorLike.providerBody : undefined,
+      retryAfter: typeof errorLike.retryAfter === "string" ? errorLike.retryAfter : undefined,
+      retryAfterMs: typeof errorLike.retryAfterMs === "number" ? errorLike.retryAfterMs : undefined,
+      status: typeof errorLike.status === "number" ? errorLike.status : undefined,
       stack: process.env.NODE_ENV === "production" ? undefined : errorLike.stack,
     };
   }
@@ -346,33 +364,32 @@ async function buildChunkInsertRows({
   }
 
   const maxChunks = Math.min(getEmbeddingMaxChunksPerDocument(), rows.length);
-  let embeddedCount = 0;
-  let skippedCount = rows.length - maxChunks;
 
-  for (let index = 0; index < maxChunks; index += 1) {
-    const row = rows[index];
+  if (maxChunks < rows.length) {
+    throw new ProcessingError("Embedding limits do not allow all document chunks to be processed.");
+  }
 
-    try {
-      const result = await embedText(row.content, { inputType: "document" });
-
-      row.embedding = result.embedding;
-      row.embedding_model = result.model;
-      row.embedding_created_at = new Date().toISOString();
-      embeddedCount += 1;
-    } catch (error) {
-      skippedCount += maxChunks - index;
-      logProcessError("chunk embedding failed; continuing without remaining embeddings", error, {
-        chunkIndex: row.chunk_index,
-        documentId,
-      });
-      break;
-    }
+  try {
+    const embeddedRows = await prepareChunkRowsWithEmbeddings(rows, {
+      batchSize: getEmbeddingBatchSize(),
+      inputType: "document",
+    });
+    embeddedRows.forEach((row, index) => {
+      rows[index] = row;
+    });
+  } catch (error) {
+    logProcessError("chunk embeddings failed; aborting document processing", error, {
+      batchSize: getEmbeddingBatchSize(),
+      chunkCount: rows.length,
+      documentId,
+    });
+    throw new ProcessingError("Embeddings could not be generated. Try again.");
   }
 
   return {
-    embeddedCount,
+    embeddedCount: rows.length,
     rows,
-    skippedCount,
+    skippedCount: 0,
   };
 }
 
@@ -563,9 +580,13 @@ export async function POST(request: Request) {
     });
 
     logProcessStep("chunk embeddings prepared", {
+      batchCount: isEmbeddingsEnabled() ? Math.ceil(chunks.length / getEmbeddingBatchSize()) : 0,
+      batchSize: isEmbeddingsEnabled() ? getEmbeddingBatchSize() : 0,
       documentId: processingDocument.id,
       embeddedCount: chunkInsertResult.embeddedCount,
+      embeddingConcurrency: isEmbeddingsEnabled() ? 1 : 0,
       embeddingsEnabled: isEmbeddingsEnabled(),
+      providerRequestCount: isEmbeddingsEnabled() ? Math.ceil(chunks.length / getEmbeddingBatchSize()) : 0,
       skippedCount: chunkInsertResult.skippedCount,
     });
 

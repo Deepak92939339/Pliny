@@ -1,6 +1,6 @@
-# Pliny.AI Evaluation Playbook
+# Pliny AI Evaluation Playbook
 
-Use this playbook before demos, deployments, and paid-pilot conversations. The goal is not to prove that AI is perfect. The goal is to verify that Pliny.AI answers only when it has evidence, cites useful passages, and refuses or qualifies weak evidence.
+Use this playbook before demos, deployments, and paid-pilot conversations. The goal is not to prove that AI is perfect. The goal is to verify that Pliny AI answers only when it has evidence, cites useful passages, and refuses or qualifies weak evidence.
 
 ## Phase 2 Reliability Focus
 
@@ -121,7 +121,7 @@ Ask:
 
 Expected:
 
-- Pliny.AI says the uploaded documents do not contain enough evidence.
+- Pliny AI says the uploaded documents do not contain enough evidence.
 - No fake answer.
 - No fake citation.
 - If closest evidence is mentioned, it is framed as incomplete or indirect.
@@ -198,7 +198,7 @@ Use at least one answer with valid citations and one weak/no-evidence answer.
 For a cited answer:
 
 - Click Open print report.
-- Confirm the print view shows Pliny.AI, workspace name, timestamp, question, answer/report content, source excerpts, and a verification note.
+- Confirm the print view shows Pliny AI, workspace name, timestamp, question, answer/report content, source excerpts, and a verification note.
 - Use browser Print or Save as PDF from the print view.
 - Click Copy report Markdown and confirm the copied report includes the same source and verification sections.
 - Open the Reports menu.
@@ -214,7 +214,7 @@ For a spreadsheet/chart answer:
 For a weak/no-evidence answer:
 
 - Confirm due diligence, risk, and table reports are disabled or produce an insufficient-evidence report.
-- Confirm Pliny.AI does not generate a confident professional report from uncited answer text.
+- Confirm Pliny AI does not generate a confident professional report from uncited answer text.
 
 Pass/fail rules:
 

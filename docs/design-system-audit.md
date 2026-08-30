@@ -1,6 +1,6 @@
-# Pliny.AI Design System Audit
+# Pliny AI Design System Audit
 
-This note records the final UI refinement pass for Pliny.AI.
+This note records the final UI refinement pass for Pliny AI.
 
 ## Spacing
 

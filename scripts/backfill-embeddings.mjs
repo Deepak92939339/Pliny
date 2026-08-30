@@ -1,12 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { embedTexts } from "../src/lib/embeddings/embedBatch.ts";
 
-const DEFAULT_MODEL = "voyage-4";
-const DEFAULT_DIMENSIONS = 1024;
 const DEFAULT_BATCH_SIZE = 10;
 const DEFAULT_MAX_CHUNKS = 200;
-const DEFAULT_MAX_CHARS = 8000;
 
 function loadEnvFile(path) {
   if (!existsSync(path)) {
@@ -45,58 +43,6 @@ function getNumberEnv(name, fallback, min, max) {
   }
 
   return Math.min(Math.max(Math.floor(value), min), max);
-}
-
-function normalizeInput(text) {
-  return text.replace(/\s+/g, " ").trim().slice(0, DEFAULT_MAX_CHARS);
-}
-
-async function embedText(text) {
-  const apiKey = process.env.VOYAGE_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("VOYAGE_API_KEY is required for embedding backfill.");
-  }
-
-  const model = process.env.EMBEDDING_MODEL || DEFAULT_MODEL;
-  const dimensions = getNumberEnv("EMBEDDING_DIMENSIONS", DEFAULT_DIMENSIONS, 1, 4096);
-  const input = normalizeInput(text);
-
-  if (!input) {
-    throw new Error("Chunk content is empty.");
-  }
-
-  const response = await fetch("https://api.voyageai.com/v1/embeddings", {
-    body: JSON.stringify({
-      input,
-      input_type: "document",
-      model,
-      output_dimension: dimensions,
-      output_dtype: "float",
-      truncation: true,
-    }),
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-  });
-
-  if (!response.ok) {
-    throw new Error(`Embedding provider request failed with status ${response.status}.`);
-  }
-
-  const payload = await response.json();
-  const embedding = payload?.data?.[0]?.embedding ?? payload?.embeddings?.[0];
-
-  if (!Array.isArray(embedding) || embedding.length !== dimensions) {
-    throw new Error("Embedding provider returned an unexpected vector shape.");
-  }
-
-  return {
-    embedding,
-    model: payload.model || model,
-  };
 }
 
 loadEnvFile(resolve(process.cwd(), ".env.local"));
@@ -154,9 +100,14 @@ while (chunksFound < maxChunks) {
 
   chunksFound += rows.length;
 
-  for (const row of rows) {
-    try {
-      const result = await embedText(row.content);
+  try {
+    const results = await embedTexts(rows.map((row) => row.content), {
+      batchSize: rows.length,
+      inputType: "document",
+    });
+
+    for (const [index, row] of rows.entries()) {
+      const result = results[index];
       const { error: updateError } = await supabase
         .from("document_chunks")
         .update({
@@ -173,14 +124,14 @@ while (chunksFound < maxChunks) {
       }
 
       chunksEmbedded += 1;
-    } catch (error) {
-      errors += 1;
-      chunksSkipped += 1;
-      console.error("Embedding backfill skipped a chunk.", {
-        chunkId: row.id,
-        message: error instanceof Error ? error.message : String(error),
-      });
     }
+  } catch (error) {
+    errors += 1;
+    chunksSkipped += rows.length;
+    console.error("Embedding backfill batch skipped.", {
+      chunkIds: rows.map((row) => row.id),
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 

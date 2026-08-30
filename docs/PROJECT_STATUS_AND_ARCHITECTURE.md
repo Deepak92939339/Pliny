@@ -1,8 +1,8 @@
-# Pliny.AI Project Status & Architecture
+# Pliny AI Project Status & Architecture
 
 ## 1. Product Summary
 
-Pliny.AI is a private document intelligence workspace. Users create workspaces, upload professional files, process those files into searchable passages, ask questions, and verify answers against exact cited source passages.
+Pliny AI is a private document intelligence workspace. Users create workspaces, upload professional files, process those files into searchable passages, ask questions, and verify answers against exact cited source passages.
 
 The product is designed for professional users who need answers they can check, not generic chat responses. The strongest fit is:
 
@@ -12,7 +12,7 @@ The product is designed for professional users who need answers they can check, 
 - Researchers working across reports, memos, PDFs, and structured data.
 - CA, audit, and compliance teams that need traceable source-backed answers.
 
-Current state: Pliny.AI is a working MVP/prototype with real authentication, document upload, processing, retrieval, citation-backed answers, spreadsheet-aware evidence, inline charts, and a developing premium UI direction. It is not yet a fully production-verified paid SaaS.
+Current state: Pliny AI is a working MVP/prototype with real authentication, document upload, processing, retrieval, citation-backed answers, spreadsheet-aware evidence, inline charts, and a developing premium UI direction. It is not yet a fully production-verified paid SaaS.
 
 ## 2. Current Tech Stack
 
@@ -56,7 +56,7 @@ Important environment flags:
 
 ## 3. High-Level Architecture
 
-Pliny.AI is a Next.js application backed by Supabase. The frontend and API routes live in the same app.
+Pliny AI is a Next.js application backed by Supabase. The frontend and API routes live in the same app.
 
 ### Frontend
 
@@ -173,7 +173,7 @@ Login/signup UI and form wiring. Auth behavior is preserved through server actio
 
 ### `src/components/landing`
 
-The public Pliny.AI landing page with a cream/rust editorial visual direction and static product mock.
+The public Pliny AI landing page with a cream/rust editorial visual direction and static product mock.
 
 ### `src/lib/ai`
 
@@ -313,7 +313,7 @@ Project docs:
 
 ### UI and docs
 
-- [x] Pliny.AI branding cleanup.
+- [x] Pliny AI branding cleanup.
 - [x] Landing page redesign.
 - [x] Auth page redesign.
 - [x] Dashboard redesign.
@@ -396,7 +396,7 @@ If semantic retrieval fails, the code logs the error and falls back to keyword r
 
 ### Hybrid retrieval
 
-When keyword and semantic results both exist, Pliny.AI uses reciprocal rank fusion to combine them. The resulting list is cleaned before being sent to Claude.
+When keyword and semantic results both exist, Pliny AI uses reciprocal rank fusion to combine them. The resulting list is cleaned before being sent to Claude.
 
 ### Grounding strategy
 
@@ -552,7 +552,7 @@ The CSP is report-only and should be tightened after deployment testing.
 
 Current visual direction:
 
-- Pliny.AI brand name.
+- Pliny AI brand name.
 - Cream/rust/editorial public-facing design.
 - Premium document intelligence tone.
 - Existing fonts:
@@ -685,12 +685,12 @@ Source/evidence design intent:
 ### Day 6-7
 
 - Prepare outreach/profile/proposal material.
-- Position Pliny.AI as a source-cited document intelligence MVP, not an enterprise compliance product.
+- Position Pliny AI as a source-cited document intelligence MVP, not an enterprise compliance product.
 - Use the demo and architecture document as proof of technical capability.
 
 ## 14. What This Project Proves
 
-Pliny.AI demonstrates:
+Pliny AI demonstrates:
 
 - Full-stack Next.js App Router development.
 - Supabase Auth integration.
@@ -712,7 +712,7 @@ Pliny.AI demonstrates:
 
 ## 15. What This Project Does Not Yet Prove
 
-Pliny.AI does not yet prove:
+Pliny AI does not yet prove:
 
 - Real paying user demand.
 - Production load behavior.
@@ -730,7 +730,7 @@ Pliny.AI does not yet prove:
 
 ## 16. Final Current Status
 
-Pliny.AI is a working private document intelligence MVP/prototype with serious architecture, verified citations, multi-format document support, spreadsheet intelligence, source-grounded charts, and a developing premium UI.
+Pliny AI is a working private document intelligence MVP/prototype with serious architecture, verified citations, multi-format document support, spreadsheet intelligence, source-grounded charts, and a developing premium UI.
 
 The backend foundation is meaningful: Supabase Auth, RLS, private Storage, document processing, chunking, optional embeddings, hybrid retrieval, Claude answer generation, citations, Source Inspector, retry hardening, and persistent AI usage events are all present.
 

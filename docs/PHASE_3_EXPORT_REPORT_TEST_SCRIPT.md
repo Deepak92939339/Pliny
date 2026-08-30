@@ -1,4 +1,4 @@
-# Pliny.AI Phase 3 Export & Report Test Script
+# Pliny AI Phase 3 Export & Report Test Script
 
 Use this script after Phase 1 and Phase 2 retrieval/citation checks pass. The goal is to confirm that cited answers can become professional work product without losing source support.
 
@@ -39,7 +39,7 @@ Pass:
 
 - Click Open print report.
 - A clean white print view opens.
-- It includes Pliny.AI, workspace, generated timestamp, question, answer/report content, source excerpts, and verification note.
+- It includes Pliny AI, workspace, generated timestamp, question, answer/report content, source excerpts, and verification note.
 - It does not show the workspace sidebar, document panel, composer, account menu, or debug metadata.
 - Browser print preview / Save as PDF is available through the print button or browser menu.
 
@@ -159,7 +159,7 @@ What is the CEO's birthday?
 
 Pass:
 
-- Pliny.AI refuses or qualifies based on lack of evidence.
+- Pliny AI refuses or qualifies based on lack of evidence.
 - Due diligence, risk, and table summary actions are disabled or produce an insufficient-evidence report.
 - No confident professional report is generated.
 - Export Markdown / print view, if used, clearly records insufficient evidence.

@@ -376,7 +376,7 @@ export function WorkspaceView({
 
 function TypingIndicator() {
   return (
-    <div className="flex items-center gap-1.5 px-1 py-2" aria-label="Vector is typing">
+    <div className="flex items-center gap-1.5 px-1 py-2" aria-label="Pliny is typing">
       <span className="size-1.5 animate-pulse rounded-full bg-[color:var(--editorial-muted)]" />
       <span className="size-1.5 animate-pulse rounded-full bg-[color:var(--editorial-muted)] [animation-delay:120ms]" />
       <span className="size-1.5 animate-pulse rounded-full bg-[color:var(--editorial-muted)] [animation-delay:240ms]" />
