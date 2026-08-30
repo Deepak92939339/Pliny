@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { checkAiBudget, getAiConfig, type AiBudgetDecision } from "@/lib/ai/budgetGuard";
+import { assessEvidenceSufficiency } from "@/lib/ai/evidenceSufficiency";
 import { routeModel } from "@/lib/ai/modelRouter";
 import { getFileExtension, getFileKindLabel, inferSupportedFileKind } from "@/lib/document-processing/fileKinds";
 import { parseCitationMarkers, validateCitations, type CitationValidationResult } from "@/lib/citations/validateCitations";
@@ -839,6 +840,98 @@ async function saveChatMessage(supabase: Awaited<ReturnType<typeof createClient>
   return error;
 }
 
+async function saveInsufficientEvidenceResponse({
+  collectionId,
+  closestMatches,
+  metadata,
+  question,
+  reason,
+  supabase,
+  userId,
+}: {
+  collectionId: string;
+  closestMatches: SearchChunkResult[];
+  metadata: ChatResponse["metadata"];
+  question: string;
+  reason: string;
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+}) {
+  const response: ChatResponse = {
+    answer: NO_CONTEXT_ANSWER,
+    citations: [],
+    closestMatches,
+    collectionId,
+    metadata,
+    missingEvidence: ["Direct support for the requested claim in the retrieved excerpts."],
+    question,
+    reason,
+    sources: [],
+    status: "insufficient_evidence",
+  };
+
+  const userMessageError = await saveChatMessage(supabase, {
+    collection_id: collectionId,
+    content: question,
+    role: "user",
+    user_id: userId,
+  });
+
+  if (userMessageError) {
+    logChatError("user insufficient-evidence message insert failed", userMessageError);
+    await saveUsageEvent({
+      collectionId,
+      estimatedCostUsd: 0,
+      inputTokens: 0,
+      model: metadata.model,
+      outputTokens: 0,
+      reason: "user_message_insert_failed",
+      status: "failed",
+      supabase,
+      userId,
+    });
+    return NextResponse.json({ error: "Unable to save your question right now." }, { status: 500 });
+  }
+
+  const assistantMessageError = await saveChatMessage(supabase, {
+    citations: [],
+    collection_id: collectionId,
+    content: response.answer,
+    role: "assistant",
+    user_id: userId,
+  });
+
+  if (assistantMessageError) {
+    logChatError("assistant insufficient-evidence message insert failed", assistantMessageError);
+    await saveUsageEvent({
+      collectionId,
+      estimatedCostUsd: 0,
+      inputTokens: 0,
+      model: metadata.model,
+      outputTokens: 0,
+      reason: "assistant_message_insert_failed",
+      status: "failed",
+      supabase,
+      userId,
+    });
+    return NextResponse.json({ error: "Unable to save the answer right now." }, { status: 500 });
+  }
+
+  await saveUsageEvent({
+    collectionId,
+    estimatedCostUsd: 0,
+    inputTokens: 0,
+    model: metadata.model,
+    outputTokens: 0,
+    reason: "insufficient_retrieval_evidence",
+    status: "success",
+    supabase,
+    userId,
+  });
+
+  return NextResponse.json(response);
+}
+
 async function getWorkspaceDocuments({
   collectionId,
   supabase,
@@ -907,6 +1000,7 @@ async function saveUsageEvent({
 function buildResponseMetadata({
   budget,
   citationValidation,
+  evidenceStatus,
   maxOutputTokens,
   modelReason,
   retrievalReason,
@@ -914,6 +1008,7 @@ function buildResponseMetadata({
 }: {
   budget?: AiBudgetDecision;
   citationValidation?: CitationValidationDebug;
+  evidenceStatus?: ChatResponse["metadata"]["evidenceStatus"];
   maxOutputTokens: number;
   modelReason: string;
   retrievalReason: RetrievalReason;
@@ -927,6 +1022,7 @@ function buildResponseMetadata({
     modelReason,
     retrievalReason,
     citationValidation,
+    evidenceStatus,
   };
 }
 
@@ -1218,6 +1314,32 @@ export async function POST(request: Request) {
 
   const promptChunks = clampChunks(retrievedChunks, config.maxCharsPerChunk);
   const prompt = buildPrompt(message, promptChunks, retrievalReason, documentScope);
+  const retrievedEvidence = assessEvidenceSufficiency({
+    question: message,
+    retrievalReason,
+    sources: promptChunks,
+  });
+
+  if (!retrievedEvidence.sufficient) {
+    return saveInsufficientEvidenceResponse({
+      collectionId,
+      closestMatches: promptChunks.slice(0, 3),
+      metadata: {
+        ...buildResponseMetadata({
+          maxOutputTokens: modelRoute.maxOutputTokens,
+          modelReason: modelRoute.reason,
+          retrievalReason,
+          selectedModel: modelRoute.selectedModel,
+        }),
+        evidenceStatus: retrievedEvidence.evidenceStatus,
+      },
+      question: message,
+      reason: retrievedEvidence.reason,
+      supabase,
+      userId: user.id,
+    });
+  }
+
   const budget = await checkAiBudget({
     config: answerConfig,
     inputCharacters: `${SYSTEM_PROMPT}\n\n${prompt}`.length,
@@ -1350,7 +1472,13 @@ export async function POST(request: Request) {
     }
 
     const citations = buildCitations(answer, promptChunks);
-    const isInsufficientEvidence = citationValidation.rejectedAnswer;
+    const finalEvidence = assessEvidenceSufficiency({
+      citationValidation,
+      question: message,
+      retrievalReason,
+      sources: promptChunks,
+    });
+    const isInsufficientEvidence = !finalEvidence.sufficient;
     const response: ChatResponse = isInsufficientEvidence
       ? {
           answer,
@@ -1364,6 +1492,7 @@ export async function POST(request: Request) {
             modelReason: modelRoute.reason,
             retrievalReason,
             selectedModel: modelRoute.selectedModel,
+            evidenceStatus: finalEvidence.evidenceStatus,
           }),
           missingEvidence: ["Direct support for the requested claim in the retrieved excerpts."],
           question: message,
@@ -1382,6 +1511,7 @@ export async function POST(request: Request) {
         modelReason: modelRoute.reason,
         retrievalReason,
         selectedModel: modelRoute.selectedModel,
+        evidenceStatus: finalEvidence.evidenceStatus,
       }),
       question: message,
       sources: promptChunks,

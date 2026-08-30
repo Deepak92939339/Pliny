@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { embedText, getEmbeddingConfig, isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
+import { ensureDocumentCoverage } from "@/lib/search/documentCoverage";
 import type { RetrievalReason, SearchChunkResult } from "@/types";
 
 const STOP_WORDS = new Set([
@@ -213,6 +214,7 @@ function mapChunk(row: SearchChunkRow): SearchChunkResult {
     filename,
     locationLabel: row.location_label ?? null,
     metadata: row.metadata ?? null,
+    retrievalMode: "keyword",
   };
 }
 
@@ -230,6 +232,8 @@ function mapSemanticChunk(row: SemanticChunkRow, filenamesByDocumentId: Map<stri
     filename: filename && filename.trim().length > 0 ? filename : "Untitled document",
     locationLabel: row.location_label ?? null,
     metadata: row.metadata ?? null,
+    relevanceScore: row.similarity,
+    retrievalMode: "semantic",
   };
 }
 
@@ -308,53 +312,6 @@ function balanceAcrossDocuments(results: SearchChunkResult[], limit: number) {
   return selected.slice(0, limit);
 }
 
-function ensureDocumentCoverage(
-  results: SearchChunkResult[],
-  fallbackResults: SearchChunkResult[],
-  requiredDocumentIds: string[],
-  limit: number
-) {
-  const uniqueRequiredDocumentIds = Array.from(new Set(requiredDocumentIds));
-
-  if (uniqueRequiredDocumentIds.length < 2 || limit < uniqueRequiredDocumentIds.length) {
-    return results.slice(0, limit);
-  }
-
-  const selected = results.slice(0, limit);
-  const candidates = dedupeResults([...results, ...fallbackResults]).filter(hasMeaningfulContent);
-
-  for (const documentId of uniqueRequiredDocumentIds) {
-    if (selected.some((result) => result.documentId === documentId)) {
-      continue;
-    }
-
-    const candidate = candidates.find(
-      (result) => result.documentId === documentId && !selected.some((selectedResult) => selectedResult.id === result.id)
-    );
-
-    if (!candidate) {
-      continue;
-    }
-
-    const removableIndex = [...selected.keys()]
-      .reverse()
-      .find((index) => {
-        const selectedDocumentId = selected[index].documentId;
-        const selectedCount = selected.filter((result) => result.documentId === selectedDocumentId).length;
-
-        return selectedCount > 1 || !uniqueRequiredDocumentIds.includes(selectedDocumentId);
-      });
-
-    if (removableIndex === undefined) {
-      continue;
-    }
-
-    selected.splice(removableIndex, 1, candidate);
-  }
-
-  return selected.slice(0, limit);
-}
-
 function cleanRetrievedResults(results: SearchChunkResult[], limit: number, requiredDocumentIds: string[] = [], fallbackResults: SearchChunkResult[] = []) {
   const deduped = dedupeResults(results);
   const meaningful = deduped.filter(hasMeaningfulContent);
@@ -386,7 +343,11 @@ function rankKeywordResults(rows: SearchChunkResult[], query: string, terms: str
       return left.result.chunkIndex - right.result.chunkIndex;
     })
     .slice(0, limit)
-    .map(({ result }) => result);
+    .map(({ result, score }) => ({
+      ...result,
+      relevanceScore: score,
+      retrievalMode: "keyword" as const,
+    }));
 }
 
 async function getDocumentFilenames(supabase: SupabaseClient, documentIds: string[]) {

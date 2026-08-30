@@ -10,7 +10,9 @@
     "backfill:embeddings": "node --experimental-strip-types scripts/backfill-embeddings.mjs",
     "test:citations": "node --experimental-strip-types scripts/test-citations.mjs",
     "test:embeddings": "node --experimental-strip-types scripts/test-embeddings.mjs",
+    "test:evidence": "node --experimental-strip-types scripts/test-evidence.mjs",
     "test:ingestion": "node --experimental-strip-types scripts/test-ingestion.mjs",
+    "test:retrieval": "node --experimental-strip-types scripts/test-retrieval.mjs",
     "test:sanitization": "node --experimental-strip-types scripts/test-sanitization.mjs",
     "test:report": "node --experimental-strip-types scripts/test-report.mjs",
     "eval": "node --experimental-strip-types scripts/run-evals.mjs"
@@ -40,7 +42,6 @@
     "react-hook-form": "^7.73.1",
     "read-excel-file": "^9.3.10",
     "recharts": "^3.8.1",
-    "shadcn": "^4.4.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tesseract.js": "^7.0.0",
@@ -55,10 +56,14 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.24",
+    "shadcn": "^4.4.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
   "overrides": {
-    "postcss": "8.5.26"
+    "postcss": "8.5.26",
+    "qs": "6.16.0",
+    "sharp": "0.35.4",
+    "ws": "8.21.3"
   }
 }
