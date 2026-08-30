@@ -337,6 +337,22 @@ This closing section supersedes every earlier section in this historical report,
 
 **CONDITIONAL** — deployment and infrastructure hardening are complete, but READY is not claimed because two authorized live provider checks did not pass and residual transitive npm-audit findings remain. Further provider-backed verification requires new explicit authorization.
 
+## FINAL TARGETED SIGN-OFF — 2026-08-31
+
+This is the final authoritative section and supersedes all earlier sections, including the previous closing sign-off above. Historical results remain only as audit history.
+
+- Final production deployment: `dpl_7SvYM6BJ9zjD3D6idwpBasVEcboz`, **READY**, commit `0d5a1b0ec2d5700765f74a221bd8eb2914278eac`; `https://pliny.vercel.app` returned HTTP 200.
+- General evidence sufficiency is now enforced before provider invocation using bounded source count/size, meaningful lexical or semantic retrieval quality, and post-response citation validity. Regression tests cover unsupported facts, weak overlap, misleading filenames, supported paraphrases, invalid citations, and two-document coverage.
+- The temporary `AI_MAX_REQUESTS_PER_DAY` cap was set only to `N+2` (`N=30`, cap 32) for the authorized window, then restored to 20. The INR budget was not changed.
+- `npm audit --omit=dev` is clean: zero reachable production findings. The full-tree audit has 9 dev/build-toolchain-only findings (5 high, 2 moderate, 2 low), isolated to tooling such as `shadcn`/ESLint and excluded from the production dependency tree. No `npm audit fix --force` was run.
+- `supabase/.temp/` is now ignored as local generated state; its contents were not committed.
+- Final offline validation passed: lint, TypeScript, eval 14/14, citations, embeddings, evidence, retrieval, ingestion, sanitization, report, build, production audit, and diff-check.
+- Exactly two additional live requests were issued. Unsupported request **PASS**: HTTP 200, `insufficient_evidence`, zero citations. Cross-document request **UNVERIFIED**: the runner selected an empty collection whose historical chat text mentioned both filenames, so the application correctly returned insufficient evidence; this is not valid two-document evidence and no third provider request was made.
+
+### Final verdict
+
+**CONDITIONAL** — the unsupported gate and production audit are resolved, but READY cannot be claimed because the authorized cross-document request was invalidated by collection-selection harness error and therefore did not verify resolving evidence from both required documents. A new explicit provider authorization is required for that one live check.
+
 ## Final result
 
 **BLOCKED — focused diagnosis found the live Supabase foundational schema missing from the PostgREST schema cache (`PGRST205` for `collections` and `documents`).** The smallest safe fix is the proposed owner-scoped migration in `supabase/manual-migrations/2026-08-29-proposed-foundational-schema.sql`; it requires explicit approval before remote application. Authenticated SELECT/INSERT and the `Claude.pdf` workflow remain unverified in this continuation because the required browser surface was unavailable.
