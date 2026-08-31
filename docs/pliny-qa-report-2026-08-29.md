@@ -370,7 +370,11 @@ This closing section supersedes every earlier section in this historical report,
 
 - v1.1 migration application and remote database verification — **PASS**.
 - Live ingestion status — **pending explicit document/provider authorization**.
-- Production deployment ID and deployed commit — recorded below after the controlled deployment.
+- Production deployment ID: `dpl_BAs4aCUnrhnRP5n6L9qBjJS4j7FM` (**READY**).
+- Deployed commit: `c039cfd4d89714f43e285867f192b40996f42f2c` (`Harden ingestion and hybrid retrieval`).
+- `https://pliny.vercel.app` — HTTP 200; `/login` — HTTP 200; unauthenticated `POST /api/search-chunks` — HTTP 401.
+- Production guards remain `AI_MAX_REQUESTS_PER_DAY=20` and `AI_DAILY_BUDGET_INR=30`; no environment variables were changed by this release.
+- Deployment-scoped logs contain no 5xx or fatal entries. The single error-level entry is the expected server log from the deliberate unauthenticated 401 protection probe; it contains no document or credential material.
 
 ## FINAL TARGETED VERIFICATION — 2026-08-31
 
