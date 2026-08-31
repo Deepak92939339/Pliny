@@ -49,7 +49,7 @@ function getRejectionMessage(rejections: FileRejection[]) {
   }
 
   if (rejection.errors.some((error) => error.code === "file-invalid-type")) {
-    return "Only PDF, DOCX, XLSX, CSV, MD, and TXT files can be uploaded. Legacy .xls files are not supported.";
+    return "Only PDF, DOCX, XLSX, CSV, MD, HTML, and TXT files can be uploaded. Legacy .xls files are not supported.";
   }
 
   return "This file could not be uploaded. Please choose a supported file.";
@@ -84,7 +84,7 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       setSuccessMessage(null);
 
       if (!isSupportedFile(file)) {
-        setErrorMessage("Only PDF, DOCX, XLSX, CSV, MD, and TXT files can be uploaded. Legacy .xls files are not supported.");
+        setErrorMessage("Only PDF, DOCX, XLSX, CSV, MD, HTML, and TXT files can be uploaded. Legacy .xls files are not supported.");
         return;
       }
 
@@ -180,8 +180,8 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       <div
         {...getRootProps({
           className: cn(
-            "group flex min-h-20 cursor-pointer flex-col justify-center rounded-xl border border-dashed border-black/15 bg-transparent px-4 py-3 text-center transition-colors duration-150 dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-1)]",
-            "hover:border-[#BA5C3D]/45 hover:bg-black/[0.025] dark:hover:bg-[var(--surface-2)]",
+            "group flex min-h-20 cursor-pointer flex-col justify-center rounded-xl border border-dashed border-black/15 bg-transparent px-4 py-3 text-center transition-colors duration-150",
+            "hover:border-[#BA5C3D]/45 hover:bg-black/[0.025]",
             isDragActive && "border-[#BA5C3D]/60 bg-[#BA5C3D]/10",
             isBusy && "cursor-wait opacity-75"
           ),
@@ -192,7 +192,7 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
           {uploadStep === "processing" ? "Processing file" : uploadStep === "uploading" ? "Uploading file" : "Drop files or click to upload"}
         </p>
         <p className="mt-1 text-[11px] leading-5 text-[color:var(--editorial-muted)]">
-          {isDragActive ? "Drop the file here" : "PDF · DOCX · XLSX · CSV · MD · TXT"}
+          {isDragActive ? "Drop the file here" : "PDF · DOCX · XLSX · CSV · MD · HTML · TXT"}
         </p>
       </div>
       {errorMessage ? <p className="mt-2 text-xs leading-5 text-[color:var(--editorial-destructive)]">{errorMessage}</p> : null}

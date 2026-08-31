@@ -169,7 +169,7 @@ function SourceMetadata({
   workspaceName?: string | null;
 }) {
   return (
-    <div className="space-y-1 border-t border-black/[0.08] pt-4 text-[11px] leading-5 text-[color:var(--editorial-muted)] dark:border-[color:var(--editorial-border-soft)]">
+    <div className="space-y-1 border-t border-black/[0.08] pt-4 text-[11px] leading-5 text-[color:var(--editorial-muted)]">
       {workspaceName ? (
         <p>
           <span className="text-[color:var(--editorial-ink-soft)]">From:</span> {workspaceName}
@@ -210,7 +210,7 @@ function SourceNavigation({
             onSelectSource(sources[selectedSourceIndex - 1]);
           }
         }}
-        className="inline-flex items-center gap-1 justify-self-start rounded-md px-1 py-1 text-[color:var(--editorial-muted)] hover:bg-black/[0.035] hover:text-[color:var(--editorial-ink)] disabled:pointer-events-none disabled:opacity-35 dark:hover:bg-[var(--editorial-card)]"
+        className="inline-flex items-center gap-1 justify-self-start rounded-md px-1 py-1 text-[color:var(--editorial-muted)] hover:bg-black/[0.035] hover:text-[color:var(--editorial-ink)] disabled:pointer-events-none disabled:opacity-35"
       >
         <ChevronLeft className="size-3.5" aria-hidden="true" />
         Previous source
@@ -226,7 +226,7 @@ function SourceNavigation({
             onSelectSource(sources[selectedSourceIndex + 1]);
           }
         }}
-        className="inline-flex items-center gap-1 justify-self-end rounded-md px-1 py-1 text-[color:var(--editorial-muted)] hover:bg-black/[0.035] hover:text-[color:var(--editorial-ink)] disabled:pointer-events-none disabled:opacity-35 dark:hover:bg-[var(--editorial-card)]"
+        className="inline-flex items-center gap-1 justify-self-end rounded-md px-1 py-1 text-[color:var(--editorial-muted)] hover:bg-black/[0.035] hover:text-[color:var(--editorial-ink)] disabled:pointer-events-none disabled:opacity-35"
       >
         Next source
         <ChevronRight className="size-3.5" aria-hidden="true" />
@@ -249,15 +249,15 @@ export function SourceInspector({
   const selectedLocation = getSourceLocationLabel(selectedSource);
 
   return (
-    <aside className="hidden h-full min-h-0 w-[360px] shrink-0 flex-col border-l border-black/[0.08] bg-[#F7F7F5] text-[color:var(--editorial-ink)] dark:border-[color:var(--editorial-border)] dark:bg-[var(--editorial-panel)] dark:shadow-[-16px_0_36px_rgba(0,0,0,0.16)] lg:flex xl:w-[420px]">
-      <header className="shrink-0 border-b border-black/[0.08] px-4 py-3 dark:border-[color:var(--editorial-border-soft)]">
+    <aside className="hidden h-full min-h-0 w-[360px] shrink-0 flex-col border-l border-black/[0.08] bg-[#F7F7F5] text-[color:var(--editorial-ink)] lg:flex xl:w-[420px]">
+      <header className="shrink-0 border-b border-black/[0.08] px-4 py-3">
         <div className="flex items-center gap-3">
           <h2 className="text-[13px] font-medium text-[color:var(--editorial-ink)]">Source</h2>
           <button
             type="button"
             aria-label="Close source inspector"
             onClick={onClose}
-            className="ml-auto flex size-8 items-center justify-center rounded-md text-[color:var(--editorial-muted)] hover:bg-black/[0.04] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-card)]"
+            className="ml-auto flex size-8 items-center justify-center rounded-md text-[color:var(--editorial-muted)] hover:bg-black/[0.04] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -279,14 +279,14 @@ export function SourceInspector({
           </div>
         ) : (
           <div className="flex min-h-full flex-col gap-5">
-            <section className="rounded-xl border border-black/[0.08] bg-[#FFFEFA]/85 p-4 dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)]">
+            <section className="rounded-xl border border-black/[0.08] bg-[#FFFEFA]/85 p-4">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-[color:var(--editorial-muted)]">
                 Retrieved passage
               </p>
               <SourceText source={selectedSource} />
             </section>
 
-            <div className="border-t border-black/[0.08] pt-3 dark:border-[color:var(--editorial-border-soft)]">
+            <div className="border-t border-black/[0.08] pt-3">
               <SourceNavigation
                 selectedSourceIndex={safeSelectedIndex}
                 sources={sources.length > 0 ? sources : [selectedSource]}
@@ -312,9 +312,9 @@ export function SourceSheet({ onOpenChange, open, retrievalReason, selectedSourc
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[86vh] gap-0 rounded-t-xl border-black/[0.08] bg-[#F7F7F5] p-0 text-[color:var(--editorial-ink)] shadow-2xl shadow-black/30 dark:border-[color:var(--editorial-border-soft)] dark:bg-[var(--editorial-panel)] lg:hidden"
+        className="max-h-[86vh] gap-0 rounded-t-xl border-black/[0.08] bg-[#F7F7F5] p-0 text-[color:var(--editorial-ink)] shadow-2xl shadow-black/10 lg:hidden"
       >
-        <SheetHeader className="border-b border-black/[0.08] p-4 pr-12 text-left dark:border-[color:var(--editorial-border-soft)]">
+        <SheetHeader className="border-b border-black/[0.08] p-4 pr-12 text-left">
           <SheetTitle className="text-[13px] font-medium text-[color:var(--editorial-ink)]">Source</SheetTitle>
           <SheetDescription className="space-y-1">
             <span className="block truncate text-[13px] font-medium text-[color:var(--editorial-ink)]" title={selectedFilename}>
@@ -328,7 +328,7 @@ export function SourceSheet({ onOpenChange, open, retrievalReason, selectedSourc
         <div className="min-h-0 overflow-y-auto p-4">
           {selectedSource ? (
             <div className="space-y-5">
-              <section className="rounded-xl border border-black/[0.08] bg-[#FFFEFA]/85 p-4 dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)]">
+              <section className="rounded-xl border border-black/[0.08] bg-[#FFFEFA]/85 p-4">
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-[color:var(--editorial-muted)]">
                   Retrieved passage
                 </p>

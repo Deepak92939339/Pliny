@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, JetBrains_Mono, Newsreader } from "next/font/google";
-import { ThemeProvider } from "@/components/shared/ThemeProvider";
 import "./globals.css";
 
 const newsreader = Newsreader({
@@ -26,18 +25,21 @@ const jetBrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Pliny AI",
+    default: "Pliny",
     template: "%s · Pliny",
   },
-  description: "Upload your documents. Ask questions. Every answer cites the exact passage it came from.",
+  description: "Knowledge, traced to its source.",
   openGraph: {
-    title: "Pliny AI",
-    description: "From complex documents to verifiable decisions. Private document intelligence with traceable answers, source-backed analysis and decision-ready reports.",
-    siteName: "Pliny AI",
+    title: "Pliny — Knowledge, traced to its source.",
+    description: "Evidence-grounded document intelligence with source-backed answers and visible citations.",
+    siteName: "Pliny",
     type: "website",
   },
   icons: {
-    icon: "/brand/pliny-mark.png",
+    icon: [
+      { url: "/brand/pliny-mark-16.svg", sizes: "16x16", type: "image/svg+xml" },
+      { url: "/brand/pliny-mark-48.svg", sizes: "48x48", type: "image/svg+xml" },
+    ],
   },
   manifest: "/site.webmanifest",
 };
@@ -48,9 +50,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en">
       <body className={`${newsreader.variable} ${ibmPlexSans.variable} ${jetBrainsMono.variable} theme-soft-fade font-sans antialiased`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        {children}
       </body>
     </html>
   );

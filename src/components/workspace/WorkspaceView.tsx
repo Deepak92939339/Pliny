@@ -321,7 +321,7 @@ export function WorkspaceView({
                     {pendingQuestion ? (
                       <div className="space-y-6">
                         <div className="flex justify-end">
-                          <div className="max-w-[70%] rounded-2xl border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-panel)] px-4 py-3 text-[15px] leading-6 text-[color:var(--editorial-ink)] shadow-[0_8px_22px_rgba(72,48,31,0.05)] dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)] dark:shadow-[0_10px_24px_rgba(0,0,0,0.28)]">
+                          <div className="max-w-[70%] rounded-2xl border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-panel)] px-4 py-3 text-[15px] leading-6 text-[color:var(--editorial-ink)] shadow-[0_8px_22px_rgba(72,48,31,0.05)]">
                             {pendingQuestion}
                           </div>
                         </div>
@@ -356,7 +356,7 @@ export function WorkspaceView({
               type="button"
               aria-label="Show documents panel"
               onClick={() => setIsDocumentPanelOpen(true)}
-              className="absolute right-3 top-3 hidden size-8 items-center justify-center rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] text-[color:var(--editorial-muted)] shadow-sm shadow-[rgba(72,48,31,0.05)] hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:border-[color:var(--editorial-border-soft)] dark:bg-[var(--surface-2)] dark:hover:bg-[var(--editorial-card)] lg:flex"
+              className="absolute right-3 top-3 hidden size-8 items-center justify-center rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] text-[color:var(--editorial-muted)] shadow-sm shadow-[rgba(72,48,31,0.05)] hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 lg:flex"
             >
               <ChevronLeft className="size-4" aria-hidden="true" />
             </button>

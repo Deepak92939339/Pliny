@@ -1,4 +1,4 @@
--- Pliny AI RLS verification script
+-- Pliny RLS verification script
 -- Run this manually in the Supabase SQL Editor after applying schema.sql.
 -- These checks report the active database posture; they do not replace manual cross-user testing.
 

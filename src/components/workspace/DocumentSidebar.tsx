@@ -48,23 +48,23 @@ export function DocumentManagementPanel({
   onCollapse,
 }: DocumentManagementPanelProps) {
   return (
-    <aside className="hidden h-full min-h-0 w-[280px] shrink-0 flex-col border-l border-black/[0.08] bg-[#F7F7F5]/70 text-[color:var(--editorial-ink)] dark:border-[color:var(--editorial-border)] dark:bg-[var(--editorial-panel)] dark:shadow-[-16px_0_36px_rgba(0,0,0,0.16)] lg:flex">
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-black/[0.08] px-3 dark:border-[color:var(--editorial-border-soft)]">
+    <aside className="hidden h-full min-h-0 w-[280px] shrink-0 flex-col border-l border-black/[0.08] bg-[#F7F7F5]/70 text-[color:var(--editorial-ink)] lg:flex">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-black/[0.08] px-3">
         <h2 className="text-[13px] font-medium text-[color:var(--editorial-ink)]">Documents</h2>
-        <span className="rounded-full border border-black/10 bg-black/[0.03] px-2 py-0.5 text-[11px] leading-none text-[color:var(--editorial-muted)] dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)]">
+        <span className="rounded-full border border-black/10 bg-black/[0.03] px-2 py-0.5 text-[11px] leading-none text-[color:var(--editorial-muted)]">
           {documents.length}
         </span>
         <button
           type="button"
           aria-label="Collapse documents panel"
           onClick={onCollapse}
-          className="ml-auto flex size-8 items-center justify-center rounded-md text-[color:var(--editorial-muted)] hover:bg-black/[0.04] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-card)]"
+          className="ml-auto flex size-8 items-center justify-center rounded-md text-[color:var(--editorial-muted)] hover:bg-black/[0.04] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35"
         >
           <ChevronRight className="size-4" aria-hidden="true" />
         </button>
       </div>
 
-      <div className="shrink-0 border-b border-black/[0.08] p-3 dark:border-[color:var(--editorial-border-soft)]">
+      <div className="shrink-0 border-b border-black/[0.08] p-3">
         <DocumentUploadDropzone collectionId={collectionId} />
       </div>
 
@@ -76,7 +76,7 @@ export function DocumentManagementPanel({
             <div>
               <p className="text-[13px] font-medium text-[color:var(--editorial-ink-soft)]">No documents yet</p>
               <p className="mt-1 text-xs leading-5 text-[color:var(--editorial-muted)]">
-                Drop PDFs, DOCX, XLSX, CSV, Markdown, or text files to start. Legacy .xls files are not supported.
+                Drop PDFs, DOCX, XLSX, CSV, Markdown, HTML, or text files to start. Legacy .xls files are not supported.
               </p>
             </div>
           </div>
@@ -102,7 +102,7 @@ function DocumentPanelRow({ document }: { document: DocumentListItem }) {
 
   return (
     <article
-      className="group grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-black/[0.035] dark:hover:bg-[var(--surface-2)]"
+      className="group grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded-lg px-2.5 py-2.5 transition-colors hover:bg-black/[0.035]"
       title={status === "failed" ? document.errorMessage ?? "Needs retry" : filename}
     >
       <div className="min-w-0 flex-1">
@@ -110,14 +110,14 @@ function DocumentPanelRow({ document }: { document: DocumentListItem }) {
           {filename}
         </p>
         <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] leading-4 text-[color:var(--editorial-muted)]">
-          <span className="shrink-0 rounded border border-black/10 bg-black/[0.025] px-1.5 py-px font-medium text-[10px] leading-3 text-[color:var(--editorial-muted)] dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-3)]">
+          <span className="shrink-0 rounded border border-black/10 bg-black/[0.025] px-1.5 py-px font-medium text-[10px] leading-3 text-[color:var(--editorial-muted)]">
             {kindLabel}
           </span>
           <DocumentStatusMarker status={status} />
           <span
             className={cn(
               "min-w-0 truncate",
-              status === "failed" ? "text-[#9A5A3E] dark:text-[#D6A18D]" : "text-[color:var(--editorial-muted)]"
+              status === "failed" ? "text-[#9A5A3E]" : "text-[color:var(--editorial-muted)]"
             )}
           >
             {statusLine ?? pageLabel ?? "Ready"}
@@ -186,16 +186,16 @@ export function DocumentSidebar({
   return (
     <aside
       className={cn(
-        "hidden h-full min-h-0 shrink-0 flex-col border-r border-black/[0.08] bg-[#F7F7F5] text-[color:var(--editorial-ink)] dark:border-[color:var(--editorial-border)] dark:bg-[var(--editorial-panel)] md:flex",
+        "hidden h-full min-h-0 shrink-0 flex-col border-r border-black/[0.08] bg-[#F7F7F5] text-[color:var(--editorial-ink)] md:flex",
         isCollapsed ? "w-14" : "w-[260px]"
       )}
     >
       {isCollapsed ? (
         <div className="flex h-full flex-col items-center px-2 py-3">
-          <Link href="/dashboard" aria-label="Pliny dashboard" className="flex size-10 items-center justify-center rounded-md hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-card)]">
+          <Link href="/dashboard" aria-label="Pliny dashboard" className="flex size-10 items-center justify-center rounded-md hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35">
             <BrandMark
               className="h-8 gap-0"
-              markClassName="size-8 border-transparent bg-[#0C1427] text-[#FCFBF8] dark:bg-[#F1EDE6] dark:text-[#0B0B0A]"
+              markClassName="size-8 border-transparent bg-[#0C1427] text-[#FCFBF8]"
               textClassName="sr-only"
             />
           </Link>
@@ -203,7 +203,7 @@ export function DocumentSidebar({
             type="button"
             aria-label="Expand sidebar"
             onClick={() => setIsCollapsed(false)}
-            className="mt-3 flex size-9 items-center justify-center rounded-md text-[color:var(--editorial-muted)] hover:bg-black/[0.04] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-card)]"
+            className="mt-3 flex size-9 items-center justify-center rounded-md text-[color:var(--editorial-muted)] hover:bg-black/[0.04] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35"
           >
             <PanelLeft className="size-4 rotate-180" aria-hidden="true" />
           </button>
@@ -212,10 +212,10 @@ export function DocumentSidebar({
         <>
           <div className="shrink-0 px-3 pb-4 pt-3">
             <div className="flex items-center gap-2">
-              <Link href="/dashboard" aria-label="Pliny dashboard" className="min-w-0 flex-1 rounded-md px-1 py-1 hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-card)]">
+              <Link href="/dashboard" aria-label="Pliny dashboard" className="min-w-0 flex-1 rounded-md px-1 py-1 hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35">
                 <BrandMark
                   className="h-8 gap-2.5"
-                  markClassName="size-8 border-transparent bg-[#0C1427] text-[#FCFBF8] dark:bg-[#F1EDE6] dark:text-[#0B0B0A]"
+                  markClassName="size-8 border-transparent bg-[#0C1427] text-[#FCFBF8]"
                   textClassName="text-[15px] font-semibold text-[color:var(--editorial-ink)]"
                 />
               </Link>
@@ -223,7 +223,7 @@ export function DocumentSidebar({
                 type="button"
                 aria-label="Collapse sidebar"
                 onClick={() => setIsCollapsed(true)}
-                className="flex size-8 shrink-0 items-center justify-center rounded-md text-[color:var(--editorial-muted)] hover:bg-black/[0.04] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-card)]"
+                className="flex size-8 shrink-0 items-center justify-center rounded-md text-[color:var(--editorial-muted)] hover:bg-black/[0.04] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35"
               >
                 <PanelLeft className="size-4" aria-hidden="true" />
               </button>
@@ -233,7 +233,7 @@ export function DocumentSidebar({
               label="New Workspace"
               size="default"
               variant="outline"
-              className="mt-4 h-9 w-full justify-start rounded-lg border-black/10 bg-transparent px-3 text-sm font-medium text-[color:var(--editorial-ink)] shadow-none hover:bg-black/[0.04] dark:border-[color:var(--editorial-border-soft)] dark:hover:bg-[var(--editorial-card)]"
+              className="mt-4 h-9 w-full justify-start rounded-lg border-black/10 bg-transparent px-3 text-sm font-medium text-[color:var(--editorial-ink)] shadow-none hover:bg-black/[0.04]"
             />
           </div>
 
@@ -252,8 +252,8 @@ export function DocumentSidebar({
                         className={cn(
                           "block truncate rounded-md border-l-2 px-3 py-2 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35",
                           isActive
-                            ? "border-[#BA5C3D] bg-black/[0.04] font-medium text-[color:var(--editorial-ink)] dark:bg-[#D07A5F]/10"
-                            : "border-transparent text-[color:var(--editorial-muted)] hover:bg-black/[0.035] hover:text-[color:var(--editorial-ink)] dark:hover:bg-[var(--editorial-card)]"
+                            ? "border-[#BA5C3D] bg-black/[0.04] font-medium text-[color:var(--editorial-ink)]"
+                            : "border-transparent text-[color:var(--editorial-muted)] hover:bg-black/[0.035] hover:text-[color:var(--editorial-ink)]"
                         )}
                         title={workspace.name}
                       >
@@ -274,7 +274,7 @@ export function DocumentSidebar({
                     <Link
                       key={`${recent.collectionId}-${recent.createdAt}-${recent.message}`}
                       href={`/collection/${recent.collectionId}`}
-                      className="block rounded-md px-3 py-2 transition-colors hover:bg-black/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-card)]"
+                      className="block rounded-md px-3 py-2 transition-colors hover:bg-black/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35"
                     >
                       <span className="flex items-center justify-between gap-3">
                         <span className="truncate text-[13px] font-medium text-[color:var(--editorial-ink)]" title={recent.collectionName}>
@@ -294,7 +294,7 @@ export function DocumentSidebar({
             </SidebarSection>
           </div>
 
-          <div className="shrink-0 border-t border-black/[0.08] px-4 py-4 dark:border-[color:var(--editorial-border-soft)]">
+          <div className="shrink-0 border-t border-black/[0.08] px-4 py-4">
             <p className="truncate text-xs text-[color:var(--editorial-muted)]" title={userEmail ?? undefined}>
               {userEmail ?? "Signed in"}
             </p>

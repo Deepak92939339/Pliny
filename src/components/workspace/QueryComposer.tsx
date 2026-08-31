@@ -55,11 +55,11 @@ export function QueryComposer({ isSearching = false, onSubmit }: QueryComposerPr
   }
 
   return (
-    <div className="shrink-0 border-t border-transparent px-4 pb-6 pt-3 dark:border-[color:var(--editorial-border-soft)] dark:bg-[var(--editorial-page)]">
+    <div className="shrink-0 border-t border-transparent px-4 pb-6 pt-3 bg-[var(--editorial-page)]">
       <div className="mx-auto max-w-[720px]">
         <form
           onSubmit={handleSubmit}
-          className="rounded-3xl border border-black/[0.08] bg-[#FFFEFA]/90 p-2.5 shadow-[0_1px_10px_rgba(12,20,39,0.04)] focus-within:border-[#BA5C3D]/40 focus-within:ring-2 focus-within:ring-[#BA5C3D]/10 dark:border-[color:var(--editorial-border)] dark:bg-[var(--editorial-card)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.24)]"
+          className="rounded-3xl border border-black/[0.08] bg-[#FFFEFA]/90 p-2.5 shadow-[0_1px_10px_rgba(12,20,39,0.04)] focus-within:border-[#BA5C3D]/40 focus-within:ring-2 focus-within:ring-[#BA5C3D]/10"
         >
           <div className="flex items-end gap-2">
             <button
@@ -87,8 +87,8 @@ export function QueryComposer({ isSearching = false, onSubmit }: QueryComposerPr
               className={cn(
                 "mb-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/30 disabled:pointer-events-none",
                 canSubmit
-                  ? "border-[#0C1427] bg-[#0C1427] text-white hover:bg-[#17213A] dark:border-[#D07A5F] dark:bg-[#D07A5F] dark:text-[#0B0B0A] dark:hover:bg-[#E0A083]"
-                  : "border-black/[0.08] bg-black/[0.045] text-[color:var(--editorial-muted)] dark:border-[color:var(--editorial-border-soft)] dark:bg-[var(--editorial-panel)]"
+                  ? "border-[#0C1427] bg-[#0C1427] text-white hover:bg-[#17213A]"
+                  : "border-black/[0.08] bg-black/[0.045] text-[color:var(--editorial-muted)]"
               )}
             >
               <ArrowUp className="size-4" aria-hidden="true" />

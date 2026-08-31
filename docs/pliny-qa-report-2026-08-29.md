@@ -337,6 +337,19 @@ This closing section supersedes every earlier section in this historical report,
 
 **CONDITIONAL** — deployment and infrastructure hardening are complete, but READY is not claimed because two authorized live provider checks did not pass and residual transitive npm-audit findings remain. Further provider-backed verification requires new explicit authorization.
 
+## FINAL VISUAL REFINEMENT — 2026-08-31
+
+This section records the bounded light-theme, brand and content refinement. It does not change ingestion, retrieval, embeddings, authentication, database behavior, provider configuration, rate limits or budgets.
+
+- Brand: the product name is **Pliny** and the primary line is **“Knowledge, traced to its source.”** The original mark is a folio with a restrained quill stroke, supplied as `public/brand/pliny-mark.svg`, 16px, 24px and 48px SVG variants, `public/brand/pliny-mark.png` transparent PNG, and `public/icon.svg`. Old `Pliny.ai` UI strings and logo references were removed.
+- Theme: the visible theme switcher, `ThemeProvider`, `ThemeToggle`, `next-themes` dependency, dark initialization/persistence and dark-mode style branches were removed. The application now has one intentional paper/off-white light theme with Oxford ink, rust accents, fine borders and serif-led display typography.
+- Navigation and content: the public navigation is Trust & Security, Data & Privacy, Access, About, Sign in and Start workspace. The landing page now explains ingest → retrieve → answer → verify, evidence/citations, deployed formats (PDF, DOCX, XLSX, CSV, Markdown, HTML and TXT), current security/privacy controls and future work without claiming PII pseudonymization, provider zero retention, enterprise RBAC, compliance certification or available paid plans.
+- Workspace: the three-column desktop workspace, mobile source-sheet behavior, source filenames, locations, excerpts, citation identities, charts, reports, exports and print paths remain in place. No model selector or Luna/GLM identity was added.
+- Visual witnesses: fresh local Chrome screenshots were captured at 1440 × 1024 (`/Users/sandman/Desktop/RAG intelligence/pliny-v11-visual-desktop-1440.png`) and 390 × 844 (`/Users/sandman/Desktop/RAG intelligence/pliny-v11-visual-mobile-390.png`). Both show the new mark, light theme and responsive landing layout; the mobile witness shows the menu, sign-in and compact workspace action without horizontal overflow. The local browser pass also rendered login at both sizes, redirected unauthenticated dashboard and collection routes to login, and recorded no console exceptions. Existing authenticated workspace/source-inspector/source-sheet evidence remains the regression witness for protected populated state; no document was uploaded or reprocessed in this visual phase.
+- Validation: `npm run lint`, `npx tsc --noEmit`, `npm run eval` (14/14 offline), `npm run test:citations`, `npm run test:embeddings`, `npm run test:evidence`, `npm run test:retrieval`, `npm run test:ingestion`, `npm run test:sanitization`, `npm run test:report`, `npm run build`, `git diff --check` and `npm audit --omit=dev` passed. The eval live end-to-end section remained intentionally not run because this phase forbids provider requests.
+- Provider requests made in this phase: **zero**. Tender, Markdown, HTML and other document fixtures were not uploaded or transmitted.
+- Release metadata: commit and production deployment will be recorded here after the bounded visual diff is committed and the single authorized production deployment is verified.
+
 ## Pliny v1.1 ingestion/retrieval hardening — 2026-08-31
 
 ### Bounded migration-memory resolution

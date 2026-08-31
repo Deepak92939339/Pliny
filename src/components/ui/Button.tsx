@@ -4,12 +4,12 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-colors duration-150 outline-none select-none focus-visible:border-[#BA5C3D]/55 focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/18 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-colors duration-150 outline-none select-none focus-visible:border-[#BA5C3D]/55 focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/18 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          "border-[#0C1427] bg-[#0C1427] text-[#FCFBF8] shadow-sm shadow-black/10 hover:bg-[#17213A] dark:border-[#D07A5F] dark:bg-[#D07A5F] dark:text-[#0B0B0A] dark:hover:bg-[#E0A083] [a]:hover:bg-[#17213A]",
+          "border-[#0C1427] bg-[#0C1427] text-[#FCFBF8] shadow-sm shadow-black/10 hover:bg-[#17213A] [a]:hover:bg-[#17213A]",
         outline:
           "border-[color:var(--editorial-border)] bg-[var(--editorial-card)] text-[color:var(--editorial-ink)] hover:border-[#BA5C3D]/35 hover:bg-[var(--editorial-panel)] aria-expanded:bg-[var(--editorial-panel)]",
         secondary:
@@ -17,7 +17,7 @@ const buttonVariants = cva(
         ghost:
           "text-[color:var(--editorial-muted)] hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] aria-expanded:bg-[var(--editorial-panel)]",
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
+          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20",
         link: "text-[color:var(--editorial-rust-strong)] underline-offset-4 hover:text-[color:var(--editorial-rust)] hover:underline",
       },
       size: {

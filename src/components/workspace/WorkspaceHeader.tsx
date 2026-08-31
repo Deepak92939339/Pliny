@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { logout } from "@/lib/auth/actions";
 
 type WorkspaceHeaderProps = {
@@ -32,7 +31,7 @@ export function WorkspaceHeader({ canExportTranscript = false, documentCount, on
   const [isAccountOpen, setIsAccountOpen] = useState(false);
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-4 text-[color:var(--editorial-ink)] dark:border-[color:var(--editorial-border-soft)] dark:bg-[var(--editorial-panel)]">
+    <header className="flex h-12 shrink-0 items-center justify-between border-b border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-4 text-[color:var(--editorial-ink)]">
       <div className="min-w-0">
         <h1 className="truncate text-[15px] font-medium leading-5" title={workspaceName}>
           {truncateText(workspaceName, 32)}
@@ -46,12 +45,11 @@ export function WorkspaceHeader({ canExportTranscript = false, documentCount, on
             type="button"
             disabled={!canExportTranscript}
             onClick={onExportTranscript}
-            className="hidden rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--editorial-muted)] transition-colors hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25 dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)] sm:inline-flex"
+            className="hidden rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--editorial-muted)] transition-colors hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25 sm:inline-flex"
           >
             Export transcript
           </button>
         ) : null}
-        <ThemeToggle tone="editorial" />
         <div className="relative">
           <button
             type="button"
@@ -66,7 +64,7 @@ export function WorkspaceHeader({ canExportTranscript = false, documentCount, on
           {isAccountOpen ? (
             <div
               role="menu"
-              className="absolute right-0 top-10 z-30 w-56 rounded-lg border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] p-2 shadow-lg shadow-[rgba(72,48,31,0.08)] dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)] dark:shadow-[rgba(0,0,0,0.5)]"
+              className="absolute right-0 top-10 z-30 w-56 rounded-lg border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] p-2 shadow-lg shadow-[rgba(72,48,31,0.08)]"
             >
               <p className="truncate px-2 py-2 text-xs text-[color:var(--editorial-muted)]" title={userEmail ?? undefined}>
                 {userEmail ?? "Signed in"}
@@ -75,7 +73,7 @@ export function WorkspaceHeader({ canExportTranscript = false, documentCount, on
                 <button
                   type="submit"
                   role="menuitem"
-                  className="w-full rounded-md px-2 py-2 text-left text-xs font-medium text-[color:var(--editorial-ink)] hover:bg-[var(--editorial-panel)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 dark:hover:bg-[var(--editorial-panel)]"
+                  className="w-full rounded-md px-2 py-2 text-left text-xs font-medium text-[color:var(--editorial-ink)] hover:bg-[var(--editorial-panel)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35"
                 >
                   Sign out
                 </button>

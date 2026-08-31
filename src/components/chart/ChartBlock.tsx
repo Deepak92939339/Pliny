@@ -136,7 +136,7 @@ function renderChart(chart: ChartData) {
 
 export function ChartBlock({ chart }: ChartBlockProps) {
   return (
-    <section className="my-5 rounded-2xl border border-black/[0.08] bg-[#FFFEFA]/85 p-4 text-[color:var(--editorial-ink)] dark:border-[color:var(--editorial-border-soft)] dark:bg-[var(--editorial-card)]">
+    <section className="my-5 rounded-2xl border border-black/[0.08] bg-[#FFFEFA]/85 p-4 text-[color:var(--editorial-ink)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h4 className="text-[14px] font-semibold leading-5 text-[color:var(--editorial-ink)]">{chart.title}</h4>
@@ -156,7 +156,7 @@ export function ChartBlock({ chart }: ChartBlockProps) {
       </div>
 
       {chart.insight ? (
-        <p className="mt-3 border-t border-black/[0.07] pt-3 text-[12px] leading-5 text-[color:var(--editorial-muted)] dark:border-[color:var(--editorial-border-soft)]">
+        <p className="mt-3 border-t border-black/[0.07] pt-3 text-[12px] leading-5 text-[color:var(--editorial-muted)]">
           {chart.insight}
         </p>
       ) : null}

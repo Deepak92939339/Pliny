@@ -4,7 +4,7 @@ import type { ChartData } from "@/lib/chart/types";
 import type { GeneratedReport, ReportSource, ReportTemplate, SearchChunkResult, WorkspaceSearchResult } from "@/types";
 
 export const STANDARD_VERIFICATION_NOTE =
-  "This report is generated from uploaded document sources. Citations point to retrieved passages used by Pliny AI. Review source excerpts before relying on the output for legal, financial, audit, medical, or compliance decisions.";
+  "This report is generated from uploaded document sources. Citations point to retrieved passages used by Pliny. Review source excerpts before relying on the output for legal, financial, audit, medical, or compliance decisions.";
 
 export const SPREADSHEET_VERIFICATION_NOTE =
   "Spreadsheet reasoning depends on parsed table data. Review source rows and the original spreadsheet before relying on calculations.";
@@ -173,7 +173,7 @@ export function buildReportForTemplate(template: ReportTemplate, input: ReportBu
 export function buildChatTranscriptMarkdown({ generatedAt, results, workspaceName }: TranscriptBuildInput) {
   const exportedAt = generatedAt ?? new Date().toISOString();
   const lines = [
-    "# Pliny AI Chat Transcript",
+    "# Pliny Chat Transcript",
     "",
     `Workspace: ${workspaceName || "Workspace"}`,
     `Exported: ${exportedAt}`,

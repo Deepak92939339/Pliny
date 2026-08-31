@@ -18,10 +18,10 @@ export function InsufficientEvidence({ closestMatches, missingEvidence, reason }
   return (
     <section
       aria-label="Insufficient evidence"
-      className="rounded-2xl border border-[#D9CBBB] bg-[#FBF8F3] p-5 shadow-[0_8px_22px_rgba(72,48,31,0.04)] dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)]"
+      className="rounded-2xl border border-[#D9CBBB] bg-[#FBF8F3] p-5 shadow-[0_8px_22px_rgba(72,48,31,0.04)]"
     >
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EFE5D8] text-[#8F3F28] dark:bg-[rgba(186,92,61,0.16)] dark:text-[color:var(--editorial-rust-strong)]">
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EFE5D8] text-[#8F3F28]">
           <span aria-hidden="true">!</span>
         </div>
         <div className="min-w-0">

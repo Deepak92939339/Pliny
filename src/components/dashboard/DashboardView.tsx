@@ -1,6 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
-import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { BrandMark } from "@/components/shared/BrandMark";
 import { NewWorkspaceDialog } from "@/components/dashboard/NewWorkspaceDialog";
 import { logout } from "@/lib/auth/actions";
 import type { CollectionListItem } from "@/types";
@@ -35,10 +34,7 @@ function toWorkspaceCopy(message: string) {
 
 function DashboardLogo() {
   return (
-    <span className="flex h-9 items-center gap-[7px]">
-      <Image src="/brand/pliny-mark.png" alt="" aria-hidden="true" width={1024} height={1024} className="size-6 shrink-0 object-contain" />
-      <span className="dm-editorial-display text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#17202A]">Pliny</span>
-    </span>
+    <BrandMark className="h-9 gap-2" markClassName="size-6 border-[#BA5C3D]/45 bg-transparent text-[#BA5C3D]" textClassName="dm-editorial-display text-[24px] font-semibold text-[#17202A]" />
   );
 }
 
@@ -86,7 +82,6 @@ export function DashboardView({ userEmail, collections, collectionsError }: Dash
             <p className="min-w-0 truncate text-xs text-[#6B7280]" title={userEmail ?? undefined}>
               {userEmail ?? "Signed in"}
             </p>
-            <ThemeToggle tone="editorial" />
           </div>
           <form action={logout}>
             <button

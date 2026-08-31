@@ -110,7 +110,7 @@ export function AnalysisRecord({ result, selectedSourceId, onSelectSource, works
   return (
     <article className="space-y-6">
       <div className="flex justify-end">
-        <div className="max-w-[70%] rounded-2xl border border-[#D9CBBB] bg-[#EFE5D8] px-4 py-3 text-[15px] leading-6 text-[color:var(--editorial-ink)] shadow-[0_8px_22px_rgba(72,48,31,0.05)] dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)] dark:shadow-[0_10px_24px_rgba(0,0,0,0.28)]">
+        <div className="max-w-[70%] rounded-2xl border border-[#D9CBBB] bg-[#EFE5D8] px-4 py-3 text-[15px] leading-6 text-[color:var(--editorial-ink)] shadow-[0_8px_22px_rgba(72,48,31,0.05)]">
           {result.question}
         </div>
       </div>
@@ -137,36 +137,36 @@ export function AnalysisRecord({ result, selectedSourceId, onSelectSource, works
             <button
               type="button"
               onClick={handleCopyWithCitations}
-              className="rounded-md border border-[#D9CBBB] bg-[#FBF8F3] px-2.5 py-1 font-medium text-[#8F3F28] transition-colors hover:border-[#BA5C3D]/45 hover:bg-[#EFE5D8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25 dark:border-[#BA5C3D]/30 dark:bg-[rgba(186,92,61,0.12)] dark:text-[color:var(--editorial-rust-strong)]"
+              className="rounded-md border border-[#D9CBBB] bg-[#FBF8F3] px-2.5 py-1 font-medium text-[#8F3F28] transition-colors hover:border-[#BA5C3D]/45 hover:bg-[#EFE5D8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25"
             >
               {copyStatus === "copied" ? "Copied" : "Copy answer with citations"}
             </button>
             <button
               type="button"
               onClick={handleExportMarkdown}
-              className="rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-2.5 py-1 font-medium text-[color:var(--editorial-muted)] transition-colors hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25 dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)]"
+              className="rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-2.5 py-1 font-medium text-[color:var(--editorial-muted)] transition-colors hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25"
             >
               Export Markdown
             </button>
             <button
               type="button"
               onClick={handleCopyReportMarkdown}
-              className="rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-2.5 py-1 font-medium text-[color:var(--editorial-muted)] transition-colors hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25 dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)]"
+              className="rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-2.5 py-1 font-medium text-[color:var(--editorial-muted)] transition-colors hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25"
             >
               {reportCopyStatus === "copied" ? "Report copied" : "Copy report Markdown"}
             </button>
             <button
               type="button"
               onClick={handleOpenPrintReport}
-              className="rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-2.5 py-1 font-medium text-[color:var(--editorial-muted)] transition-colors hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25 dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)]"
+              className="rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-2.5 py-1 font-medium text-[color:var(--editorial-muted)] transition-colors hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25"
             >
               Open print report
             </button>
             <details className="group relative">
-              <summary className="cursor-pointer list-none rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-2.5 py-1 font-medium text-[color:var(--editorial-muted)] transition-colors hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25 dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)]">
+              <summary className="cursor-pointer list-none rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] px-2.5 py-1 font-medium text-[color:var(--editorial-muted)] transition-colors hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25">
                 Reports
               </summary>
-              <div className="absolute left-0 top-8 z-20 grid min-w-56 gap-1 rounded-lg border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] p-1.5 shadow-lg shadow-[rgba(72,48,31,0.08)] dark:border-[color:var(--editorial-border)] dark:bg-[var(--surface-2)] dark:shadow-[rgba(0,0,0,0.45)]">
+              <div className="absolute left-0 top-8 z-20 grid min-w-56 gap-1 rounded-lg border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] p-1.5 shadow-lg shadow-[rgba(72,48,31,0.08)]">
                 {professionalReportTemplates.map((item) => {
                   const isDisabled = item.template !== "cited_answer" && !hasSourceSupport;
 
@@ -185,9 +185,9 @@ export function AnalysisRecord({ result, selectedSourceId, onSelectSource, works
                 })}
               </div>
             </details>
-            {copyStatus === "failed" ? <span className="text-[#9A5A3E] dark:text-[#D6A18D]">Copy failed</span> : null}
-            {reportCopyStatus === "failed" ? <span className="text-[#9A5A3E] dark:text-[#D6A18D]">Report copy failed</span> : null}
-            {printError ? <span className="text-[#9A5A3E] dark:text-[#D6A18D]">Print window was blocked</span> : null}
+            {copyStatus === "failed" ? <span className="text-[#9A5A3E]">Copy failed</span> : null}
+            {reportCopyStatus === "failed" ? <span className="text-[#9A5A3E]">Report copy failed</span> : null}
+            {printError ? <span className="text-[#9A5A3E]">Print window was blocked</span> : null}
           </div>
         ) : null}
       </div>
@@ -424,8 +424,8 @@ function renderInlineContent(
           className={cn(
             "mx-0.5 inline-flex -translate-y-px items-center rounded-full border px-1.5 py-[1px] text-[11px] font-medium leading-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25",
             isSelected
-              ? "border-[#BA5C3D]/45 bg-[#EFE5D8] text-[#8F3F28] dark:border-[#BA5C3D]/55 dark:bg-[rgba(186,92,61,0.18)] dark:text-[color:var(--editorial-rust-strong)]"
-              : "border-[#D9CBBB] bg-[#EFE5D8] text-[#8F3F28] hover:border-[#BA5C3D]/45 hover:bg-[#E7DDD0] dark:border-[#BA5C3D]/35 dark:bg-[rgba(186,92,61,0.14)] dark:text-[color:var(--editorial-rust-strong)] dark:hover:border-[#BA5C3D]/58 dark:hover:bg-[rgba(186,92,61,0.2)]"
+              ? "border-[#BA5C3D]/45 bg-[#EFE5D8] text-[#8F3F28]"
+              : "border-[#D9CBBB] bg-[#EFE5D8] text-[#8F3F28] hover:border-[#BA5C3D]/45 hover:bg-[#E7DDD0]"
           )}
           title={getCitationTitle(citation)}
         >
@@ -450,7 +450,7 @@ function renderInlineContent(
       return (
         <code
           key={`${codeText}-${index}`}
-          className="rounded-[5px] border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-panel)] px-1 py-0.5 font-mono text-[0.88em] text-[color:var(--editorial-ink)] dark:border-[color:var(--editorial-border-soft)] dark:bg-[var(--editorial-panel)]"
+          className="rounded-[5px] border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-panel)] px-1 py-0.5 font-mono text-[0.88em] text-[color:var(--editorial-ink)]"
         >
           {codeText}
         </code>

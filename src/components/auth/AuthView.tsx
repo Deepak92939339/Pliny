@@ -218,8 +218,8 @@ export function AuthView({ mode }: AuthViewProps) {
 function AuthLogo() {
   return (
     <span className="flex h-9 items-center gap-[7px]">
-      <Image src="/brand/pliny-mark.png" alt="" aria-hidden="true" width={1024} height={1024} className="size-6 shrink-0 object-contain" />
-      <span className="dm-editorial-display text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#17202A]">pliny.ai</span>
+      <Image src="/brand/pliny-mark.svg" alt="" aria-hidden="true" width={48} height={48} className="size-6 shrink-0 object-contain" />
+      <span className="dm-editorial-display text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#17202A]">Pliny</span>
     </span>
   );
 }
