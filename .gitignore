@@ -40,6 +40,9 @@ yarn-error.log*
 # Supabase CLI linked-project state
 /supabase/.temp/
 
+# Local Storage reconciliation manifests and sanitized audit artifacts
+/.pliny-storage/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
