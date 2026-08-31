@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -64,7 +65,7 @@ export function LandingView() {
             <p className="mt-5 text-[12px] font-medium tracking-[0.01em] text-[#6B665F]">Source-grounded answers · Visible citations · Private workspaces</p>
           </div>
 
-          <HeroMarkIllustration />
+          <HeroEtchingIllustration />
         </div>
 
         <EvidenceDemo />
@@ -177,24 +178,17 @@ function LandingNav() {
   );
 }
 
-function HeroMarkIllustration() {
+function HeroEtchingIllustration() {
   return (
-    <div className="relative mx-auto w-full max-w-[480px]" aria-hidden="true">
-      <div className="absolute inset-8 rounded-full bg-[#F2E7DD] blur-3xl" />
-      <svg viewBox="0 0 480 420" className="relative w-full" fill="none" role="presentation">
-        <path d="M76 326 238 70l166 76-160 252-168-72Z" fill="#F5F0E8" stroke="#0C1427" strokeWidth="2" />
-        <path d="m94 315 150-220 143 66-145 226-148-72Z" fill="#FFFEFA" stroke="#BA5C3D" strokeWidth="1.5" />
-        <path d="M126 280 259 106m-112 207 139-215m-96 247 141-218" stroke="#D5D2C8" strokeWidth="1.5" />
-        <path d="m111 296 148-20 94-147" stroke="#0C1427" strokeWidth="2" strokeLinecap="round" />
-        <path d="m116 309 126 54 137-213" stroke="#BA5C3D" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="258" cy="276" r="10" fill="#BA5C3D" />
-        <circle cx="258" cy="276" r="4" fill="#FCFBF8" />
-        <path d="m323 54 54 248" stroke="#0C1427" strokeWidth="5" strokeLinecap="round" />
-        <path d="m327 52 24-19 29 21-25 17-28-19Z" fill="#BA5C3D" stroke="#0C1427" strokeWidth="2" />
-        <path d="m376 303 16 24-21-5-16-24 21 5Z" fill="#0C1427" />
-        <path d="M54 345h360" stroke="#D5D2C8" />
-      </svg>
-      <p className="absolute bottom-1 left-1/2 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#8A7D70]">Read · retrieve · verify</p>
+    <div className="relative mx-auto w-full max-w-[580px]">
+      <Image
+        src="/images/pliny-hero-etching.png"
+        alt="Engraved stack of books and documents with a magnifying glass"
+        width={1448}
+        height={1086}
+        priority
+        className="h-auto w-full object-contain mix-blend-multiply"
+      />
     </div>
   );
 }
