@@ -37,8 +37,8 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/brand/pliny-mark-16.svg", sizes: "16x16", type: "image/svg+xml" },
-      { url: "/brand/pliny-mark-48.svg", sizes: "48x48", type: "image/svg+xml" },
+      { url: "/brand/pliny-mark-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/brand/pliny-mark-48.png", sizes: "48x48", type: "image/png" },
     ],
   },
   manifest: "/site.webmanifest",
