@@ -38,9 +38,11 @@ export function buildLineUnits(text: string, linesPerUnit = TEXT_LINES_PER_UNIT)
     const lineEnd = index + slice.length;
 
     units.push({
+      blockType: "text",
       lineEnd,
       lineStart,
       locationLabel: `Lines ${lineStart}-${lineEnd}`,
+      sourceLocation: `lines:${lineStart}-${lineEnd}`,
       text: unitText,
     });
   }

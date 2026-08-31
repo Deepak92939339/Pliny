@@ -40,19 +40,17 @@ type SheetExtraction = {
   sheetName: string;
 };
 
-function trimCellValue(value: string, warnings: Set<string>) {
+function trimCellValue(value: string) {
   const normalizedValue = normalizeExtractedText(value);
 
   if (normalizedValue.length <= MAX_CELL_CHARACTERS) {
     return normalizedValue;
   }
 
-  warnings.add("Some spreadsheet cells were shortened for processing.");
-
-  return `${normalizedValue.slice(0, MAX_CELL_CHARACTERS).trimEnd()}...`;
+  throw new DocumentProcessingError(`A spreadsheet cell exceeds the supported ${MAX_CELL_CHARACTERS}-character limit.`, 413);
 }
 
-function getCellText(cell: SpreadsheetCell | undefined, warnings: Set<string>) {
+function getCellText(cell: SpreadsheetCell | undefined) {
   if (cell === undefined || cell === null) {
     return "";
   }
@@ -61,14 +59,10 @@ function getCellText(cell: SpreadsheetCell | undefined, warnings: Set<string>) {
     return cell.toISOString().slice(0, 10);
   }
 
-  return trimCellValue(String(cell), warnings);
+  return trimCellValue(String(cell));
 }
 
-function extractRowsFromSheet(
-  sheet: ParsedSheet,
-  sheetName: string,
-  warnings: Set<string>
-): {
+function extractRowsFromSheet(sheet: ParsedSheet, sheetName: string): {
   metadata: DocumentProcessingMetadata;
   rows: SpreadsheetRow[];
 } {
@@ -86,16 +80,16 @@ function extractRowsFromSheet(
 
   const totalRows = sheet.data.length;
   const totalColumns = Math.max(...sheet.data.map((row) => row.length), 0);
-  const rowEnd = Math.min(totalRows, MAX_ROWS_PER_SHEET);
-  const columnEnd = Math.min(totalColumns, MAX_COLUMNS_PER_SHEET);
+  const rowEnd = totalRows;
+  const columnEnd = totalColumns;
   const rows: SpreadsheetRow[] = [];
 
   if (totalRows > MAX_ROWS_PER_SHEET) {
-    warnings.add(`Sheet "${sheetName}" was limited to the first ${MAX_ROWS_PER_SHEET} rows.`);
+    throw new DocumentProcessingError(`Sheet "${sheetName}" exceeds the supported ${MAX_ROWS_PER_SHEET}-row limit.`, 413);
   }
 
   if (totalColumns > MAX_COLUMNS_PER_SHEET) {
-    warnings.add(`Sheet "${sheetName}" was limited to the first ${MAX_COLUMNS_PER_SHEET} columns.`);
+    throw new DocumentProcessingError(`Sheet "${sheetName}" exceeds the supported ${MAX_COLUMNS_PER_SHEET}-column limit.`, 413);
   }
 
   for (let rowIndex = 0; rowIndex < rowEnd; rowIndex += 1) {
@@ -103,7 +97,7 @@ function extractRowsFromSheet(
     const row = sheet.data[rowIndex] ?? [];
 
     for (let columnIndex = 0; columnIndex < columnEnd; columnIndex += 1) {
-      values.push(getCellText(row[columnIndex], warnings));
+      values.push(getCellText(row[columnIndex]));
     }
 
     if (values.some((value) => value.length > 0)) {
@@ -116,14 +110,14 @@ function extractRowsFromSheet(
 
   return {
     metadata: {
-      columnCount: Math.min(totalColumns, MAX_COLUMNS_PER_SHEET),
+      columnCount: totalColumns,
       originalColumnCount: totalColumns,
       originalRowCount: totalRows,
       rowCount: rows.length,
       sheetName,
       sourceType: "spreadsheet",
-      truncatedColumns: totalColumns > MAX_COLUMNS_PER_SHEET,
-      truncatedRows: totalRows > MAX_ROWS_PER_SHEET,
+      truncatedColumns: false,
+      truncatedRows: false,
     },
     rows,
   };
@@ -135,8 +129,8 @@ function normalizeHeaders(row: SpreadsheetRow, fallbackColumnCount: number) {
   return Array.from({ length: columnCount }, (_, index) => row.values[index]?.trim() || `Column ${index + 1}`);
 }
 
-function extractReadableSheet(sheet: ParsedSheet, sheetName: string, warnings: Set<string>): SheetExtraction | null {
-  const { metadata, rows } = extractRowsFromSheet(sheet, sheetName, warnings);
+function extractReadableSheet(sheet: ParsedSheet, sheetName: string): SheetExtraction | null {
+  const { metadata, rows } = extractRowsFromSheet(sheet, sheetName);
 
   if (rows.length === 0) {
     return null;
@@ -200,6 +194,7 @@ function buildSpreadsheetUnits(sheets: SheetExtraction[]) {
       const rowsText = slice.map((row) => formatRow(sheet.headers, row)).join("\n");
 
       units.push({
+        blockType: "table_row",
         locationLabel,
         metadata: {
           ...sheet.metadata,
@@ -210,6 +205,8 @@ function buildSpreadsheetUnits(sheets: SheetExtraction[]) {
         rowEnd,
         rowStart,
         sheetName: sheet.sheetName,
+        sourceLocation: `sheet:${sheet.sheetName}:rows:${rowStart}-${rowEnd}`,
+        tableContext: `Sheet ${sheet.sheetName}; columns: ${sheet.headers.join(" | ")}`,
         text: `Sheet: ${sheet.sheetName}\nRows: ${rowStart}–${rowEnd}\n\nColumns: ${sheet.headers.join(" | ")}\n\n${rowsText}`,
       });
     }
@@ -237,18 +234,17 @@ export const xlsxProcessor: DocumentProcessorPlugin = {
   extensions: [".xlsx"],
   async extract(input) {
     const workbook = await parseWorkbook(input.bytes);
-    const warnings = new Set<string>();
-    const sheetNames = workbook.slice(0, MAX_SHEETS_PROCESSED).map((sheet) => sheet.sheet);
-
     if (workbook.length > MAX_SHEETS_PROCESSED) {
-      warnings.add(`Only the first ${MAX_SHEETS_PROCESSED} sheets were processed.`);
+      throw new DocumentProcessingError(`This spreadsheet exceeds the supported ${MAX_SHEETS_PROCESSED}-sheet limit.`, 413);
     }
+
+    const sheetNames = workbook.map((sheet) => sheet.sheet);
 
     const readableSheets = sheetNames
       .map((sheetName) => {
         const sheet = workbook.find((candidate) => candidate.sheet === sheetName);
 
-        return sheet ? extractReadableSheet(sheet, sheetName, warnings) : null;
+        return sheet ? extractReadableSheet(sheet, sheetName) : null;
       })
       .filter((sheet): sheet is SheetExtraction => Boolean(sheet));
     const units = buildSpreadsheetUnits(readableSheets);
@@ -265,7 +261,7 @@ export const xlsxProcessor: DocumentProcessorPlugin = {
       plainText,
       title: input.filename,
       units,
-      warnings: Array.from(warnings),
+      warnings: [],
       wordCount: countWords(plainText),
     };
   },

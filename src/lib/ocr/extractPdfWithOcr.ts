@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { createCanvas } from "@napi-rs/canvas";
 import Tesseract from "tesseract.js";
-import type { PageText } from "@/lib/chunker";
+import type { PageText } from "../chunker.ts";
 
 const require = createRequire(import.meta.url);
 const englishLanguageData = require("@tesseract.js-data/eng") as {
@@ -48,12 +48,10 @@ type PdfJsModule = {
 };
 
 export type OcrExtractionResult = {
-  maxPages: number;
   pageCount: number;
   pages: PageText[];
   pagesOcred: number;
   text: string;
-  truncated: boolean;
 };
 
 function normalizeText(text: string) {
@@ -80,7 +78,7 @@ async function renderPageToPng(page: PdfPageForRendering) {
   return canvas.toBuffer("image/png");
 }
 
-export async function extractPdfWithOcr(pdfData: Uint8Array, { maxPages }: { maxPages: number }): Promise<OcrExtractionResult> {
+export async function extractPdfWithOcr(pdfData: Uint8Array, { pageNumbers }: { pageNumbers: number[] }): Promise<OcrExtractionResult> {
   const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as PdfJsModule;
   const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(pdfData),
@@ -90,7 +88,13 @@ export async function extractPdfWithOcr(pdfData: Uint8Array, { maxPages }: { max
     useSystemFonts: true,
   });
   const pdfDocument = await loadingTask.promise;
-  const pagesToProcess = Math.max(1, Math.min(pdfDocument.numPages, maxPages));
+  const pagesToProcess = Array.from(new Set(pageNumbers))
+    .filter((pageNumber) => Number.isInteger(pageNumber) && pageNumber >= 1 && pageNumber <= pdfDocument.numPages)
+    .sort((left, right) => left - right);
+
+  if (pagesToProcess.length === 0) {
+    throw new Error("No valid PDF pages were selected for OCR.");
+  }
   const worker = await Tesseract.createWorker("eng", Tesseract.OEM.LSTM_ONLY, {
     cacheMethod: "none",
     gzip: englishLanguageData.gzip,
@@ -105,7 +109,7 @@ export async function extractPdfWithOcr(pdfData: Uint8Array, { maxPages }: { max
       user_defined_dpi: "180",
     });
 
-    for (let pageNumber = 1; pageNumber <= pagesToProcess; pageNumber += 1) {
+    for (const pageNumber of pagesToProcess) {
       const page = await pdfDocument.getPage(pageNumber);
 
       try {
@@ -130,11 +134,9 @@ export async function extractPdfWithOcr(pdfData: Uint8Array, { maxPages }: { max
   const text = normalizeText(pages.map((page) => page.text).join(" "));
 
   return {
-    maxPages,
     pageCount: pdfDocument.numPages,
     pages,
-    pagesOcred: pagesToProcess,
+    pagesOcred: pagesToProcess.length,
     text,
-    truncated: pdfDocument.numPages > pagesToProcess,
   };
 }

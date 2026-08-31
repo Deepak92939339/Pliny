@@ -6,7 +6,7 @@ import { useDropzone, type FileRejection } from "react-dropzone";
 import { cn } from "@/lib/utils";
 
 const MAX_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024;
-const ACTIVE_EXTENSIONS = [".pdf", ".docx", ".xlsx", ".txt", ".md", ".markdown", ".csv"];
+const ACTIVE_EXTENSIONS = [".pdf", ".docx", ".xlsx", ".txt", ".md", ".markdown", ".html", ".htm", ".csv"];
 
 type DocumentUploadDropzoneProps = {
   className?: string;
@@ -164,6 +164,7 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
       "text/csv": [".csv"],
       "text/markdown": [".md", ".markdown"],
+      "text/html": [".html", ".htm"],
       "text/plain": [".txt", ".md", ".markdown", ".csv"],
     },
     disabled: isBusy,

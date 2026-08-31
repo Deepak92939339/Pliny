@@ -7,7 +7,7 @@ import {
   normalizeExtractedText,
   type DocumentProcessorPlugin,
   type ExtractedUnit,
-} from "@/lib/document-processing/types";
+} from "../types.ts";
 
 const MAX_DOCX_SIZE_BYTES = 15 * 1024 * 1024;
 const DOCX_PARAGRAPHS_PER_UNIT = 12;
@@ -35,11 +35,13 @@ function buildDocxUnits(paragraphs: string[]): ExtractedUnit[] {
     }
 
     units.push({
+      blockType: "paragraph",
       locationLabel: `Paragraphs ${paragraphStart}-${paragraphEnd}`,
       metadata: {
         paragraphEnd,
         paragraphStart,
       },
+      sourceLocation: `paragraphs:${paragraphStart}-${paragraphEnd}`,
       text,
     });
   }

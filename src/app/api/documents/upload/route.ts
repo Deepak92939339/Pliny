@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 const uploadSchema = z.object({
   collection_id: z.string().uuid("Invalid project id."),
 });
+const MAX_MULTIPART_BODY_BYTES = 16 * 1024 * 1024;
 
 type ErrorLike = {
   code?: unknown;
@@ -134,6 +135,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error }, { status });
   }
 
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_MULTIPART_BODY_BYTES) {
+    return NextResponse.json({ error: "The upload request is too large to process safely." }, { status: 413 });
+  }
+
   const formData = await request.formData().catch(() => null);
 
   if (!formData) {
@@ -228,6 +234,7 @@ export async function POST(request: Request) {
       collection_id: collectionId,
       file_size: file.size,
       filename: displayFilename,
+      processing_stage: "uploading",
       status: "processing",
       storage_path: storagePath,
       user_id: user.id,

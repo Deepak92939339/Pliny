@@ -17,6 +17,7 @@ export type CollectionListItem = {
 };
 
 export type DocumentStatus = "processing" | "ready" | "failed";
+export type DocumentProcessingStage = "validating" | "uploading" | "extracting" | "ocr_fallback" | "chunking" | "embedding" | "indexing" | "ready" | "failed";
 
 export type DocumentRow = {
   id: string;
@@ -27,6 +28,7 @@ export type DocumentRow = {
   page_count: number;
   file_size: number;
   status: DocumentStatus;
+  processing_stage?: DocumentProcessingStage | null;
   error_message: string | null;
   created_at: string;
 };
@@ -39,6 +41,7 @@ export type DocumentListItem = {
   pageCount: number;
   fileSize: number;
   status: DocumentStatus;
+  processingStage?: DocumentProcessingStage | null;
   errorMessage: string | null;
   createdAt: string;
 };

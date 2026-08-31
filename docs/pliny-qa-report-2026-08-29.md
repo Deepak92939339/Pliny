@@ -337,6 +337,41 @@ This closing section supersedes every earlier section in this historical report,
 
 **CONDITIONAL** — deployment and infrastructure hardening are complete, but READY is not claimed because two authorized live provider checks did not pass and residual transitive npm-audit findings remain. Further provider-backed verification requires new explicit authorization.
 
+## Pliny v1.1 ingestion/retrieval hardening — 2026-08-31
+
+### Bounded migration-memory resolution
+
+- The first remote migration attempt failed while adding the stored generated `document_chunks.lexical_search` column: PostgreSQL reported `memory required: 41 MB` against the project default `maintenance_work_mem: 32 MB`.
+- Catalog inspection confirmed the existing vector index is valid IVFFLAT (`document_chunks_embedding_idx`), not HNSW. The failure occurred during materialization of the generated `tsvector` across the existing chunk table; PostgreSQL had to maintain table indexes during that rewrite. The IVFFLAT index was not dropped or rebuilt.
+- A rolled-back transaction-local capability test accepted `SET LOCAL maintenance_work_mem = '64MB'`, and `SHOW maintenance_work_mem` returned `64MB`. No persistent database configuration was changed.
+- The pending migration was amended only to set this bounded transaction-local value before the memory-intensive operation. The linked dry run showed exactly one pending migration, and the one authorized retry applied successfully.
+
+### Remote migration and security verification
+
+- Applied migration: `20260831090000_pliny_v1_1_ingestion_retrieval_hardening.sql`.
+- Migration history contains `20260830183604`, `20260830214649`, and `20260831090000` both locally and remotely.
+- `documents.processing_stage` is required with the reviewed stage constraint and `uploading` default; `processing_started_at` exists; `document_chunks.lexical_search` is a stored generated `tsvector`.
+- `document_chunks_lexical_search_idx` exists as a valid, ready GIN index. The existing `document_chunks_embedding_idx` remains valid IVFFLAT, and `document_chunks.embedding` remains `vector(1024)`.
+- `public.match_document_chunks_lexical(text, uuid, uuid, uuid, integer)` is `STABLE`, security-invoker, fixed to `search_path=public`, and returns the reviewed ranked table. Its PostgreSQL full-text algorithm is `websearch_to_tsquery('simple', ...)` plus bounded `ts_rank_cd`; it is documented as lexical ranking, not BM25.
+- The lexical RPC is executable by `authenticated` only; anonymous and PUBLIC execution are denied. An anonymous role call was rejected with permission denied. An authenticated role without a JWT returned zero rows, and the function body enforces `match_user_id = auth.uid()` plus the document owner predicate. Existing documents and document-chunk RLS policies remain enabled and owner-scoped.
+- Security advisor warnings are pre-existing configuration findings for the public `vector` extension and disabled leaked-password protection; no v1.1 security regression was reported. The performance advisor reported no issues.
+
+### Provider-free validation
+
+- Focused ingestion regression tests — PASS.
+- Focused retrieval regression tests — PASS.
+- `npm run lint` — PASS.
+- `npx tsc --noEmit` — PASS.
+- `npm run build` — PASS.
+- `git diff --check` — PASS.
+- No Voyage, Anthropic, OpenAI, Z.AI or other provider request was made, and no fixture was uploaded or transmitted.
+
+### Release status
+
+- v1.1 migration application and remote database verification — **PASS**.
+- Live ingestion status — **pending explicit document/provider authorization**.
+- Production deployment ID and deployed commit — recorded below after the controlled deployment.
+
 ## FINAL TARGETED VERIFICATION — 2026-08-31
 
 This is the latest authoritative result and supersedes all earlier conclusions in this historical report, including the prior invalid cross-document harness result. No broad QA, dependency remediation, build, or previously passed test was rerun for this targeted gate.

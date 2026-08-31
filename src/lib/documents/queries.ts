@@ -16,6 +16,7 @@ function mapDocumentRow(row: DocumentRow): DocumentListItem {
     id: row.id,
     pageCount: row.page_count,
     status: row.status,
+    processingStage: row.processing_stage ?? null,
     storagePath: row.storage_path,
   };
 }

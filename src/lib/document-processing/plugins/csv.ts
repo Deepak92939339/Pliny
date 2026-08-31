@@ -7,7 +7,7 @@ import {
   normalizeExtractedText,
   type DocumentProcessorPlugin,
   type ExtractedUnit,
-} from "@/lib/document-processing/types";
+} from "../types.ts";
 
 const MAX_CSV_SIZE_BYTES = 10 * 1024 * 1024;
 const CSV_ROWS_PER_UNIT = 50;
@@ -107,6 +107,7 @@ function buildCsvUnits(rows: string[][]): ExtractedUnit[] {
       .join("\n");
 
     units.push({
+      blockType: "table_row",
       locationLabel: `Rows ${rowStart}-${rowEnd}`,
       metadata: {
         columnCount: headers.length,
@@ -114,6 +115,8 @@ function buildCsvUnits(rows: string[][]): ExtractedUnit[] {
       },
       rowEnd,
       rowStart,
+      sourceLocation: `rows:${rowStart}-${rowEnd}`,
+      tableContext: `CSV columns: ${headers.join(" | ")}`,
       text: `Columns: ${headers.join(" | ")}\n${rowsText}`,
     });
   }

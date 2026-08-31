@@ -6,6 +6,8 @@ const EXTENSION_TO_KIND = new Map<string, SupportedFileKind>([
   [".xlsx", "xlsx"],
   [".xls", "xlsx"],
   [".csv", "csv"],
+  [".html", "html"],
+  [".htm", "html"],
   [".md", "markdown"],
   [".markdown", "markdown"],
   [".txt", "text"],
@@ -30,6 +32,7 @@ export function getFileKindLabel(kind: SupportedFileKind) {
   const labels: Record<SupportedFileKind, string> = {
     csv: "CSV",
     docx: "DOCX",
+    html: "HTML",
     markdown: "MD",
     pdf: "PDF",
     text: "TXT",

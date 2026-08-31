@@ -3,15 +3,38 @@ export type SupportedFileKind =
   | "docx"
   | "xlsx"
   | "csv"
+  | "html"
   | "markdown"
   | "text"
   | "unknown";
 
-export type ExtractionMethod = "pdf_native" | "ocr" | "plain_text" | "markdown" | "csv" | "docx" | "xlsx";
+export type ExtractionMethod = "pdf_native" | "pdf_hybrid_ocr" | "ocr" | "plain_text" | "html" | "markdown" | "csv" | "docx" | "xlsx";
+
+export type ExtractedBlockType =
+  | "title"
+  | "heading"
+  | "paragraph"
+  | "list_item"
+  | "table_row"
+  | "blockquote"
+  | "code"
+  | "text";
+
+export type DocumentProcessingStage =
+  | "validating"
+  | "uploading"
+  | "extracting"
+  | "ocr_fallback"
+  | "chunking"
+  | "embedding"
+  | "indexing"
+  | "ready"
+  | "failed";
 
 export type DocumentProcessingMetadata = Record<string, string | number | boolean | null>;
 
 export type ExtractedUnit = {
+  blockType?: ExtractedBlockType;
   cellIndex?: number;
   codeLanguage?: string;
   headingPath?: string[];
@@ -24,6 +47,8 @@ export type ExtractedUnit = {
   rowStart?: number;
   sheetName?: string;
   slideNumber?: number;
+  sourceLocation?: string;
+  tableContext?: string;
   text: string;
 };
 
@@ -43,6 +68,7 @@ export type DocumentProcessorInput = {
   bytes: Uint8Array;
   filename: string;
   mimeType: string;
+  onStage?: (stage: DocumentProcessingStage) => Promise<void>;
 };
 
 export type DocumentProcessorPlugin = {
@@ -69,6 +95,16 @@ export class DocumentProcessingError extends Error {
 
 export function normalizeExtractedText(text: string) {
   return text.replace(/\s+/g, " ").trim();
+}
+
+export function normalizeBlockText(text: string) {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[\t ]+/g, " ").trimEnd())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export function countWords(text: string) {

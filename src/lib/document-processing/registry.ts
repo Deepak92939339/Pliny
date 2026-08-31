@@ -1,5 +1,6 @@
 import { csvProcessor } from "@/lib/document-processing/plugins/csv";
 import { docxProcessor } from "@/lib/document-processing/plugins/docx";
+import { htmlProcessor } from "@/lib/document-processing/plugins/html";
 import { markdownProcessor } from "@/lib/document-processing/plugins/markdown";
 import { pdfProcessor } from "@/lib/document-processing/plugins/pdf";
 import { textProcessor } from "@/lib/document-processing/plugins/text";
@@ -11,6 +12,7 @@ export const documentProcessorPlugins: DocumentProcessorPlugin[] = [
   pdfProcessor,
   docxProcessor,
   xlsxProcessor,
+  htmlProcessor,
   markdownProcessor,
   textProcessor,
   csvProcessor,

@@ -1,4 +1,11 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import { chunkExtractedDocument } from "../src/lib/document-processing/chunkExtractedDocument.ts";
+import { csvProcessor } from "../src/lib/document-processing/plugins/csv.ts";
+import { docxProcessor } from "../src/lib/document-processing/plugins/docx.ts";
+import { htmlProcessor } from "../src/lib/document-processing/plugins/html.ts";
+import { markdownProcessor } from "../src/lib/document-processing/plugins/markdown.ts";
+import { getPdfOcrPageNumbers, pdfProcessor } from "../src/lib/document-processing/plugins/pdf.ts";
 import { xlsxProcessor } from "../src/lib/document-processing/plugins/xlsx.ts";
 
 const fixture = Buffer.from(
@@ -33,4 +40,59 @@ assert.equal(extracted.plainText.includes("Department=Cloud"), true);
 assert.equal(extracted.plainText.includes("Owner=Finance"), true);
 assert.equal(extracted.units[0].locationLabel, "Sheet: Expenses · Rows 2–2");
 
-console.log("XLSX ingestion regression tests passed.");
+const csv = await csvProcessor.extract({ bytes: Buffer.from("category,amount\nCloud,42000\nSales,17000\n"), filename: "expenses.csv", mimeType: "text/csv" });
+assert.equal(csv.kind, "csv");
+assert.equal(csv.units[0].blockType, "table_row");
+assert.equal(csv.units[0].sourceLocation, "rows:2-3");
+const docxFixture = await fs.readFile("/Users/sandman/Downloads/1_Escalation_Letter_ICICI_MOT17428943.docx");
+const docx = await docxProcessor.extract({ bytes: docxFixture, filename: "fixture.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+assert.equal(docx.kind, "docx");
+assert.equal(docx.units.every((unit) => unit.blockType === "paragraph" && typeof unit.sourceLocation === "string"), true);
+
+const markdown = await markdownProcessor.extract({
+  bytes: Buffer.from("# Runbook\n\n## Deploy\n\n- verify status\n\n| Code | Meaning |\n| --- | --- |\n| E-42 | Retry |\n\n```ts\nconst safe = true;\n```\n<script>throw new Error('nope')</script>"),
+  filename: "runbook.md",
+  mimeType: "text/markdown",
+});
+assert.equal(markdown.units.some((unit) => unit.blockType === "heading" && unit.headingPath?.includes("Deploy")), true);
+assert.equal(markdown.units.some((unit) => unit.blockType === "table_row" && unit.tableContext?.includes("Markdown table")), true);
+assert.equal(markdown.units.some((unit) => unit.blockType === "code" && unit.codeLanguage === "ts"), true);
+assert.equal(markdown.plainText.includes("throw new Error"), false);
+
+const safeHtml = await htmlProcessor.extract({
+  bytes: Buffer.from("<!doctype html><html><head><title>QA report</title><script>bad()</script></head><body><article><h1>Summary</h1><p>Release evidence is ready.</p><table><tr><th>Code</th><th>Meaning</th></tr><tr><td>E-42</td><td>Retry</td></tr></table><iframe src='https://example.com'></iframe><form><input value='hidden'></form><p hidden>not evidence</p></article></body></html>"),
+  filename: "report.html",
+  mimeType: "text/html",
+});
+assert.equal(safeHtml.title, "QA report");
+assert.equal(safeHtml.units.some((unit) => unit.blockType === "table_row" && unit.sourceLocation?.includes("tr")), true);
+assert.equal(safeHtml.plainText.includes("bad()"), false);
+assert.equal(safeHtml.plainText.includes("not evidence"), false);
+await assert.rejects(
+  htmlProcessor.extract({ bytes: Buffer.from("<!DOCTYPE data SYSTEM 'https://example.com/x'><data>unsafe</data>"), filename: "hostile.html", mimeType: "text/html" }),
+  /unsafe external declaration/
+);
+const malformedHtml = await htmlProcessor.extract({ bytes: Buffer.from("<html><body><article><h1>Broken title<p>Still usable"), filename: "broken.htm", mimeType: "text/html" });
+assert.equal(malformedHtml.units.length > 0 && malformedHtml.plainText.includes("Still usable"), true);
+await assert.rejects(
+  htmlProcessor.extract({ bytes: Buffer.from("<html><body><iframe src='https://example.com'></iframe><img src='https://example.com/t.png'></body></html>"), filename: "external-only.html", mimeType: "text/html" }),
+  /safe, readable content/
+);
+
+const chunks = chunkExtractedDocument(markdown, { targetTokens: 8, overlapTokens: 1, maxChunks: 20 });
+assert.deepEqual(chunks.map((chunk) => chunk.chunkIndex), chunks.map((_, index) => index));
+assert.equal(chunks.every((chunk) => typeof chunk.metadata.sourceLocation === "string"), true);
+assert.throws(
+  () => chunkExtractedDocument({ ...markdown, units: [{ locationLabel: "Lines 1-1", text: "word ".repeat(500) }] }, { targetTokens: 2, overlapTokens: 0, maxChunks: 2 }),
+  /chunk indexing limit/
+);
+
+assert.deepEqual(getPdfOcrPageNumbers([{ pageNumber: 1, text: "searchable text ".repeat(30) }, { pageNumber: 2, text: "single sparse label" }]), [2]);
+const tenderPath = "/Users/sandman/Desktop/RAG intelligence/Tender — QA & DevOps Session Report (TDR-QA-2026-0830).pdf";
+const tenderBytes = await fs.readFile(tenderPath);
+const tender = await pdfProcessor.extract({ bytes: tenderBytes, filename: "Tender.pdf", mimeType: "application/pdf" });
+assert.equal(tender.extractionMethod, "pdf_native");
+assert.equal((tender.pageCount ?? 0) > 1, true);
+assert.equal(tender.units.every((unit, index) => unit.pageNumber === index + 1 && unit.sourceLocation === `page:${index + 1}`), true);
+
+console.log("Ingestion regression tests passed.");

@@ -46,7 +46,6 @@ as $$
   order by dc.embedding <=> query_embedding
   limit least(greatest(match_count, 1), 20);
 $$;
-
 revoke all on function public.match_document_chunks_for_document(vector(1024), uuid, uuid, uuid, integer) from public;
 revoke execute on function public.match_document_chunks_for_document(vector(1024), uuid, uuid, uuid, integer) from anon;
 grant execute on function public.match_document_chunks_for_document(vector(1024), uuid, uuid, uuid, integer) to authenticated;

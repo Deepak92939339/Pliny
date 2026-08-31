@@ -1,5 +1,6 @@
-import { estimateTokens } from "@/lib/chunker";
-import { normalizeExtractedText, type DocumentProcessingMetadata, type ExtractedDocument, type ExtractedUnit } from "@/lib/document-processing/types";
+import { estimateTokens } from "../chunker.ts";
+import { MAX_DOCUMENT_CHUNKS } from "./limits.ts";
+import { DocumentProcessingError, normalizeExtractedText, type DocumentProcessingMetadata, type ExtractedDocument, type ExtractedUnit } from "./types.ts";
 
 const DEFAULT_TARGET_TOKENS = 500;
 const DEFAULT_OVERLAP_TOKENS = 50;
@@ -29,6 +30,7 @@ function buildUnitMetadata(document: ExtractedDocument, unit: ExtractedUnit, uni
   return {
     ...(unit.metadata ?? {}),
     cellIndex: unit.cellIndex ?? null,
+    blockType: unit.blockType ?? "text",
     codeLanguage: unit.codeLanguage ?? null,
     extractionMethod: document.extractionMethod,
     fileKind: document.kind,
@@ -41,6 +43,8 @@ function buildUnitMetadata(document: ExtractedDocument, unit: ExtractedUnit, uni
     rowStart: unit.rowStart ?? null,
     sheetName: unit.sheetName ?? null,
     slideNumber: unit.slideNumber ?? null,
+    sourceLocation: unit.sourceLocation ?? unit.locationLabel,
+    tableContext: unit.tableContext ?? null,
     unitIndex,
   };
 }
@@ -48,26 +52,26 @@ function buildUnitMetadata(document: ExtractedDocument, unit: ExtractedUnit, uni
 export function chunkExtractedDocument(document: ExtractedDocument, options: ChunkExtractedDocumentOptions = {}) {
   const targetTokens = options.targetTokens ?? DEFAULT_TARGET_TOKENS;
   const overlapTokens = options.overlapTokens ?? DEFAULT_OVERLAP_TOKENS;
-  const maxChunks = options.maxChunks ?? 200;
+  const maxChunks = options.maxChunks ?? MAX_DOCUMENT_CHUNKS;
   const targetWords = Math.max(1, Math.floor(targetTokens / TOKEN_ESTIMATE_PER_WORD));
   const overlapWords = Math.max(0, Math.floor(overlapTokens / TOKEN_ESTIMATE_PER_WORD));
   const stepWords = Math.max(1, targetWords - overlapWords);
   const chunks: ExtractedDocumentChunk[] = [];
 
   document.units.forEach((unit, unitIndex) => {
-    if (chunks.length >= maxChunks) {
-      return;
-    }
-
     const words = getWords(unit.text);
-    const pageNumber = unit.pageNumber ?? unitIndex + 1;
+    const pageNumber = unit.pageNumber ?? 1;
     const metadata = buildUnitMetadata(document, unit, unitIndex);
 
-    for (let start = 0; start < words.length && chunks.length < maxChunks; start += stepWords) {
+    for (let start = 0; start < words.length; start += stepWords) {
       const slice = words.slice(start, start + targetWords);
 
       if (slice.length === 0) {
         continue;
+      }
+
+      if (chunks.length >= maxChunks) {
+        throw new DocumentProcessingError(`This document exceeds the supported ${maxChunks}-chunk indexing limit.`, 413);
       }
 
       chunks.push({

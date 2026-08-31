@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { chunkExtractedDocument, type ExtractedDocumentChunk } from "@/lib/document-processing/chunkExtractedDocument";
+import { assertExtractedDocumentLimits } from "@/lib/document-processing/limits";
 import { getDocumentProcessor, getProcessorForExtension } from "@/lib/document-processing/registry";
 import { prepareChunkRowsWithEmbeddings } from "@/lib/document-processing/prepareChunkRowsWithEmbeddings";
 import { sanitizeExtractedDocument } from "@/lib/document-processing/sanitizeExtractedDocument";
-import { DocumentProcessingError, type DocumentProcessingMetadata, type SupportedFileKind } from "@/lib/document-processing/types";
+import { DocumentProcessingError, type DocumentProcessingMetadata, type DocumentProcessingStage, type SupportedFileKind } from "@/lib/document-processing/types";
 import { isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
 import { checkRouteRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
@@ -19,7 +20,7 @@ const processDocumentSchema = z.object({
 
 const PROCESSING_LOCK_MESSAGE = "Processing started.";
 const STUCK_PROCESSING_RETRY_MINUTES = 15;
-const DOCUMENT_SELECT_FIELDS = "id,collection_id,user_id,filename,storage_path,status,error_message,page_count,created_at";
+const DOCUMENT_SELECT_FIELDS = "id,collection_id,user_id,filename,storage_path,status,error_message,page_count,created_at,processing_stage,processing_started_at";
 
 type DocumentRow = {
   created_at: string;
@@ -28,6 +29,8 @@ type DocumentRow = {
   id: string;
   collection_id: string;
   page_count: number;
+  processing_stage: DocumentProcessingStage;
+  processing_started_at: string | null;
   status: DocumentStatus;
   user_id: string;
   storage_path: string;
@@ -201,6 +204,10 @@ function getUserSafeProcessingMessage(message: string) {
   return "Could not read this file.";
 }
 
+function getStageLabel(stage: DocumentProcessingStage) {
+  return stage === "ocr_fallback" ? "OCR fallback" : stage.replace(/_/g, " ");
+}
+
 function throwSupabaseProcessingError(step: string, error: unknown, message: string): never {
   logProcessError(step, error);
   throw new ProcessingError(message, 500);
@@ -216,9 +223,11 @@ async function markDocumentFailed(
   const updateValues: {
     error_message: string;
     page_count?: number;
+    processing_stage: "failed";
     status: "failed";
   } = {
     error_message: message,
+    processing_stage: "failed",
     status: "failed",
   };
 
@@ -232,6 +241,28 @@ async function markDocumentFailed(
     logProcessError("failed status update error", error, { documentId });
   } else {
     logProcessStep("document marked failed", { documentId, pageCount: pageCount ?? null });
+  }
+}
+
+async function updateProcessingStage({
+  documentId,
+  stage,
+  supabase,
+  userId,
+}: {
+  documentId: string;
+  stage: DocumentProcessingStage;
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+}) {
+  const { error } = await supabase
+    .from("documents")
+    .update({ processing_stage: stage })
+    .eq("id", documentId)
+    .eq("user_id", userId);
+
+  if (error) {
+    throwSupabaseProcessingError("processing stage update failed", error, "Unable to update document processing state.");
   }
 }
 
@@ -288,6 +319,8 @@ async function acquireProcessingLock({
 
   const startValues = {
     error_message: PROCESSING_LOCK_MESSAGE,
+    processing_stage: "validating" as const,
+    processing_started_at: new Date().toISOString(),
     status: "processing",
   };
 
@@ -339,10 +372,12 @@ async function buildChunkInsertRows({
   chunks,
   collectionId,
   documentId,
+  filename,
 }: {
   chunks: ExtractedDocumentChunk[];
   collectionId: string;
   documentId: string;
+  filename: string;
 }) {
   const rows: ChunkInsertRow[] = chunks.map((chunk) => ({
     document_id: documentId,
@@ -352,7 +387,7 @@ async function buildChunkInsertRows({
     chunk_index: chunk.chunkIndex,
     file_kind: chunk.fileKind,
     location_label: chunk.locationLabel,
-    metadata: chunk.metadata,
+    metadata: { ...chunk.metadata, documentId, filename },
   }));
 
   if (!isEmbeddingsEnabled()) {
@@ -433,6 +468,7 @@ export async function POST(request: Request) {
 
   let document: DocumentRow | null = null;
   let extractedPageCount: number | undefined;
+  let processingStage: DocumentProcessingStage = "validating";
 
   try {
     logProcessStep("validating request body");
@@ -520,6 +556,9 @@ export async function POST(request: Request) {
       mimeType,
     });
 
+    processingStage = "extracting";
+    await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
+
     logProcessStep("starting document extraction", {
       documentId: processingDocument.id,
       processor: processor.id,
@@ -529,6 +568,10 @@ export async function POST(request: Request) {
       bytes: documentBytes,
       filename: processingDocument.filename,
       mimeType,
+      onStage: async (stage) => {
+        processingStage = stage;
+        await updateProcessingStage({ documentId: processingDocument.id, stage, supabase, userId: user.id });
+      },
     });
     extractedPageCount = extracted.pageCount ?? 0;
 
@@ -545,6 +588,7 @@ export async function POST(request: Request) {
 
     const sanitization = sanitizeExtractedDocument(extracted, processingDocument.id);
     extracted = sanitization.document;
+    assertExtractedDocumentLimits(extracted);
 
     if (sanitization.events.length > 0) {
       logProcessStep("source sanitization events recorded", {
@@ -554,6 +598,8 @@ export async function POST(request: Request) {
       });
     }
 
+    processingStage = "chunking";
+    await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
     const chunks = chunkExtractedDocument(extracted);
     logProcessStep("chunks created", { chunkCount: chunks.length, documentId: processingDocument.id, extractionMethod: extracted.extractionMethod });
 
@@ -561,22 +607,13 @@ export async function POST(request: Request) {
       throw new ProcessingError("This document did not produce readable text chunks.");
     }
 
-    logProcessStep("deleting old chunks", { collectionId: processingDocument.collection_id, documentId: processingDocument.id });
-
-    const { error: deleteChunksError } = await supabase
-      .from("document_chunks")
-      .delete()
-      .eq("document_id", processingDocument.id)
-      .eq("collection_id", processingDocument.collection_id);
-
-    if (deleteChunksError) {
-      throwSupabaseProcessingError("old chunk deletion failed", deleteChunksError, "Unable to prepare existing document chunks for retry.");
-    }
-
+    processingStage = "embedding";
+    await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
     const chunkInsertResult = await buildChunkInsertRows({
       chunks,
       collectionId: processingDocument.collection_id,
       documentId: processingDocument.id,
+      filename: processingDocument.filename,
     });
 
     logProcessStep("chunk embeddings prepared", {
@@ -590,7 +627,9 @@ export async function POST(request: Request) {
       skippedCount: chunkInsertResult.skippedCount,
     });
 
-    logProcessStep("inserting chunks", {
+    processingStage = "indexing";
+    await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
+    logProcessStep("upserting complete chunk set", {
       chunkCount: chunks.length,
       documentId: processingDocument.id,
       samplePayloadShape: {
@@ -606,7 +645,9 @@ export async function POST(request: Request) {
       },
     });
 
-    const { error: insertChunksError } = await supabase.from("document_chunks").insert(chunkInsertResult.rows);
+    const { error: insertChunksError } = await supabase
+      .from("document_chunks")
+      .upsert(chunkInsertResult.rows, { onConflict: "document_id,chunk_index" });
 
     if (insertChunksError) {
       throwSupabaseProcessingError(
@@ -616,8 +657,19 @@ export async function POST(request: Request) {
       );
     }
 
-    logProcessStep("chunks inserted", { chunkCount: chunks.length, documentId: processingDocument.id });
-    const readyWarning = extracted.extractionMethod === "ocr" ? extracted.warnings[0] ?? "Text recovered with OCR. Review sources for accuracy." : extracted.warnings[0] ?? null;
+    const { error: deleteStaleChunksError } = await supabase
+      .from("document_chunks")
+      .delete()
+      .eq("document_id", processingDocument.id)
+      .eq("collection_id", processingDocument.collection_id)
+      .gte("chunk_index", chunkInsertResult.rows.length);
+
+    if (deleteStaleChunksError) {
+      throwSupabaseProcessingError("stale chunk deletion failed", deleteStaleChunksError, "Document text was indexed, but stale chunks could not be removed.");
+    }
+
+    logProcessStep("complete chunk set indexed", { chunkCount: chunks.length, documentId: processingDocument.id });
+    const readyWarning = ["ocr", "pdf_hybrid_ocr"].includes(extracted.extractionMethod) ? extracted.warnings[0] ?? "Text recovered with OCR. Review sources for accuracy." : extracted.warnings[0] ?? null;
 
     logProcessStep("updating document ready status", {
       documentId: processingDocument.id,
@@ -630,6 +682,8 @@ export async function POST(request: Request) {
       .update({
         error_message: readyWarning,
         page_count: extracted.pageCount ?? 0,
+        processing_stage: "ready",
+        processing_started_at: null,
         status: "ready",
       })
       .eq("id", processingDocument.id)
@@ -654,7 +708,7 @@ export async function POST(request: Request) {
       embedded_chunk_count: chunkInsertResult.embeddedCount,
       fileKind: extracted.kind,
       ok: true,
-      ocr_used: extracted.extractionMethod === "ocr",
+      ocr_used: ["ocr", "pdf_hybrid_ocr"].includes(extracted.extractionMethod),
       page_count: extracted.pageCount ?? 0,
       status: "ready",
     });
@@ -667,16 +721,17 @@ export async function POST(request: Request) {
     });
 
     if (document) {
-      await markDocumentFailed(supabase, document.id, user.id, readableError.message, extractedPageCount);
+      await markDocumentFailed(supabase, document.id, user.id, `${processingStage}: ${readableError.message}`, extractedPageCount);
     }
 
     return NextResponse.json(
       {
         documentId: document?.id,
         document_id: document?.id,
-        error: readableError.message,
+        error: document ? `${getStageLabel(processingStage)}: ${readableError.message}` : readableError.message,
         ok: false,
         status: document ? "failed" : undefined,
+        stage: document ? processingStage : undefined,
       },
       { status: readableError.status }
     );

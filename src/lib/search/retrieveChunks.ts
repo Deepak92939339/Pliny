@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { embedText, getEmbeddingConfig, isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
 import { selectDocumentAwareResults } from "@/lib/search/documentCoverage";
+import { fuseAndRerankCandidates } from "@/lib/search/fusion";
 import type { RetrievalReason, SearchChunkResult } from "@/types";
 
 const STOP_WORDS = new Set([
@@ -68,6 +69,7 @@ const MIN_MEANINGFUL_CONTENT_CHARS = 40;
 const MAX_RESULTS_PER_DOCUMENT_SOFT = 2;
 const MAX_CANDIDATES_PER_DOCUMENT = 10;
 const MIN_CANDIDATES_PER_DOCUMENT = 3;
+const MAX_GLOBAL_CANDIDATES = 60;
 
 type DocumentMeta = {
   filename?: string | null;
@@ -99,6 +101,8 @@ type SemanticChunkRow = {
   metadata?: Record<string, string | number | boolean | null> | null;
   similarity: number;
 };
+
+type LexicalChunkRow = Omit<SemanticChunkRow, "similarity"> & { lexical_rank: number };
 
 type RetrieveRelevantChunksOptions = {
   collectionId: string;
@@ -257,6 +261,11 @@ function mapSemanticChunk(row: SemanticChunkRow, filenamesByDocumentId: Map<stri
     retrievalMode: "semantic",
     semanticSimilarity: row.similarity,
   };
+}
+
+function mapLexicalChunk(row: LexicalChunkRow, filenamesByDocumentId: Map<string, string>): SearchChunkResult {
+  const mapped = mapSemanticChunk({ ...row, similarity: row.lexical_rank }, filenamesByDocumentId);
+  return { ...mapped, keywordScore: row.lexical_rank, relevanceScore: row.lexical_rank, retrievalMode: "keyword", semanticSimilarity: undefined };
 }
 
 function getLocationDedupKey(result: SearchChunkResult) {
@@ -500,62 +509,45 @@ async function retrieveSemanticResults({
   return mappedRows;
 }
 
-function mergeWithReciprocalRankFusion({
-  keywordResults,
+async function retrieveLexicalResults({
+  collectionId,
+  documentIds,
   limit,
-  semanticResults,
+  query,
+  supabase,
+  userId,
 }: {
-  keywordResults: SearchChunkResult[];
+  collectionId: string;
+  documentIds?: string[];
   limit: number;
-  semanticResults: SearchChunkResult[];
+  query: string;
+  supabase: SupabaseClient;
+  userId?: string;
 }) {
-  const reciprocalRankK = 60;
-  const ranked = new Map<
-    string,
-    {
-      keywordScore: number | null;
-      result: SearchChunkResult;
-      score: number;
-      semanticSimilarity: number | null;
-    }
-  >();
-
-  function addResults(results: SearchChunkResult[]) {
-    results.forEach((result, index) => {
-      const current = ranked.get(result.id);
-      const score = 1 / (reciprocalRankK + index + 1);
-      const keywordScore =
-        typeof result.keywordScore === "number" && Number.isFinite(result.keywordScore)
-          ? Math.max(current?.keywordScore ?? -1, result.keywordScore)
-          : current?.keywordScore ?? null;
-      const semanticSimilarity =
-        typeof result.semanticSimilarity === "number" && Number.isFinite(result.semanticSimilarity)
-          ? Math.max(current?.semanticSimilarity ?? -1, result.semanticSimilarity)
-          : current?.semanticSimilarity ?? null;
-
-      ranked.set(result.id, {
-        keywordScore,
-        result: current?.result ?? result,
-        score: (current?.score ?? 0) + score,
-        semanticSimilarity,
-      });
-    });
-  }
-
-  addResults(keywordResults);
-  addResults(semanticResults);
-
-  return Array.from(ranked.values())
-    .sort((left, right) => right.score - left.score)
-    .slice(0, limit)
-    .map(({ keywordScore, result, score, semanticSimilarity }) => ({
-      ...result,
-      fusionScore: score,
-      keywordScore,
-      relevanceScore: semanticSimilarity ?? keywordScore ?? result.relevanceScore,
-      retrievalMode: keywordScore !== null && semanticSimilarity !== null ? "hybrid" : result.retrievalMode,
-      semanticSimilarity,
-    }));
+  if (!userId) return [];
+  const scopedDocumentIds = documentIds?.filter(Boolean) ?? [];
+  const candidateLimit = getCandidateLimitPerDocument(limit, scopedDocumentIds.length);
+  const calls = scopedDocumentIds.length > 0
+    ? scopedDocumentIds.map((documentId) => supabase.rpc("match_document_chunks_lexical", {
+        match_collection_id: collectionId,
+        match_count: candidateLimit,
+        match_document_id: documentId,
+        match_query: query,
+        match_user_id: userId,
+      }))
+    : [supabase.rpc("match_document_chunks_lexical", {
+        match_collection_id: collectionId,
+        match_count: Math.min(MAX_GLOBAL_CANDIDATES, Math.max(limit * 3, limit)),
+        match_document_id: null,
+        match_query: query,
+        match_user_id: userId,
+      })];
+  const matches = await Promise.all(calls);
+  const error = matches.find((match) => match.error)?.error;
+  if (error) throw error;
+  const rows = matches.flatMap((match) => (match.data ?? []) as LexicalChunkRow[]);
+  const filenames = await getDocumentFilenames(supabase, rows.map((row) => row.document_id));
+  return rows.map((row) => mapLexicalChunk(row, filenames));
 }
 
 export async function retrieveRelevantChunks(
@@ -572,7 +564,7 @@ export async function retrieveRelevantChunks(
     .eq("documents.status", "ready")
     .order("page_number", { ascending: true })
     .order("chunk_index", { ascending: true })
-    .limit(scanLimit);
+    .limit(Math.min(scanLimit, MAX_GLOBAL_CANDIDATES));
 
   if (scopedDocumentIds.length > 0) {
     chunksQuery = chunksQuery.in("document_id", scopedDocumentIds);
@@ -592,17 +584,22 @@ export async function retrieveRelevantChunks(
 
   const rows = ((data ?? []) as SearchChunkRow[]).map((row) => mapChunk(row));
 
-  if (rows.length === 0) {
-    return {
-      error: null,
-      missingRequiredDocumentIds: scopedDocumentIds.length > 1 ? scopedDocumentIds : [],
-      retrievalReason: "no_chunks_found",
-      results: [],
-      searchTerms: terms,
-    };
+  let keywordResults: SearchChunkResult[] = [];
+  try {
+    keywordResults = await retrieveLexicalResults({
+      collectionId,
+      documentIds: scopedDocumentIds,
+      limit,
+      query,
+      supabase,
+      userId,
+    });
+  } catch (lexicalError) {
+    console.warn("[retrieve-chunks] PostgreSQL lexical retrieval failed; using bounded local fallback", {
+      error: lexicalError instanceof Error ? lexicalError.message : String(lexicalError),
+    });
+    keywordResults = rankScopedKeywordResults(rows, query, terms, scopedDocumentIds, limit);
   }
-
-  const keywordResults = rankScopedKeywordResults(rows, query, terms, scopedDocumentIds, limit);
   let semanticResults: SearchChunkResult[] = [];
 
   try {
@@ -622,9 +619,10 @@ export async function retrieveRelevantChunks(
 
   if (keywordResults.length > 0 && semanticResults.length > 0) {
     const selection = cleanRetrievedResults(
-      mergeWithReciprocalRankFusion({
+      fuseAndRerankCandidates({
         keywordResults,
         limit: Math.max(limit * 3, limit, scopedDocumentIds.length * MIN_CANDIDATES_PER_DOCUMENT),
+        query,
         semanticResults,
       }),
       limit,

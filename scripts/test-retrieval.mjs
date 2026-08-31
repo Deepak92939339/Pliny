@@ -3,6 +3,7 @@ import {
   getMissingRequiredCitationDocumentIds,
   selectDocumentAwareResults,
 } from "../src/lib/search/documentCoverage.ts";
+import { fuseAndRerankCandidates, normalizeScores } from "../src/lib/search/fusion.ts";
 
 const result = ({ documentId, chunkIndex, content, keywordScore = 1, semanticSimilarity = null }) => ({
   id: `${documentId}-${chunkIndex}`,
@@ -95,4 +96,17 @@ assert.deepEqual(new Set(irrelevantSelectedDocuments.missingRequiredDocumentIds)
 assert.deepEqual(getMissingRequiredCitationDocumentIds(["claude"], ["claude", "csv"]), ["csv"]);
 assert.deepEqual(getMissingRequiredCitationDocumentIds(["claude", "csv"], ["claude", "csv"]), []);
 
-console.log("Document-aware retrieval coverage tests passed.");
+assert.deepEqual(normalizeScores([2, 6, null]), [0, 1, 0]);
+const lexicalExact = result({ documentId: "errors", chunkIndex: 0, content: "Error E-42 requires a retry.", keywordScore: 0.9 });
+const semanticParaphrase = result({ documentId: "concept", chunkIndex: 0, content: "Bounded source passages preserve long-document context.", keywordScore: 0, semanticSimilarity: 0.94 });
+const fused = fuseAndRerankCandidates({ keywordResults: [lexicalExact], semanticResults: [semanticParaphrase], query: "Explain E-42 and long document context", limit: 5 });
+assert.deepEqual(new Set(fused.map((item) => item.documentId)), new Set(["errors", "concept"]));
+assert.equal(fused.every((item) => item.fusionScore !== undefined), true);
+
+const migration = await (await import("node:fs/promises")).readFile(new URL("../supabase/migrations/20260831090000_pliny_v1_1_ingestion_retrieval_hardening.sql", import.meta.url), "utf8");
+assert.equal(migration.includes("security invoker"), true);
+assert.equal(migration.includes("match_user_id = (select auth.uid())"), true);
+assert.equal(migration.includes("revoke all on function public.match_document_chunks_lexical"), true);
+assert.equal(migration.includes("grant execute on function public.match_document_chunks_lexical"), true);
+
+console.log("Document-aware retrieval and lexical fusion tests passed.");
