@@ -2,7 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { embedText, getEmbeddingConfig, isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
 import { selectDocumentAwareResults } from "@/lib/search/documentCoverage";
 import { fuseAndRerankCandidates } from "@/lib/search/fusion";
-import type { RetrievalReason, SearchChunkResult } from "@/types";
+import {
+  assertProviderPayloadExcludes,
+  collectOriginalDeterministicIdentifiers,
+  getPrivacyScopeId,
+  getPrivacyScopeSecret,
+  toProviderSafeQuery,
+} from "@/lib/privacy/providerSafeText";
+import type { PrivacyMode, RetrievalReason, SearchChunkResult } from "@/types";
 
 const STOP_WORDS = new Set([
   "a",
@@ -73,6 +80,7 @@ const MAX_GLOBAL_CANDIDATES = 60;
 
 type DocumentMeta = {
   filename?: string | null;
+  processing_mode?: PrivacyMode | null;
   status?: string | null;
 };
 
@@ -86,6 +94,8 @@ type SearchChunkRow = {
   file_kind?: string | null;
   location_label?: string | null;
   metadata?: Record<string, string | number | boolean | null> | null;
+  provider_safe_content?: string | null;
+  provider_safe_metadata?: Record<string, string | number | boolean | null> | null;
   documents: DocumentMeta | DocumentMeta[] | null;
 };
 
@@ -102,7 +112,12 @@ type SemanticChunkRow = {
   similarity: number;
 };
 
-type LexicalChunkRow = Omit<SemanticChunkRow, "similarity"> & { lexical_rank: number };
+type LexicalChunkRow = Omit<SemanticChunkRow, "similarity"> & {
+  lexical_rank: number;
+  processing_mode?: PrivacyMode | null;
+  provider_safe_content?: string | null;
+  provider_safe_metadata?: Record<string, string | number | boolean | null> | null;
+};
 
 type RetrieveRelevantChunksOptions = {
   collectionId: string;
@@ -119,6 +134,8 @@ type RetrieveRelevantChunksResult = {
   retrievalReason: RetrievalReason;
   results: SearchChunkResult[];
   searchTerms: string[];
+  privacyBoundary: boolean;
+  providerSafeQuery: string;
 };
 
 function normalizeText(value: string) {
@@ -239,12 +256,20 @@ function mapChunk(row: SearchChunkRow): SearchChunkResult {
     filename,
     locationLabel: row.location_label ?? null,
     metadata: row.metadata ?? null,
+    processingMode: documentMeta?.processing_mode ?? "standard",
+    providerSafeContent: row.provider_safe_content ?? null,
+    providerSafeMetadata: row.provider_safe_metadata ?? null,
     retrievalMode: "keyword",
   };
 }
 
-function mapSemanticChunk(row: SemanticChunkRow, filenamesByDocumentId: Map<string, string>): SearchChunkResult {
+function mapSemanticChunk(
+  row: SemanticChunkRow,
+  filenamesByDocumentId: Map<string, string>,
+  projectionsByChunkId: Map<string, Pick<SearchChunkResult, "processingMode" | "providerSafeContent" | "providerSafeMetadata">> = new Map()
+): SearchChunkResult {
   const filename = filenamesByDocumentId.get(row.document_id);
+  const projection = projectionsByChunkId.get(row.id);
 
   return {
     id: row.id,
@@ -257,6 +282,9 @@ function mapSemanticChunk(row: SemanticChunkRow, filenamesByDocumentId: Map<stri
     filename: filename && filename.trim().length > 0 ? filename : "Untitled document",
     locationLabel: row.location_label ?? null,
     metadata: row.metadata ?? null,
+    processingMode: projection?.processingMode ?? "standard",
+    providerSafeContent: projection?.providerSafeContent ?? null,
+    providerSafeMetadata: projection?.providerSafeMetadata ?? null,
     relevanceScore: row.similarity,
     retrievalMode: "semantic",
     semanticSimilarity: row.similarity,
@@ -264,7 +292,20 @@ function mapSemanticChunk(row: SemanticChunkRow, filenamesByDocumentId: Map<stri
 }
 
 function mapLexicalChunk(row: LexicalChunkRow, filenamesByDocumentId: Map<string, string>): SearchChunkResult {
-  const mapped = mapSemanticChunk({ ...row, similarity: row.lexical_rank }, filenamesByDocumentId);
+  const mapped = mapSemanticChunk(
+    { ...row, similarity: row.lexical_rank },
+    filenamesByDocumentId,
+    new Map([
+      [
+        row.id,
+        {
+          processingMode: row.processing_mode ?? "standard",
+          providerSafeContent: row.provider_safe_content ?? null,
+          providerSafeMetadata: row.provider_safe_metadata ?? null,
+        },
+      ],
+    ])
+  );
   return { ...mapped, keywordScore: row.lexical_rank, relevanceScore: row.lexical_rank, retrievalMode: "keyword", semanticSimilarity: undefined };
 }
 
@@ -437,11 +478,36 @@ async function getDocumentFilenames(supabase: SupabaseClient, documentIds: strin
   return new Map((data ?? []).map((document) => [String(document.id), String(document.filename)]));
 }
 
+async function getRetrievalDocuments(
+  supabase: SupabaseClient,
+  collectionId: string,
+  userId: string,
+  documentIds: string[]
+) {
+  let query = supabase
+    .from("documents")
+    .select("id,processing_mode")
+    .eq("collection_id", collectionId)
+    .eq("user_id", userId)
+    .eq("status", "ready")
+    .order("created_at", { ascending: true });
+  if (documentIds.length > 0) query = query.in("id", documentIds);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map((document) => ({
+    id: String(document.id),
+    processingMode: document.processing_mode === "privacy_minimised" ? ("privacy_minimised" as const) : ("standard" as const),
+  }));
+}
+
 async function retrieveSemanticResults({
   collectionId,
   documentIds,
   limit,
   query,
+  originalQuery,
+  privacyBoundary,
+  projectionsByChunkId,
   supabase,
   userId,
 }: {
@@ -449,6 +515,9 @@ async function retrieveSemanticResults({
   documentIds?: string[];
   limit: number;
   query: string;
+  originalQuery: string;
+  privacyBoundary: boolean;
+  projectionsByChunkId: Map<string, Pick<SearchChunkResult, "processingMode" | "providerSafeContent" | "providerSafeMetadata">>;
   supabase: SupabaseClient;
   userId?: string;
 }) {
@@ -457,6 +526,13 @@ async function retrieveSemanticResults({
   }
 
   const embeddingConfig = getEmbeddingConfig();
+  if (privacyBoundary) {
+    assertProviderPayloadExcludes(
+      { input: [query], input_type: "query" },
+      collectOriginalDeterministicIdentifiers([originalQuery]),
+      "embedding"
+    );
+  }
   const queryEmbedding = await embedText(query, {
     inputType: "query",
     maxCharacters: embeddingConfig.queryMaxCharacters,
@@ -504,44 +580,48 @@ async function retrieveSemanticResults({
     rows.map((row) => row.document_id)
   );
 
-  const mappedRows = rows.map((row) => mapSemanticChunk(row, filenamesByDocumentId));
+  const mappedRows = rows.map((row) => mapSemanticChunk(row, filenamesByDocumentId, projectionsByChunkId));
 
   return mappedRows;
 }
 
 async function retrieveLexicalResults({
   collectionId,
+  documentModes,
   documentIds,
   limit,
-  query,
+  originalQuery,
+  providerSafeQuery,
   supabase,
   userId,
 }: {
   collectionId: string;
+  documentModes: Map<string, PrivacyMode>;
   documentIds?: string[];
   limit: number;
-  query: string;
+  originalQuery: string;
+  providerSafeQuery: string;
   supabase: SupabaseClient;
   userId?: string;
 }) {
   if (!userId) return [];
   const scopedDocumentIds = documentIds?.filter(Boolean) ?? [];
   const candidateLimit = getCandidateLimitPerDocument(limit, scopedDocumentIds.length);
-  const calls = scopedDocumentIds.length > 0
-    ? scopedDocumentIds.map((documentId) => supabase.rpc("match_document_chunks_lexical", {
-        match_collection_id: collectionId,
-        match_count: candidateLimit,
-        match_document_id: documentId,
-        match_query: query,
-        match_user_id: userId,
-      }))
-    : [supabase.rpc("match_document_chunks_lexical", {
-        match_collection_id: collectionId,
-        match_count: Math.min(MAX_GLOBAL_CANDIDATES, Math.max(limit * 3, limit)),
-        match_document_id: null,
-        match_query: query,
-        match_user_id: userId,
-      })];
+  const targets =
+    scopedDocumentIds.length > 0
+      ? scopedDocumentIds.map((documentId) => ({ documentId, mode: documentModes.get(documentId) ?? "standard" }))
+      : Array.from(new Set(documentModes.values())).map((mode) => ({ documentId: null, mode }));
+  const calls = targets.map(({ documentId, mode }) =>
+    supabase.rpc("match_document_chunks_lexical_by_mode", {
+      match_collection_id: collectionId,
+      match_count:
+        documentId === null ? Math.min(MAX_GLOBAL_CANDIDATES, Math.max(limit * 3, limit)) : candidateLimit,
+      match_document_id: documentId,
+      match_processing_mode: mode,
+      match_query: mode === "privacy_minimised" ? providerSafeQuery : originalQuery,
+      match_user_id: userId,
+    })
+  );
   const matches = await Promise.all(calls);
   const error = matches.find((match) => match.error)?.error;
   if (error) throw error;
@@ -554,12 +634,37 @@ export async function retrieveRelevantChunks(
   supabase: SupabaseClient,
   { collectionId, documentIds, limit = 5, query, scanLimit = 500, userId }: RetrieveRelevantChunksOptions
 ): Promise<RetrieveRelevantChunksResult> {
-  const terms = getSearchTerms(query);
   const scopedDocumentIds = documentIds ? Array.from(new Set(documentIds)).filter(Boolean) : [];
+  let retrievalDocuments: Awaited<ReturnType<typeof getRetrievalDocuments>> = [];
+  try {
+    retrievalDocuments = userId ? await getRetrievalDocuments(supabase, collectionId, userId, scopedDocumentIds) : [];
+  } catch (error) {
+    return {
+      error,
+      missingRequiredDocumentIds: scopedDocumentIds.length > 1 ? scopedDocumentIds : [],
+      privacyBoundary: false,
+      providerSafeQuery: query,
+      retrievalReason: "no_chunks_found",
+      results: [],
+      searchTerms: [],
+    };
+  }
+  const documentModes = new Map(retrievalDocuments.map((document) => [document.id, document.processingMode]));
+  const privacyBoundary = retrievalDocuments.some((document) => document.processingMode === "privacy_minimised");
+  const providerSafeQuery = privacyBoundary
+    ? toProviderSafeQuery(
+        query,
+        retrievalDocuments.map((document) => ({
+          scopeId: getPrivacyScopeId(userId ?? "", document.id),
+          scopeSecret: getPrivacyScopeSecret(),
+        }))
+      ).text
+    : query;
+  const terms = getSearchTerms(privacyBoundary ? providerSafeQuery : query);
 
   let chunksQuery = supabase
     .from("document_chunks")
-    .select("id,document_id,collection_id,content,page_number,chunk_index,file_kind,location_label,metadata,documents!inner(filename,status)")
+    .select("id,document_id,collection_id,content,provider_safe_content,provider_safe_metadata,page_number,chunk_index,file_kind,location_label,metadata,documents!inner(filename,status,processing_mode)")
     .eq("collection_id", collectionId)
     .eq("documents.status", "ready")
     .order("page_number", { ascending: true })
@@ -576,6 +681,8 @@ export async function retrieveRelevantChunks(
     return {
       error,
       missingRequiredDocumentIds: scopedDocumentIds.length > 1 ? scopedDocumentIds : [],
+      privacyBoundary,
+      providerSafeQuery,
       retrievalReason: "no_chunks_found",
       results: [],
       searchTerms: terms,
@@ -583,22 +690,43 @@ export async function retrieveRelevantChunks(
   }
 
   const rows = ((data ?? []) as SearchChunkRow[]).map((row) => mapChunk(row));
+  const projectionsByChunkId = new Map(
+    rows.map((row) => [
+      row.id,
+      {
+        processingMode: row.processingMode,
+        providerSafeContent: row.providerSafeContent,
+        providerSafeMetadata: row.providerSafeMetadata,
+      },
+    ])
+  );
 
   let keywordResults: SearchChunkResult[] = [];
   try {
     keywordResults = await retrieveLexicalResults({
       collectionId,
+      documentModes,
       documentIds: scopedDocumentIds,
       limit,
-      query,
+      originalQuery: query,
+      providerSafeQuery,
       supabase,
       userId,
     });
   } catch (lexicalError) {
     console.warn("[retrieve-chunks] PostgreSQL lexical retrieval failed; using bounded local fallback", {
-      error: lexicalError instanceof Error ? lexicalError.message : String(lexicalError),
+      error: lexicalError && typeof lexicalError === "object" && "name" in lexicalError ? String(lexicalError.name) : "RetrievalError",
     });
-    keywordResults = rankScopedKeywordResults(rows, query, terms, scopedDocumentIds, limit);
+    const standardRows = rows.filter((row) => row.processingMode !== "privacy_minimised");
+    const privacyRows = rows
+      .filter((row) => row.processingMode === "privacy_minimised")
+      .map((row) => ({ ...row, content: row.providerSafeContent ?? "" }));
+    const fallbackRanked = [
+      ...rankScopedKeywordResults(standardRows, query, getSearchTerms(query), scopedDocumentIds, limit),
+      ...rankScopedKeywordResults(privacyRows, providerSafeQuery, getSearchTerms(providerSafeQuery), scopedDocumentIds, limit),
+    ].sort((left, right) => (right.keywordScore ?? 0) - (left.keywordScore ?? 0));
+    const originalsById = new Map(rows.map((row) => [row.id, row]));
+    keywordResults = fallbackRanked.map((result) => ({ ...result, content: originalsById.get(result.id)?.content ?? result.content }));
   }
   let semanticResults: SearchChunkResult[] = [];
 
@@ -607,13 +735,16 @@ export async function retrieveRelevantChunks(
       collectionId,
       documentIds: scopedDocumentIds,
       limit,
-      query,
+      query: providerSafeQuery,
+      originalQuery: query,
+      privacyBoundary,
+      projectionsByChunkId,
       supabase,
       userId,
     });
   } catch (semanticError) {
     console.warn("[retrieve-chunks] semantic retrieval failed; falling back to keyword retrieval", {
-      error: semanticError instanceof Error ? semanticError.message : String(semanticError),
+      error: semanticError && typeof semanticError === "object" && "name" in semanticError ? String(semanticError.name) : "RetrievalError",
     });
   }
 
@@ -633,6 +764,8 @@ export async function retrieveRelevantChunks(
     return {
       error: null,
       missingRequiredDocumentIds: selection.missingRequiredDocumentIds,
+      privacyBoundary,
+      providerSafeQuery,
       retrievalReason: "hybrid_match",
       results: selection.results,
       searchTerms: terms,
@@ -645,6 +778,8 @@ export async function retrieveRelevantChunks(
     return {
       error: null,
       missingRequiredDocumentIds: selection.missingRequiredDocumentIds,
+      privacyBoundary,
+      providerSafeQuery,
       retrievalReason: "semantic_match",
       results: selection.results,
       searchTerms: terms,
@@ -657,6 +792,8 @@ export async function retrieveRelevantChunks(
     return {
       error: null,
       missingRequiredDocumentIds: selection.missingRequiredDocumentIds,
+      privacyBoundary,
+      providerSafeQuery,
       retrievalReason: "direct_keyword_match",
       results: selection.results,
       searchTerms: terms,
@@ -669,6 +806,8 @@ export async function retrieveRelevantChunks(
     return {
       error: null,
       missingRequiredDocumentIds: selection.missingRequiredDocumentIds,
+      privacyBoundary,
+      providerSafeQuery,
       retrievalReason: "broad_context_fallback",
       results: selection.results,
       searchTerms: terms,
@@ -678,6 +817,8 @@ export async function retrieveRelevantChunks(
   return {
     error: null,
     missingRequiredDocumentIds: scopedDocumentIds.length > 1 ? scopedDocumentIds : [],
+    privacyBoundary,
+    providerSafeQuery,
     retrievalReason: "no_chunks_found",
     results: [],
     searchTerms: terms,

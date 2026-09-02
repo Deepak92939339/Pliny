@@ -8,8 +8,18 @@ import { sanitizeExtractedDocument } from "@/lib/document-processing/sanitizeExt
 import { DocumentProcessingError, type DocumentProcessingMetadata, type DocumentProcessingStage, type SupportedFileKind } from "@/lib/document-processing/types";
 import { isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
 import { checkRouteRateLimit } from "@/lib/rate-limit";
+import {
+  assertProviderPayloadExcludes,
+  collectOriginalDeterministicIdentifiers,
+  getPrivacyScopeId,
+  getPrivacyScopeSecret,
+  PrivacyBoundaryError,
+  toProviderSafeJsonValue,
+  toProviderSafeText,
+} from "@/lib/privacy/providerSafeText";
+import { logSafeStageError } from "@/lib/privacy/safeLogging";
 import { createClient } from "@/lib/supabase/server";
-import type { DocumentStatus } from "@/types";
+import type { DocumentStatus, PrivacyMode } from "@/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,7 +30,7 @@ const processDocumentSchema = z.object({
 
 const PROCESSING_LOCK_MESSAGE = "Processing started.";
 const STUCK_PROCESSING_RETRY_MINUTES = 15;
-const DOCUMENT_SELECT_FIELDS = "id,collection_id,user_id,filename,storage_path,status,error_message,page_count,created_at,processing_stage,processing_started_at";
+const DOCUMENT_SELECT_FIELDS = "id,collection_id,user_id,filename,storage_path,status,error_message,page_count,created_at,processing_stage,processing_started_at,processing_mode,privacy_policy_version";
 
 type DocumentRow = {
   created_at: string;
@@ -31,6 +41,8 @@ type DocumentRow = {
   page_count: number;
   processing_stage: DocumentProcessingStage;
   processing_started_at: string | null;
+  processing_mode: PrivacyMode;
+  privacy_policy_version: string | null;
   status: DocumentStatus;
   user_id: string;
   storage_path: string;
@@ -46,19 +58,6 @@ class ProcessingError extends Error {
   }
 }
 
-type ErrorLike = {
-  code?: unknown;
-  details?: unknown;
-  hint?: unknown;
-  message?: unknown;
-  name?: unknown;
-  providerBody?: unknown;
-  retryAfter?: unknown;
-  retryAfterMs?: unknown;
-  status?: unknown;
-  stack?: unknown;
-};
-
 type ChunkInsertRow = {
   chunk_index: number;
   collection_id: string;
@@ -71,6 +70,10 @@ type ChunkInsertRow = {
   location_label: string;
   metadata: DocumentProcessingMetadata;
   page_number: number;
+  provider_safe_content?: string | null;
+  provider_safe_metadata?: DocumentProcessingMetadata | null;
+  privacy_policy_version?: string | null;
+  embedding_projection: "original" | "privacy_minimised";
 };
 
 function getNumberEnv(name: string, fallback: number, min: number, max: number) {
@@ -99,51 +102,17 @@ function logProcessStep(step: string, details?: Record<string, unknown>) {
   console.info("[process-document]", step, details ?? {});
 }
 
-function serializeError(error: unknown) {
-  if (error instanceof Error) {
-    const errorLike = error as ErrorLike;
-    return {
-      message: error.message,
-      name: error.name,
-      providerBody: typeof errorLike.providerBody === "string" ? errorLike.providerBody : undefined,
-      retryAfter: typeof errorLike.retryAfter === "string" ? errorLike.retryAfter : undefined,
-      retryAfterMs: typeof errorLike.retryAfterMs === "number" ? errorLike.retryAfterMs : undefined,
-      status: typeof errorLike.status === "number" ? errorLike.status : undefined,
-      stack: process.env.NODE_ENV === "production" ? undefined : error.stack,
-    };
-  }
-
-  if (error && typeof error === "object") {
-    const errorLike = error as ErrorLike;
-
-    return {
-      code: errorLike.code,
-      details: errorLike.details,
-      hint: errorLike.hint,
-      message: errorLike.message,
-      name: errorLike.name,
-      providerBody: typeof errorLike.providerBody === "string" ? errorLike.providerBody : undefined,
-      retryAfter: typeof errorLike.retryAfter === "string" ? errorLike.retryAfter : undefined,
-      retryAfterMs: typeof errorLike.retryAfterMs === "number" ? errorLike.retryAfterMs : undefined,
-      status: typeof errorLike.status === "number" ? errorLike.status : undefined,
-      stack: process.env.NODE_ENV === "production" ? undefined : errorLike.stack,
-    };
-  }
-
-  return {
-    message: String(error),
-    name: typeof error,
-  };
-}
-
 function logProcessError(step: string, error: unknown, details?: Record<string, unknown>) {
-  console.error("[process-document]", step, {
-    ...details,
-    error: serializeError(error),
-  });
+  logSafeStageError("process-document", step, error, details as Record<string, string | number | boolean | null | undefined>);
 }
 
 function getReadableError(error: unknown) {
+  if (error instanceof PrivacyBoundaryError) {
+    return {
+      message: "Privacy processing could not be completed safely. No provider request was sent.",
+      status: 500,
+    };
+  }
   if (error instanceof ProcessingError || error instanceof DocumentProcessingError) {
     return {
       message: getUserSafeProcessingMessage(error.message),
@@ -373,22 +342,39 @@ async function buildChunkInsertRows({
   collectionId,
   documentId,
   filename,
+  privacyPolicyVersion,
+  processingMode,
+  userId,
 }: {
   chunks: ExtractedDocumentChunk[];
   collectionId: string;
   documentId: string;
   filename: string;
+  privacyPolicyVersion: string | null;
+  processingMode: PrivacyMode;
+  userId: string;
 }) {
-  const rows: ChunkInsertRow[] = chunks.map((chunk) => ({
-    document_id: documentId,
-    collection_id: collectionId,
-    content: chunk.content,
-    page_number: chunk.pageNumber,
-    chunk_index: chunk.chunkIndex,
-    file_kind: chunk.fileKind,
-    location_label: chunk.locationLabel,
-    metadata: { ...chunk.metadata, documentId, filename },
-  }));
+  const privacyScope =
+    processingMode === "privacy_minimised"
+      ? { scopeId: getPrivacyScopeId(userId, documentId), scopeSecret: getPrivacyScopeSecret() }
+      : null;
+  const rows: ChunkInsertRow[] = chunks.map((chunk) => {
+    const metadata = { ...chunk.metadata, documentId, filename };
+    return {
+      document_id: documentId,
+      collection_id: collectionId,
+      content: chunk.content,
+      page_number: chunk.pageNumber,
+      chunk_index: chunk.chunkIndex,
+      file_kind: chunk.fileKind,
+      location_label: chunk.locationLabel,
+      metadata,
+      embedding_projection: processingMode === "privacy_minimised" ? "privacy_minimised" : "original",
+      privacy_policy_version: processingMode === "privacy_minimised" ? privacyPolicyVersion : null,
+      provider_safe_content: privacyScope ? toProviderSafeText(chunk.content, privacyScope).text : null,
+      provider_safe_metadata: privacyScope ? (toProviderSafeJsonValue(metadata, privacyScope) as DocumentProcessingMetadata) : null,
+    };
+  });
 
   if (!isEmbeddingsEnabled()) {
     return {
@@ -405,8 +391,17 @@ async function buildChunkInsertRows({
   }
 
   try {
+    const getEmbeddingText = (row: ChunkInsertRow) => row.provider_safe_content ?? row.content;
+    if (privacyScope) {
+      assertProviderPayloadExcludes(
+        { input: rows.map(getEmbeddingText), input_type: "document" },
+        collectOriginalDeterministicIdentifiers(chunks.map((chunk) => chunk.content)),
+        "embedding"
+      );
+    }
     const embeddedRows = await prepareChunkRowsWithEmbeddings(rows, {
       batchSize: getEmbeddingBatchSize(),
+      getEmbeddingText,
       inputType: "document",
     });
     embeddedRows.forEach((row, index) => {
@@ -527,7 +522,6 @@ export async function POST(request: Request) {
 
     logProcessStep("downloading document from storage", {
       documentId: processingDocument.id,
-      filename: processingDocument.filename,
     });
 
     const { data: documentBlob, error: downloadError } = await supabase.storage.from("documents").download(processingDocument.storage_path);
@@ -614,6 +608,9 @@ export async function POST(request: Request) {
       collectionId: processingDocument.collection_id,
       documentId: processingDocument.id,
       filename: processingDocument.filename,
+      privacyPolicyVersion: processingDocument.privacy_policy_version,
+      processingMode: processingDocument.processing_mode,
+      userId: user.id,
     });
 
     logProcessStep("chunk embeddings prepared", {
@@ -642,6 +639,7 @@ export async function POST(request: Request) {
         location_label: "text",
         metadata: "jsonb",
         page_number: "integer",
+        provider_safe_content: processingDocument.processing_mode === "privacy_minimised" ? "text" : "null",
       },
     });
 

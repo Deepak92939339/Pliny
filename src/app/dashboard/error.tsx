@@ -11,8 +11,8 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[dashboard-error]", error);
-  }, [error]);
+    console.error("[dashboard-error]", { digest: error.digest ?? "unavailable" });
+  }, [error.digest]);
 
   return (
     <main className="min-h-screen bg-[#FAF7F2] px-6 py-10 text-[#17202A]">

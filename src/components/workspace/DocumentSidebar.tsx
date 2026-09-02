@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useTransition, type ChangeEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, PanelLeft } from "lucide-react";
 import { BrandMark } from "@/components/shared/BrandMark";
@@ -8,9 +9,10 @@ import { NewWorkspaceDialog } from "@/components/dashboard/NewWorkspaceDialog";
 import { DocumentProcessButton } from "@/components/workspace/DocumentProcessButton";
 import { DocumentUploadDropzone } from "@/components/workspace/DocumentUploadDropzone";
 import { logout } from "@/lib/auth/actions";
+import { updateCollectionDefaultProcessingMode } from "@/lib/collections/actions";
 import { getFileKindLabel, inferSupportedFileKind } from "@/lib/document-processing/fileKinds";
 import { cn } from "@/lib/utils";
-import type { CollectionListItem, DocumentListItem, DocumentStatus } from "@/types";
+import type { CollectionListItem, DocumentListItem, DocumentStatus, PrivacyMode } from "@/types";
 
 export type WorkspaceSidebarRecent = {
   collectionId: string;
@@ -28,6 +30,7 @@ type DocumentSidebarProps = {
 
 type DocumentManagementPanelProps = {
   collectionId: string;
+  defaultProcessingMode: PrivacyMode;
   documents: DocumentListItem[];
   documentsError?: string | null;
   onCollapse: () => void;
@@ -43,6 +46,7 @@ function getPageLabel(pages: number) {
 
 export function DocumentManagementPanel({
   collectionId,
+  defaultProcessingMode,
   documents,
   documentsError,
   onCollapse,
@@ -65,6 +69,7 @@ export function DocumentManagementPanel({
       </div>
 
       <div className="shrink-0 border-b border-black/[0.08] p-3">
+        <WorkspaceProcessingDefault collectionId={collectionId} mode={defaultProcessingMode} />
         <DocumentUploadDropzone collectionId={collectionId} />
       </div>
 
@@ -92,6 +97,44 @@ export function DocumentManagementPanel({
   );
 }
 
+function WorkspaceProcessingDefault({ collectionId, mode }: { collectionId: string; mode: PrivacyMode }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [message, setMessage] = useState<string | null>(null);
+
+  function handleChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextMode = event.target.value as PrivacyMode;
+    setMessage(null);
+    startTransition(async () => {
+      const result = await updateCollectionDefaultProcessingMode(collectionId, nextMode);
+      setMessage(result.message ?? null);
+      if (result.status === "success") router.refresh();
+    });
+  }
+
+  return (
+    <div className="mb-3 rounded-lg border border-black/10 bg-white/55 p-2.5">
+      <label htmlFor="workspace-processing-default" className="block text-[11px] font-medium text-[color:var(--editorial-ink-soft)]">
+        New documents
+      </label>
+      <select
+        id="workspace-processing-default"
+        value={mode}
+        disabled={isPending}
+        onChange={handleChange}
+        className="mt-1.5 h-8 w-full rounded-md border border-black/10 bg-white px-2 text-xs text-[color:var(--editorial-ink)] outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/25"
+      >
+        <option value="standard">Standard</option>
+        <option value="privacy_minimised">Privacy-minimised</option>
+      </select>
+      <p className="mt-1.5 text-[10px] leading-4 text-[color:var(--editorial-muted)]">
+        Existing documents keep their captured mode.
+      </p>
+      {message ? <p className="mt-1 text-[10px] leading-4 text-[color:var(--editorial-muted)]">{message}</p> : null}
+    </div>
+  );
+}
+
 function DocumentPanelRow({ document }: { document: DocumentListItem }) {
   const filename = getSafeFilename(document.filename);
   const status = getSafeDocumentStatus(document.status);
@@ -113,6 +156,11 @@ function DocumentPanelRow({ document }: { document: DocumentListItem }) {
           <span className="shrink-0 rounded border border-black/10 bg-black/[0.025] px-1.5 py-px font-medium text-[10px] leading-3 text-[color:var(--editorial-muted)]">
             {kindLabel}
           </span>
+          {document.processingMode === "privacy_minimised" ? (
+            <span className="shrink-0 rounded border border-[#BA5C3D]/20 bg-[#BA5C3D]/8 px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-[#9A5A3E]">
+              Private
+            </span>
+          ) : null}
           <DocumentStatusMarker status={status} />
           <span
             className={cn(

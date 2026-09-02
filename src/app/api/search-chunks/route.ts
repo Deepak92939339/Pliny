@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { retrieveRelevantChunks } from "@/lib/search/retrieveChunks";
+import { logSafeStageError } from "@/lib/privacy/safeLogging";
 import { createClient } from "@/lib/supabase/server";
 import type { SearchResponse } from "@/types";
 
@@ -14,16 +15,7 @@ const searchChunksSchema = z.object({
 });
 
 function logSearchError(step: string, error: unknown) {
-  if (error instanceof Error) {
-    console.error("[search-chunks]", step, {
-      message: error.message,
-      name: error.name,
-      stack: process.env.NODE_ENV === "production" ? undefined : error.stack,
-    });
-    return;
-  }
-
-  console.error("[search-chunks]", step, error);
+  logSafeStageError("search-chunks", step, error);
 }
 
 export async function POST(request: Request) {

@@ -35,15 +35,16 @@ export const landingInfoPages: LandingInfoPage[] = [
     title: "Keep the source material close.",
     summary: [
       "Uploaded files, extracted chunks, embeddings and provenance are stored in private workspaces.",
-      "Questions and retrieved source context may be sent to configured answer providers.",
+      "Standard mode can send original document passages and questions to configured providers; privacy-minimised mode masks supported structured identifiers first.",
       "Provider zero retention is being evaluated; no automatic retention window is claimed.",
-      "PII pseudonymization and cloud drive integrations are planned, not active.",
+      "Privacy minimisation is not anonymisation: names, addresses, organisations and unsupported identifiers may remain.",
     ],
     detail: [
       "Pliny stores uploaded objects in private Supabase Storage, along with extracted chunks, embeddings, provenance metadata, collection records, chat messages and usage records needed by the deployed workspace.",
-      "During ingestion, document text is used to prepare Voyage embeddings. During answering, the user question and retrieved source context may be sent to the configured answer generation provider. These requests are made server side.",
+      "Each workspace has a default for new documents, and each document captures an immutable standard or privacy-minimised processing mode. Changing the workspace default does not reprocess existing documents.",
+      "In standard mode, document passages are used for embeddings and the original question and retrieved context may be sent to the configured generation provider. In privacy-minimised mode, supported structured identifiers are replaced with document-scoped typed pseudonyms before embedding or generation requests. Original evidence remains available only through the owner-scoped workspace.",
       "The existing workspace deletion path controls removal of collections and their related application records. This release does not claim an automatic retention window, provider zero retention or a promise that data is never used for training.",
-      "PII pseudonymization is planned and is not currently active. Google Drive and OneDrive integrations are planned and are not available in this release.",
+      "Privacy-minimised exports stay masked by default and reversible reconstruction is disabled. Deterministic detection does not currently claim complete coverage of names, addresses, organisations or multilingual identifiers. Google Drive and OneDrive integrations are planned and are not available in this release.",
     ],
   },
   {

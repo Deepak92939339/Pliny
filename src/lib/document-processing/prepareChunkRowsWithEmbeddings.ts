@@ -7,8 +7,12 @@ export type EmbeddableChunkRow = {
   embedding_model?: string;
 };
 
-export async function prepareChunkRowsWithEmbeddings<T extends EmbeddableChunkRow>(rows: T[], options: EmbedTextsOptions = {}) {
-  const results = await embedTexts(rows.map((row) => row.content), options);
+export async function prepareChunkRowsWithEmbeddings<T extends EmbeddableChunkRow>(
+  rows: T[],
+  options: EmbedTextsOptions & { getEmbeddingText?: (row: T) => string } = {}
+) {
+  const { getEmbeddingText = (row: T) => row.content, ...embeddingOptions } = options;
+  const results = await embedTexts(rows.map(getEmbeddingText), embeddingOptions);
 
   if (results.length !== rows.length || results.some((result) => result.embedding.length !== 1024)) {
     throw new Error("Embedding provider returned incomplete vectors.");

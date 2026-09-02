@@ -12,6 +12,8 @@
     "test:embeddings": "node --experimental-strip-types scripts/test-embeddings.mjs",
     "test:evidence": "node --experimental-strip-types scripts/test-evidence.mjs",
     "test:ingestion": "node --experimental-strip-types scripts/test-ingestion.mjs",
+    "test:privacy": "node --experimental-strip-types scripts/test-privacy-foundation.mjs && node --experimental-strip-types scripts/test-privacy-phase4b.mjs",
+    "test:privacy:bundle": "node scripts/test-browser-privacy-bundle.mjs",
     "test:retrieval": "node --experimental-strip-types scripts/test-retrieval.mjs",
     "test:sanitization": "node --experimental-strip-types scripts/test-sanitization.mjs",
     "test:report": "node --experimental-strip-types scripts/test-report.mjs",

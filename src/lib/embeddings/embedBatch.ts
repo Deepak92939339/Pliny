@@ -46,16 +46,14 @@ export class EmbeddingConfigError extends Error {
 }
 
 export class EmbeddingProviderError extends Error {
-  readonly providerBody: string | null;
   readonly retryAfter: string | null;
   readonly retryAfterMs: number | null;
   readonly retryable: boolean;
   readonly status: number | null;
 
-  constructor(message: string, details: { providerBody?: string | null; retryAfter?: string | null; retryAfterMs?: number | null; retryable?: boolean; status?: number | null } = {}) {
+  constructor(message: string, details: { retryAfter?: string | null; retryAfterMs?: number | null; retryable?: boolean; status?: number | null } = {}) {
     super(message);
     this.name = "EmbeddingProviderError";
-    this.providerBody = details.providerBody ?? null;
     this.retryAfter = details.retryAfter ?? null;
     this.retryAfterMs = details.retryAfterMs ?? null;
     this.retryable = details.retryable ?? false;
@@ -89,22 +87,6 @@ function getRetryDelay(attempt: number, retryAfterMs: number | null, maxDelayMs:
   const exponentialDelay = Math.min(1000 * 2 ** (attempt - 1), maxDelayMs);
   const jitter = Math.floor(exponentialDelay * 0.25 * Math.max(0, Math.min(random(), 1)));
   return Math.min(exponentialDelay + jitter, maxDelayMs);
-}
-
-function sanitizeProviderBody(body: string) {
-  const normalized = body.replace(/\s+/g, " ").trim();
-  const redacted = normalized
-    .replace(/bearer\s+[^\s,;]+/gi, "Bearer [redacted]")
-    .replace(/(api[_ -]?key|token|authorization)\s*[:=]\s*[^\s,;}]+/gi, "$1: [redacted]");
-  return redacted.slice(0, 240) || null;
-}
-
-async function readProviderBody(response: Response) {
-  try {
-    return sanitizeProviderBody(await response.text());
-  } catch {
-    return null;
-  }
 }
 
 function isRetryableStatus(status: number) {
@@ -182,7 +164,7 @@ async function requestEmbeddingBatch(inputs: string[], options: EmbedTextsOption
         const retryAfter = response.headers.get("retry-after");
         const retryAfterMs = parseRetryAfter(retryAfter);
         const error = new EmbeddingProviderError(`Embedding provider request failed with status ${response.status}.`, {
-          providerBody: await readProviderBody(response), retryAfter, retryAfterMs, retryable: isRetryableStatus(response.status), status: response.status,
+          retryAfter, retryAfterMs, retryable: isRetryableStatus(response.status), status: response.status,
         });
         if (!error.retryable || attempt === maxAttempts) throw error;
         await sleep(getRetryDelay(attempt, retryAfterMs, maxDelayMs, random));

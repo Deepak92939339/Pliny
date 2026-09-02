@@ -10,15 +10,15 @@ export default function CollectionError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[collection-error]", error);
-  }, [error]);
+    console.error("[collection-error]", { digest: error.digest ?? "unavailable" });
+  }, [error.digest]);
 
   return (
     <main className="dm-page flex h-screen w-screen items-center justify-center overflow-hidden px-6 text-[color:var(--editorial-ink)]">
       <section className="max-w-md text-center">
         <h1 className="text-base font-medium">Something went wrong</h1>
         <p className="mt-3 text-[13px] leading-6 text-[color:var(--editorial-muted)]">
-          {error.message || "This workspace could not be loaded."}
+          This workspace could not be loaded. Try again without including sensitive data in support messages.
         </p>
         <button
           type="button"

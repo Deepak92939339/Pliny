@@ -1,5 +1,11 @@
 import { parseResponseWithCharts } from "@/lib/chart/parseResponseWithCharts";
 import { buildRiskEvidenceReportSpec, formatRiskEvidenceReport } from "@/lib/export/riskEvidenceReport";
+import {
+  getPrivacySafeExportAnswer,
+  getPrivacySafeExportQuestion,
+  getPrivacySafeExportSource,
+  getPrivacySafeExportWorkspaceName,
+} from "@/lib/export/privacyExport";
 import type { ChartData } from "@/lib/chart/types";
 import type { GeneratedReport, ReportSource, ReportTemplate, SearchChunkResult, WorkspaceSearchResult } from "@/types";
 
@@ -43,21 +49,21 @@ export function buildCitedAnswerReport({ generatedAt, result, workspaceName }: R
   const sources = hasSourceSupport ? bundle.sources : [];
 
   return {
-    content: hasSourceSupport ? formatAnswerForReport(result.answer, bundle) : formatInsufficientEvidenceContent(result),
+    content: hasSourceSupport ? formatAnswerForReport(getPrivacySafeExportAnswer(result), bundle) : formatInsufficientEvidenceContent(result),
     generatedAt: generatedAt ?? new Date().toISOString(),
-    question: result.question,
+    question: getExportQuestion(result),
     sources,
     template: "cited_answer",
     title: hasSourceSupport ? TEMPLATE_LABELS.cited_answer : "Insufficient Evidence Report",
     verificationNote: hasSourceSupport ? STANDARD_VERIFICATION_NOTE : INSUFFICIENT_EVIDENCE_NOTE,
-    workspaceName,
+    workspaceName: getPrivacySafeExportWorkspaceName(workspaceName, [result]),
   };
 }
 
 export function buildDueDiligenceReport({ generatedAt, result, workspaceName }: ReportBuildInput): GeneratedReport {
   const bundle = getSourceBundle(result);
   const hasSourceSupport = isSourceSupportedResult(result);
-  const answer = hasSourceSupport ? formatAnswerForReport(result.answer, bundle) : formatInsufficientEvidenceContent(result);
+  const answer = hasSourceSupport ? formatAnswerForReport(getPrivacySafeExportAnswer(result), bundle) : formatInsufficientEvidenceContent(result);
   const sources = hasSourceSupport ? bundle.sources : [];
 
   return {
@@ -78,22 +84,23 @@ export function buildDueDiligenceReport({ generatedAt, result, workspaceName }: 
         ].join("\n")
       : answer,
     generatedAt: generatedAt ?? new Date().toISOString(),
-    question: result.question,
+    question: getExportQuestion(result),
     sources,
     template: "due_diligence_summary",
     title: hasSourceSupport ? TEMPLATE_LABELS.due_diligence_summary : "Insufficient Evidence Report",
     verificationNote: hasSourceSupport ? STANDARD_VERIFICATION_NOTE : INSUFFICIENT_EVIDENCE_NOTE,
-    workspaceName,
+    workspaceName: getPrivacySafeExportWorkspaceName(workspaceName, [result]),
   };
 }
 
 export function buildRiskReport({ generatedAt, result, workspaceName }: ReportBuildInput): GeneratedReport {
   const bundle = getSourceBundle(result);
   const hasSourceSupport = isSourceSupportedResult(result);
-  const answer = hasSourceSupport ? formatAnswerForReport(result.answer, bundle) : formatInsufficientEvidenceContent(result);
+  const exportAnswer = getPrivacySafeExportAnswer(result);
+  const answer = hasSourceSupport ? formatAnswerForReport(exportAnswer, bundle) : formatInsufficientEvidenceContent(result);
   const sources = hasSourceSupport ? bundle.sources : [];
   const verificationNote = hasSourceSupport ? "Risk findings are AI-assisted and source-grounded. Review each cited passage before making a decision." : INSUFFICIENT_EVIDENCE_NOTE;
-  const artifact = hasSourceSupport ? buildRiskEvidenceReportSpec(result.answer, bundle, verificationNote) : null;
+  const artifact = hasSourceSupport ? buildRiskEvidenceReportSpec(exportAnswer, bundle, verificationNote) : null;
 
   return {
     artifact: artifact ?? undefined,
@@ -112,20 +119,21 @@ export function buildRiskReport({ generatedAt, result, workspaceName }: ReportBu
           ].join("\n")
         : answer,
     generatedAt: generatedAt ?? new Date().toISOString(),
-    question: result.question,
+    question: getExportQuestion(result),
     sources,
     template: "risk_report",
     title: hasSourceSupport ? TEMPLATE_LABELS.risk_report : "Insufficient Evidence Report",
     verificationNote,
-    workspaceName,
+    workspaceName: getPrivacySafeExportWorkspaceName(workspaceName, [result]),
   };
 }
 
 export function buildTableSummaryReport({ generatedAt, result, workspaceName }: ReportBuildInput): GeneratedReport {
   const bundle = getSourceBundle(result);
   const hasSourceSupport = isSourceSupportedResult(result);
-  const answer = hasSourceSupport ? formatAnswerForReport(result.answer, bundle) : formatInsufficientEvidenceContent(result);
-  const chartTables = getChartTables(result.answer);
+  const exportAnswer = getPrivacySafeExportAnswer(result);
+  const answer = hasSourceSupport ? formatAnswerForReport(exportAnswer, bundle) : formatInsufficientEvidenceContent(result);
+  const chartTables = getChartTables(exportAnswer);
   const sources = hasSourceSupport ? bundle.sources : [];
 
   return {
@@ -145,12 +153,12 @@ export function buildTableSummaryReport({ generatedAt, result, workspaceName }: 
         ].join("\n")
       : answer,
     generatedAt: generatedAt ?? new Date().toISOString(),
-    question: result.question,
+    question: getExportQuestion(result),
     sources,
     template: "table_summary",
     title: hasSourceSupport ? TEMPLATE_LABELS.table_summary : "Insufficient Evidence Report",
     verificationNote: hasSourceSupport ? SPREADSHEET_VERIFICATION_NOTE : INSUFFICIENT_EVIDENCE_NOTE,
-    workspaceName,
+    workspaceName: getPrivacySafeExportWorkspaceName(workspaceName, [result]),
   };
 }
 
@@ -172,10 +180,11 @@ export function buildReportForTemplate(template: ReportTemplate, input: ReportBu
 
 export function buildChatTranscriptMarkdown({ generatedAt, results, workspaceName }: TranscriptBuildInput) {
   const exportedAt = generatedAt ?? new Date().toISOString();
+  const exportWorkspaceName = getPrivacySafeExportWorkspaceName(workspaceName, results);
   const lines = [
     "# Pliny Chat Transcript",
     "",
-    `Workspace: ${workspaceName || "Workspace"}`,
+    `Workspace: ${exportWorkspaceName || "Workspace"}`,
     `Exported: ${exportedAt}`,
     "",
     "---",
@@ -188,14 +197,14 @@ export function buildChatTranscriptMarkdown({ generatedAt, results, workspaceNam
 
   results.forEach((result, index) => {
     const bundle = getSourceBundle(result);
-    const answer = formatAnswerForReport(result.answer, bundle);
+    const answer = formatAnswerForReport(getPrivacySafeExportAnswer(result), bundle);
     const hasSourceSupport = isSourceSupportedResult(result);
 
     lines.push(
       "",
       `## Question ${index + 1}`,
       "",
-      result.question || "Question unavailable.",
+      getExportQuestion(result) || "Question unavailable.",
       "",
       `## Answer ${index + 1}`,
       "",
@@ -290,13 +299,14 @@ export function getTranscriptMarkdownFilename(workspaceName?: string, generatedA
 export function formatAnswerWithCitations(result: WorkspaceSearchResult) {
   const bundle = getSourceBundle(result);
 
-  return `${formatAnswerForReport(result.answer, bundle)}\n\nSources:\n${formatSourcesForMarkdown(bundle.sources)}`;
+  return `${formatAnswerForReport(getPrivacySafeExportAnswer(result), bundle)}\n\nSources:\n${formatSourcesForMarkdown(bundle.sources)}`;
 }
 
 function getCitationSourceBundle(result: WorkspaceSearchResult): SourceBundle {
   const markerToIndex = new Map<string, number>();
   const sources: ReportSource[] = [];
   const seenSourceIds = new Map<string, number>();
+  const aliases = new Map<string, string>();
 
   for (const citation of Array.isArray(result.citations) ? result.citations : []) {
     if (!isUsableSource(citation?.source)) {
@@ -309,7 +319,7 @@ function getCitationSourceBundle(result: WorkspaceSearchResult): SourceBundle {
 
     if (!existingIndex) {
       seenSourceIds.set(source.id, sourceIndex);
-      sources.push(toReportSource(source, sourceIndex));
+      sources.push(toReportSource(source, sourceIndex, result.privacyMode === "privacy_minimised", aliases));
     }
 
     if (typeof citation.marker === "string" && citation.marker.length > 0) {
@@ -331,6 +341,7 @@ function getSourceBundle(result: WorkspaceSearchResult): SourceBundle {
   const markerToIndex = new Map<string, number>();
   const seenSourceIds = new Set<string>();
   const reportSources: ReportSource[] = [];
+  const aliases = new Map<string, string>();
 
   for (const source of sources) {
     if (seenSourceIds.has(source.id)) {
@@ -338,7 +349,7 @@ function getSourceBundle(result: WorkspaceSearchResult): SourceBundle {
     }
 
     seenSourceIds.add(source.id);
-    reportSources.push(toReportSource(source, reportSources.length + 1));
+    reportSources.push(toReportSource(source, reportSources.length + 1, result.privacyMode === "privacy_minimised", aliases));
   }
 
   return { markerToIndex, sources: reportSources };
@@ -359,7 +370,7 @@ function stripChartBlocks(answer: string) {
 }
 
 function formatInsufficientEvidenceContent(result: WorkspaceSearchResult) {
-  const answer = stripChartBlocks(result.answer).replace(/\[\[(?:s|p)\.\d+\]\]/g, "").trim();
+  const answer = stripChartBlocks(getPrivacySafeExportAnswer(result)).replace(/\[\[(?:s|p)\.\d+\]\]/g, "").trim();
 
   return answer || "The uploaded documents did not provide enough evidence to generate a source-supported report.";
 }
@@ -383,15 +394,36 @@ function isInsufficientEvidenceAnswer(answer: string) {
   return weakEvidencePhrases.some((phrase) => normalized.includes(phrase));
 }
 
-function toReportSource(source: SearchChunkResult, index: number): ReportSource {
+function getExportQuestion(result: WorkspaceSearchResult) {
+  return getPrivacySafeExportQuestion(result);
+}
+
+function toReportSource(
+  source: SearchChunkResult,
+  index: number,
+  privacyMinimised: boolean,
+  aliases: Map<string, string>
+): ReportSource {
+  if (privacyMinimised && !aliases.has(source.documentId)) {
+    aliases.set(source.documentId, `Document ${aliases.size + 1}`);
+  }
+  const projection = getPrivacySafeExportSource(
+    source,
+    aliases.get(source.documentId) ?? "Document",
+    privacyMinimised
+  );
   return {
-    documentName: getSourceFilename(source),
-    excerpt: getSourceExcerpt(source),
+    documentName: privacyMinimised ? projection.documentName : getSourceFilename(source),
+    excerpt: getSourceExcerpt({ ...source, content: projection.content }, false),
     index,
-    locationLabel: getSourceLocation(source) || undefined,
+    locationLabel: privacyMinimised
+      ? typeof source.pageNumber === "number" && source.pageNumber > 0
+        ? `p. ${source.pageNumber}`
+        : `chunk ${source.chunkIndex + 1}`
+      : getSourceLocation(source) || undefined,
     pageNumber: typeof source.pageNumber === "number" && source.pageNumber > 0 ? source.pageNumber : undefined,
-    rowRange: getRowRange(source) || undefined,
-    sheetName: getMetadataString(source.metadata, "sheetName") ?? undefined,
+    rowRange: privacyMinimised ? undefined : getRowRange(source) || undefined,
+    sheetName: privacyMinimised ? undefined : getMetadataString(source.metadata, "sheetName") ?? undefined,
   };
 }
 
@@ -426,8 +458,14 @@ function getSourceLocation(source: SearchChunkResult) {
   return "";
 }
 
-function getSourceExcerpt(source: SearchChunkResult) {
-  const content = typeof source.content === "string" ? source.content : "";
+function getSourceExcerpt(source: SearchChunkResult, privacyMinimised = false) {
+  const content = privacyMinimised
+    ? typeof source.providerSafeContent === "string"
+      ? source.providerSafeContent
+      : ""
+    : typeof source.content === "string"
+      ? source.content
+      : "";
   const collapsedContent = content.replace(/\s+/g, " ").trim();
 
   return truncateLabel(collapsedContent.replaceAll('"', "'"), 260) || "Source excerpt unavailable.";

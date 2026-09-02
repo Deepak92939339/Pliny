@@ -75,3 +75,47 @@ order by policyname;
 -- - User B must not download User A's storage object.
 -- - Unauthenticated requests must not list private bucket contents.
 -- - The documents bucket should remain private.
+
+-- 5. Phase 4B privacy columns must exist without changing vector(1024).
+select
+  table_name,
+  column_name,
+  data_type,
+  column_default
+from information_schema.columns
+where table_schema = 'public'
+  and (
+    (table_name = 'collections' and column_name = 'default_processing_mode')
+    or (table_name = 'documents' and column_name in ('processing_mode', 'privacy_policy_version'))
+    or (table_name = 'document_chunks' and column_name in ('provider_safe_content', 'provider_safe_metadata', 'embedding_projection'))
+    or (table_name = 'chat_messages' and column_name in ('processing_mode', 'provider_safe_content'))
+  )
+order by table_name, column_name;
+
+select format_type(atttypid, atttypmod) as embedding_type
+from pg_attribute
+where attrelid = 'public.document_chunks'::regclass
+  and attname = 'embedding'
+  and not attisdropped;
+
+-- 6. Privacy functions remain invoker-rights and anon has no execute grant.
+select
+  p.proname,
+  p.prosecdef as security_definer,
+  has_function_privilege('anon', p.oid, 'execute') as anon_can_execute,
+  has_function_privilege('authenticated', p.oid, 'execute') as authenticated_can_execute
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in (
+    'enforce_document_processing_mode_immutable',
+    'match_document_chunks_lexical_by_mode'
+  )
+order by p.proname;
+
+-- Manual Phase 4B checks after a reviewed local apply:
+-- - Existing documents read as processing_mode = 'standard' with no privacy policy version.
+-- - Updating a document processing_mode or privacy_policy_version is rejected.
+-- - Changing collections.default_processing_mode does not update any existing document row.
+-- - User A cannot read User B original or provider-safe chunk projections.
+-- - anon cannot execute match_document_chunks_lexical_by_mode.

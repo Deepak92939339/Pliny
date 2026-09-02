@@ -26,6 +26,7 @@ async function mapCollectionRow(row: CollectionRow, userId: string): Promise<Col
   return {
     createdAt: row.created_at,
     description: row.description,
+    defaultProcessingMode: row.default_processing_mode,
     documentCount: await getDocumentCount(row.id, userId),
     id: row.id,
     name: row.name,
@@ -37,7 +38,7 @@ export async function getCollectionsForUser(userId: string): Promise<Collections
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("collections")
-    .select("id,user_id,name,description,created_at,updated_at")
+    .select("id,user_id,name,description,default_processing_mode,created_at,updated_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
@@ -60,7 +61,7 @@ export async function getCollectionForUser(collectionId: string, userId: string)
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("collections")
-    .select("id,user_id,name,description,created_at,updated_at")
+    .select("id,user_id,name,description,default_processing_mode,created_at,updated_at")
     .eq("id", collectionId)
     .eq("user_id", userId)
     .maybeSingle();

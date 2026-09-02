@@ -16,7 +16,7 @@ export async function getRecentChatMessages({
 }) {
   const { data, error } = await supabase
     .from("chat_messages")
-    .select("id, collection_id, user_id, role, content, citations, created_at")
+    .select("id, collection_id, user_id, role, content, provider_safe_content, processing_mode, citations, created_at")
     .eq("collection_id", collectionId)
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
@@ -57,6 +57,9 @@ export async function getRecentChatMessages({
         retrievalReason: sources.length > 0 ? "direct_keyword_match" : "no_chunks_found",
       },
       question: userMessage.content,
+      privacyMode: assistantMessage.processing_mode ?? userMessage.processing_mode ?? "standard",
+      providerSafeAnswer: assistantMessage.provider_safe_content ?? undefined,
+      providerSafeQuestion: userMessage.provider_safe_content ?? undefined,
       retrievalReason: sources.length > 0 ? "direct_keyword_match" : "no_chunks_found",
       sources,
       status: "answered",

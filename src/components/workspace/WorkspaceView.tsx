@@ -347,6 +347,7 @@ export function WorkspaceView({
           ) : isDocumentPanelOpen ? (
             <DocumentManagementPanel
               collectionId={collection.id}
+              defaultProcessingMode={collection.defaultProcessingMode}
               documents={documents}
               documentsError={documentsError}
               onCollapse={() => setIsDocumentPanelOpen(false)}

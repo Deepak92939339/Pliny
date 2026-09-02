@@ -50,6 +50,7 @@ export function NewWorkspaceDialog({ className, label = "New workspace", size = 
     defaultValues: {
       name: "",
       description: "",
+      defaultProcessingMode: "standard",
     },
   });
 
@@ -126,6 +127,24 @@ export function NewWorkspaceDialog({ className, label = "New workspace", size = 
               {...register("name")}
             />
             {errors.name ? <p className={cn("text-sm text-red-300", isPaperTone && "text-[#A13F2A]")}>{toWorkspaceCopy(errors.name.message)}</p> : null}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="workspace-processing-mode" className={cn(isPaperTone && "text-[13px] font-semibold text-[#17202A]")}>New document processing</Label>
+            <select
+              id="workspace-processing-mode"
+              className={cn(
+                "h-11 w-full rounded-lg border border-[color:var(--editorial-border)] bg-[var(--editorial-card)] px-3 text-sm text-[color:var(--editorial-ink)] outline-none focus-visible:border-[#BA5C3D]/45 focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/15",
+                isPaperTone && "rounded-[7px] border-[#D9CBBB] bg-white text-[#17202A] focus-visible:border-[#BA5C3D] focus-visible:ring-[#BA5C3D]/20"
+              )}
+              {...register("defaultProcessingMode")}
+            >
+              <option value="standard">Standard</option>
+              <option value="privacy_minimised">Privacy-minimised</option>
+            </select>
+            <p className="text-xs leading-5 text-[color:var(--editorial-muted)]">
+              This default is captured by each new document and does not change existing documents.
+            </p>
           </div>
 
           <div className="space-y-2">

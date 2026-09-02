@@ -4,12 +4,22 @@ import { z } from "zod";
 import { checkAiBudget, getAiConfig, type AiBudgetDecision } from "@/lib/ai/budgetGuard";
 import { assessEvidenceSufficiency } from "@/lib/ai/evidenceSufficiency";
 import { routeModel } from "@/lib/ai/modelRouter";
+import {
+  assertPrivacyGenerationPayload,
+  buildCitationRepairProviderPayload,
+  buildGenerationProviderPayload,
+  buildPrivacyGenerationPrompt,
+  preparePrivacyGenerationBoundary,
+  type PrivacyGenerationBoundary,
+} from "@/lib/ai/providerBoundary";
 import { getFileExtension, getFileKindLabel, inferSupportedFileKind } from "@/lib/document-processing/fileKinds";
 import { parseCitationMarkers, validateCitations, type CitationValidationResult } from "@/lib/citations/validateCitations";
 import { retrieveRelevantChunks } from "@/lib/search/retrieveChunks";
+import { assertOnlyAllowedPseudonyms, getPrivacyScopeId, getPrivacyScopeSecret, toProviderSafeQuery } from "@/lib/privacy/providerSafeText";
+import { logSafeStageError } from "@/lib/privacy/safeLogging";
 import { createClient } from "@/lib/supabase/server";
 import type { SupportedFileKind } from "@/lib/document-processing/types";
-import type { ChatCitation, ChatResponse, CitationValidationDebug, RetrievalReason, SearchChunkResult } from "@/types";
+import type { ChatCitation, ChatResponse, CitationValidationDebug, PrivacyMode, RetrievalReason, SearchChunkResult } from "@/types";
 
 const MAX_MESSAGE_LENGTH = 1000;
 const NO_CONTEXT_ANSWER =
@@ -130,6 +140,8 @@ type ChatMessageInsert = {
   citations?: ChatCitation[] | null;
   collection_id: string;
   content: string;
+  processing_mode?: PrivacyMode;
+  provider_safe_content?: string | null;
   role: "user" | "assistant";
   user_id: string;
 };
@@ -142,6 +154,7 @@ type WorkspaceDocument = {
   filename: string;
   id: string;
   page_count?: number | null;
+  processing_mode: PrivacyMode;
   status: "processing" | "ready" | "failed";
 };
 
@@ -215,26 +228,8 @@ function getAnthropicApiKey() {
   return process.env.ANTHROPIC_API_KEY;
 }
 
-function serializeError(error: unknown) {
-  if (error instanceof Error) {
-    return {
-      message: error.message,
-      name: error.name,
-      stack: process.env.NODE_ENV === "production" ? undefined : error.stack,
-    };
-  }
-
-  return {
-    message: String(error),
-    name: typeof error,
-  };
-}
-
 function logChatError(step: string, error: unknown, details?: Record<string, unknown>) {
-  console.error("[chat]", step, {
-    ...details,
-    error: serializeError(error),
-  });
+  logSafeStageError("chat", step, error, details as Record<string, string | number | boolean | null | undefined>);
 }
 
 function logCitationValidationFailure(stage: string, validation: CitationValidationResult, details: Record<string, unknown>) {
@@ -639,6 +634,7 @@ function clampChunks(chunks: SearchChunkResult[], maxCharacters: number) {
   return chunks.map((chunk) => ({
     ...chunk,
     content: clampContent(chunk.content, maxCharacters),
+    providerSafeContent: chunk.providerSafeContent ? clampContent(chunk.providerSafeContent, maxCharacters) : chunk.providerSafeContent,
   }));
 }
 
@@ -845,11 +841,19 @@ async function saveChatMessage(supabase: Awaited<ReturnType<typeof createClient>
   return error;
 }
 
+function getPrivacyMessageFields(privacyBoundary: boolean, providerSafeContent: string) {
+  return privacyBoundary
+    ? { processing_mode: "privacy_minimised" as const, provider_safe_content: providerSafeContent }
+    : { processing_mode: "standard" as const, provider_safe_content: null };
+}
+
 async function saveInsufficientEvidenceResponse({
   collectionId,
   closestMatches,
   metadata,
   question,
+  privacyBoundary = false,
+  providerSafeQuestion,
   reason,
   supabase,
   userId,
@@ -858,6 +862,8 @@ async function saveInsufficientEvidenceResponse({
   closestMatches: SearchChunkResult[];
   metadata: ChatResponse["metadata"];
   question: string;
+  privacyBoundary?: boolean;
+  providerSafeQuestion?: string;
   reason: string;
   supabase: Awaited<ReturnType<typeof createClient>>;
   userId: string;
@@ -870,6 +876,9 @@ async function saveInsufficientEvidenceResponse({
     metadata,
     missingEvidence: ["Direct support for the requested claim in the retrieved excerpts."],
     question,
+    privacyMode: privacyBoundary ? "privacy_minimised" : "standard",
+    providerSafeAnswer: privacyBoundary ? NO_CONTEXT_ANSWER : undefined,
+    providerSafeQuestion: privacyBoundary ? providerSafeQuestion : undefined,
     reason,
     sources: [],
     status: "insufficient_evidence",
@@ -878,6 +887,7 @@ async function saveInsufficientEvidenceResponse({
   const userMessageError = await saveChatMessage(supabase, {
     collection_id: collectionId,
     content: question,
+    ...getPrivacyMessageFields(privacyBoundary, providerSafeQuestion ?? question),
     role: "user",
     user_id: userId,
   });
@@ -902,6 +912,7 @@ async function saveInsufficientEvidenceResponse({
     citations: [],
     collection_id: collectionId,
     content: response.answer,
+    ...getPrivacyMessageFields(privacyBoundary, response.answer),
     role: "assistant",
     user_id: userId,
   });
@@ -948,7 +959,7 @@ async function getWorkspaceDocuments({
 }) {
   const { data, error } = await supabase
     .from("documents")
-    .select("id,filename,status,page_count,error_message,created_at")
+    .select("id,filename,status,page_count,error_message,created_at,processing_mode")
     .eq("collection_id", collectionId)
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
@@ -1034,6 +1045,9 @@ function buildResponseMetadata({
 async function saveSyntheticChatResponse({
   answer,
   collectionId,
+  privacyBoundary = false,
+  providerSafeAnswer,
+  providerSafeQuestion,
   question,
   reason,
   supabase,
@@ -1041,6 +1055,9 @@ async function saveSyntheticChatResponse({
 }: {
   answer: string;
   collectionId: string;
+  privacyBoundary?: boolean;
+  providerSafeAnswer?: string;
+  providerSafeQuestion?: string;
   question: string;
   reason: string;
   supabase: Awaited<ReturnType<typeof createClient>>;
@@ -1059,6 +1076,9 @@ async function saveSyntheticChatResponse({
       retrievalReason: "direct_keyword_match",
     },
     question,
+    privacyMode: privacyBoundary ? "privacy_minimised" : "standard",
+    providerSafeAnswer: privacyBoundary ? providerSafeAnswer : undefined,
+    providerSafeQuestion: privacyBoundary ? providerSafeQuestion : undefined,
     sources: [],
     status: "answered",
   };
@@ -1066,6 +1086,7 @@ async function saveSyntheticChatResponse({
   const userMessageError = await saveChatMessage(supabase, {
     collection_id: collectionId,
     content: question,
+    ...getPrivacyMessageFields(privacyBoundary, providerSafeQuestion ?? question),
     role: "user",
     user_id: userId,
   });
@@ -1079,6 +1100,7 @@ async function saveSyntheticChatResponse({
     citations: [],
     collection_id: collectionId,
     content: answer,
+    ...getPrivacyMessageFields(privacyBoundary, providerSafeAnswer ?? answer),
     role: "assistant",
     user_id: userId,
   });
@@ -1154,12 +1176,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unable to inspect uploaded documents right now." }, { status: 500 });
   }
 
+  const workspacePrivacyBoundary = documents.some((document) => document.processing_mode === "privacy_minimised");
+  const workspaceProviderSafeQuestion = workspacePrivacyBoundary
+    ? toProviderSafeQuery(
+        message,
+        documents.map((document) => ({
+          scopeId: getPrivacyScopeId(user.id, document.id),
+          scopeSecret: getPrivacyScopeSecret(),
+        }))
+      ).text
+    : message;
+
   const documentInventoryAnswer = buildDocumentInventoryAnswer(message, documents);
 
   if (documentInventoryAnswer) {
     return saveSyntheticChatResponse({
       answer: documentInventoryAnswer,
       collectionId,
+      privacyBoundary: workspacePrivacyBoundary,
+      providerSafeAnswer: workspacePrivacyBoundary
+        ? "This masked export omits document filenames. Review the owner-scoped workspace for the document inventory."
+        : documentInventoryAnswer,
+      providerSafeQuestion: workspaceProviderSafeQuestion,
       question: message,
       reason: "document_inventory_answer",
       supabase,
@@ -1180,6 +1218,11 @@ export async function POST(request: Request) {
     return saveSyntheticChatResponse({
       answer: statusAnswer,
       collectionId,
+      privacyBoundary: workspacePrivacyBoundary,
+      providerSafeAnswer: workspacePrivacyBoundary
+        ? "A selected owner-visible document is not ready for retrieval."
+        : statusAnswer,
+      providerSafeQuestion: workspaceProviderSafeQuestion,
       question: message,
       reason: "document_not_ready_answer",
       supabase,
@@ -1212,6 +1255,8 @@ export async function POST(request: Request) {
   const {
     error: chunksError,
     missingRequiredDocumentIds,
+    privacyBoundary,
+    providerSafeQuery,
     results: retrievedChunks,
     retrievalReason,
   } = await retrieveRelevantChunks(supabase, {
@@ -1229,7 +1274,8 @@ export async function POST(request: Request) {
 
   if (process.env.NODE_ENV !== "production") {
     console.info("[chat] retrieval summary", {
-      documentScope: documentScope?.documents.map((document) => document.filename).join(", "),
+      scopedDocumentCount: documentScope?.documents.length ?? 0,
+      privacyBoundary,
       retrievedChunkCount: retrievedChunks.length,
       retrievalReason,
       sourceCountSentToModel: Math.min(retrievedChunks.length, config.maxChunks),
@@ -1254,6 +1300,8 @@ export async function POST(request: Request) {
         selectedModel: modelRoute.selectedModel,
       }),
       question: message,
+      privacyBoundary,
+      providerSafeQuestion: providerSafeQuery,
       reason: "At least one explicitly required document did not contain qualifying evidence for its requested fact.",
       supabase,
       userId: user.id,
@@ -1276,6 +1324,9 @@ export async function POST(request: Request) {
         selectedModel: modelRoute.selectedModel,
       }),
       question: message,
+      privacyMode: privacyBoundary ? "privacy_minimised" : "standard",
+      providerSafeQuestion: privacyBoundary ? providerSafeQuery : undefined,
+      providerSafeAnswer: privacyBoundary ? NO_CONTEXT_ANSWER : undefined,
       sources: [],
       missingEvidence: ["A processed document passage relevant to this question."],
       reason: "The workspace does not contain a searchable passage that supports this question.",
@@ -1284,6 +1335,7 @@ export async function POST(request: Request) {
     const userMessageError = await saveChatMessage(supabase, {
       collection_id: collectionId,
       content: message,
+      ...getPrivacyMessageFields(privacyBoundary, providerSafeQuery),
       role: "user",
       user_id: user.id,
     });
@@ -1308,6 +1360,7 @@ export async function POST(request: Request) {
       citations: [],
       collection_id: collectionId,
       content: response.answer,
+      ...getPrivacyMessageFields(privacyBoundary, response.answer),
       role: "assistant",
       user_id: user.id,
     });
@@ -1344,7 +1397,24 @@ export async function POST(request: Request) {
   }
 
   const promptChunks = clampChunks(retrievedChunks, config.maxCharsPerChunk);
-  const prompt = buildPrompt(message, promptChunks, retrievalReason, documentScope);
+  let generationBoundary: PrivacyGenerationBoundary | null = null;
+  let prompt = buildPrompt(message, promptChunks, retrievalReason, documentScope);
+  if (privacyBoundary) {
+    generationBoundary = preparePrivacyGenerationBoundary({
+      chunks: promptChunks,
+      documentIds: documents.filter((document) => document.status === "ready").map((document) => document.id),
+      question: message,
+      scopeSecret: getPrivacyScopeSecret(),
+      userId: user.id,
+    });
+    prompt = buildPrivacyGenerationPrompt({
+      chunks: generationBoundary.chunks,
+      question: generationBoundary.question,
+      requiredDocumentIds,
+      retrievalReason,
+    });
+  }
+  const citationChunks = generationBoundary?.chunks ?? promptChunks;
   const retrievedEvidence = assessEvidenceSufficiency({
     question: message,
     requiredDocumentIds,
@@ -1366,6 +1436,8 @@ export async function POST(request: Request) {
         evidenceStatus: retrievedEvidence.evidenceStatus,
       },
       question: message,
+      privacyBoundary,
+      providerSafeQuestion: generationBoundary?.question ?? providerSafeQuery,
       reason: retrievedEvidence.reason,
       supabase,
       userId: user.id,
@@ -1417,6 +1489,7 @@ export async function POST(request: Request) {
   const userMessageError = await saveChatMessage(supabase, {
     collection_id: collectionId,
     content: message,
+    ...getPrivacyMessageFields(privacyBoundary, generationBoundary?.question ?? providerSafeQuery),
     role: "user",
     user_id: user.id,
   });
@@ -1439,21 +1512,19 @@ export async function POST(request: Request) {
 
   try {
     const anthropic = new Anthropic({ apiKey, maxRetries: 0 });
-    const claudeResponse = await anthropic.messages.create({
-      max_tokens: modelRoute.maxOutputTokens,
-      messages: [
-        {
-          content: prompt,
-          role: "user",
-        },
-      ],
+    const generationPayload = buildGenerationProviderPayload({
+      maxTokens: modelRoute.maxOutputTokens,
       model: modelRoute.selectedModel,
+      prompt,
       system: SYSTEM_PROMPT,
       temperature: 0.2,
     });
+    if (generationBoundary) assertPrivacyGenerationPayload(generationPayload, generationBoundary);
+    const claudeResponse = await anthropic.messages.create(generationPayload);
     const draftAnswer = getAssistantText(claudeResponse) || NO_CONTEXT_ANSWER;
+    if (generationBoundary) assertOnlyAllowedPseudonyms(draftAnswer, generationBoundary.allowedPseudonyms);
     let answer = draftAnswer;
-    let citationValidation = validateCitations(answer, promptChunks);
+    let citationValidation = validateCitations(answer, citationChunks);
 
     if (citationValidation.rejectedAnswer && requiredDocumentIds.length < 2) {
       logCitationValidationFailure("initial", citationValidation, {
@@ -1461,20 +1532,18 @@ export async function POST(request: Request) {
       });
 
       try {
-        const correctionResponse = await anthropic.messages.create({
-          max_tokens: Math.min(modelRoute.maxOutputTokens, 900),
-          messages: [
-            {
-              content: `${prompt}\n\n<draft_answer>\n${draftAnswer}\n</draft_answer>\n\nRepair the draft answer so every factual claim is supported by a valid source citation.`,
-              role: "user",
-            },
-          ],
+        const correctionPayload = buildCitationRepairProviderPayload({
+          draftAnswer,
+          maxTokens: Math.min(modelRoute.maxOutputTokens, 900),
           model: modelRoute.selectedModel,
+          prompt,
           system: CITATION_CORRECTION_SYSTEM_PROMPT,
-          temperature: 0,
         });
+        if (generationBoundary) assertPrivacyGenerationPayload(correctionPayload, generationBoundary);
+        const correctionResponse = await anthropic.messages.create(correctionPayload);
         const correctedAnswer = getAssistantText(correctionResponse);
-        const correctedValidation = validateCitations(correctedAnswer, promptChunks);
+        if (generationBoundary) assertOnlyAllowedPseudonyms(correctedAnswer, generationBoundary.allowedPseudonyms);
+        const correctedValidation = validateCitations(correctedAnswer, citationChunks);
 
         if (correctedAnswer && correctedAnswer !== "INSUFFICIENT_EVIDENCE" && !correctedValidation.rejectedAnswer) {
           answer = correctedAnswer;
@@ -1503,14 +1572,14 @@ export async function POST(request: Request) {
       }
     }
 
-    const generatedCitations = buildCitations(answer, promptChunks);
+    const generatedCitations = buildCitations(answer, citationChunks);
     const finalEvidence = assessEvidenceSufficiency({
       citedDocumentIds: generatedCitations.map((citation) => citation.documentId),
       citationValidation,
       question: message,
       requiredDocumentIds,
       retrievalReason,
-      sources: promptChunks,
+      sources: citationChunks,
     });
     const isInsufficientEvidence = !finalEvidence.sufficient;
     const responseAnswer = isInsufficientEvidence && requiredDocumentIds.length > 1 ? NO_CONTEXT_ANSWER : answer;
@@ -1519,7 +1588,7 @@ export async function POST(request: Request) {
       ? {
           answer: responseAnswer,
           citations,
-          closestMatches: promptChunks.slice(0, 3),
+          closestMatches: citationChunks.slice(0, 3),
           collectionId,
           metadata: buildResponseMetadata({
             budget,
@@ -1532,6 +1601,9 @@ export async function POST(request: Request) {
           }),
           missingEvidence: ["Direct support for the requested claim in the retrieved excerpts."],
           question: message,
+          privacyMode: privacyBoundary ? "privacy_minimised" : "standard",
+          providerSafeQuestion: privacyBoundary ? generationBoundary?.question ?? providerSafeQuery : undefined,
+          providerSafeAnswer: privacyBoundary ? responseAnswer : undefined,
           reason: "The generated answer could not be verified against the retrieved document evidence.",
           sources: [],
           status: "insufficient_evidence",
@@ -1550,13 +1622,17 @@ export async function POST(request: Request) {
         evidenceStatus: finalEvidence.evidenceStatus,
       }),
       question: message,
-      sources: promptChunks,
+      privacyMode: privacyBoundary ? "privacy_minimised" : "standard",
+      providerSafeQuestion: privacyBoundary ? generationBoundary?.question ?? providerSafeQuery : undefined,
+      providerSafeAnswer: privacyBoundary ? responseAnswer : undefined,
+      sources: citationChunks,
       status: "answered",
     };
     const assistantMessageError = await saveChatMessage(supabase, {
       citations,
       collection_id: collectionId,
       content: responseAnswer,
+      ...getPrivacyMessageFields(privacyBoundary, responseAnswer),
       role: "assistant",
       user_id: user.id,
     });

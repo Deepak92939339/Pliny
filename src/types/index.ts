@@ -3,6 +3,7 @@ export type CollectionRow = {
   user_id: string;
   name: string;
   description: string | null;
+  default_processing_mode: PrivacyMode;
   created_at: string;
   updated_at: string;
 };
@@ -11,10 +12,13 @@ export type CollectionListItem = {
   id: string;
   name: string;
   description: string | null;
+  defaultProcessingMode: PrivacyMode;
   createdAt: string;
   updatedAt: string;
   documentCount: number;
 };
+
+export type PrivacyMode = "standard" | "privacy_minimised";
 
 export type DocumentStatus = "processing" | "ready" | "failed";
 export type DocumentProcessingStage = "validating" | "uploading" | "extracting" | "ocr_fallback" | "chunking" | "embedding" | "indexing" | "ready" | "failed";
@@ -30,6 +34,8 @@ export type DocumentRow = {
   status: DocumentStatus;
   processing_stage?: DocumentProcessingStage | null;
   error_message: string | null;
+  processing_mode: PrivacyMode;
+  privacy_policy_version?: string | null;
   created_at: string;
 };
 
@@ -43,6 +49,8 @@ export type DocumentListItem = {
   status: DocumentStatus;
   processingStage?: DocumentProcessingStage | null;
   errorMessage: string | null;
+  processingMode: PrivacyMode;
+  privacyPolicyVersion?: string | null;
   createdAt: string;
 };
 
@@ -56,6 +64,10 @@ export type DocumentChunkRow = {
   file_kind?: string | null;
   location_label?: string | null;
   metadata?: Record<string, string | number | boolean | null> | null;
+  provider_safe_content?: string | null;
+  provider_safe_metadata?: Record<string, string | number | boolean | null> | null;
+  privacy_policy_version?: string | null;
+  embedding_projection?: "original" | "privacy_minimised";
   embedding?: number[] | null;
   embedding_model?: string | null;
   embedding_created_at?: string | null;
@@ -116,6 +128,9 @@ export type SearchChunkResult = {
   filename: string;
   locationLabel?: string | null;
   metadata?: Record<string, string | number | boolean | null> | null;
+  processingMode?: PrivacyMode;
+  providerSafeContent?: string | null;
+  providerSafeMetadata?: Record<string, string | number | boolean | null> | null;
   fusionScore?: number | null;
   keywordScore?: number | null;
   relevanceScore?: number | null;
@@ -158,6 +173,9 @@ type ChatResponseBase = {
     retrievalDebug?: RetrievalDebugMetadata;
   };
   question: string;
+  privacyMode?: PrivacyMode;
+  providerSafeAnswer?: string;
+  providerSafeQuestion?: string;
   sources: SearchChunkResult[];
 };
 
@@ -258,6 +276,8 @@ export type ChatMessageRow = {
   user_id: string;
   role: "user" | "assistant";
   content: string;
+  processing_mode?: PrivacyMode;
+  provider_safe_content?: string | null;
   citations: ChatCitation[] | null;
   created_at: string;
 };

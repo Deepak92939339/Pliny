@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
-import { collectionFormSchema, collectionIdSchema, type CollectionFormValues } from "@/lib/collections/schema";
+import { collectionFormSchema, collectionIdSchema, privacyModeSchema, type CollectionFormValues } from "@/lib/collections/schema";
 import { createClient } from "@/lib/supabase/server";
 
 export type CollectionActionResult =
@@ -30,6 +30,7 @@ export async function createCollection(values: CollectionFormValues): Promise<Co
       fieldErrors: {
         name: parsed.error.flatten().fieldErrors.name?.[0],
         description: parsed.error.flatten().fieldErrors.description?.[0],
+        defaultProcessingMode: parsed.error.flatten().fieldErrors.defaultProcessingMode?.[0],
       },
     };
   }
@@ -49,6 +50,7 @@ export async function createCollection(values: CollectionFormValues): Promise<Co
     user_id: user.id,
     name: parsed.data.name.trim(),
     description: description ? description : null,
+    default_processing_mode: parsed.data.defaultProcessingMode,
   });
 
   if (error) {
@@ -64,6 +66,29 @@ export async function createCollection(values: CollectionFormValues): Promise<Co
     status: "success",
     message: "Project created.",
   };
+}
+
+export async function updateCollectionDefaultProcessingMode(
+  collectionId: string,
+  mode: "standard" | "privacy_minimised"
+): Promise<CollectionActionResult> {
+  const parsedId = collectionIdSchema.safeParse(collectionId);
+  const parsedMode = privacyModeSchema.safeParse(mode);
+  if (!parsedId.success || !parsedMode.success) {
+    return { status: "error", message: "Unable to update the processing default." };
+  }
+  const user = await getCurrentUser();
+  if (!user) return { status: "error", message: "Please log in again before updating this workspace." };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("collections")
+    .update({ default_processing_mode: parsedMode.data })
+    .eq("id", parsedId.data)
+    .eq("user_id", user.id);
+  if (error) return { status: "error", message: safeDatabaseMessage() };
+  revalidatePath(`/collection/${parsedId.data}`);
+  revalidatePath("/dashboard");
+  return { status: "success", message: "Processing default updated for new uploads." };
 }
 
 export async function deleteCollection(collectionId: string): Promise<CollectionActionResult> {

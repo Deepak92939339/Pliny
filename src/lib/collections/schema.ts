@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const privacyModeSchema = z.enum(["standard", "privacy_minimised"]);
+
 export const collectionFormSchema = z.object({
   name: z
     .string()
@@ -11,6 +13,7 @@ export const collectionFormSchema = z.object({
     .trim()
     .max(280, "Description must be 280 characters or less.")
     .optional(),
+  defaultProcessingMode: privacyModeSchema,
 });
 
 export const collectionIdSchema = z.string().uuid("Invalid collection id.");

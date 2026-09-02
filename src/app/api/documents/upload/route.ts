@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getFileExtension } from "@/lib/document-processing/fileKinds";
 import { getProcessorForFile, supportedFileExtensions } from "@/lib/document-processing/registry";
 import { checkRouteRateLimit } from "@/lib/rate-limit";
+import { logSafeStageError } from "@/lib/privacy/safeLogging";
+import { captureDocumentPrivacyPolicy } from "@/lib/privacy/types";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -13,54 +15,13 @@ const uploadSchema = z.object({
 });
 const MAX_MULTIPART_BODY_BYTES = 16 * 1024 * 1024;
 
-type ErrorLike = {
-  code?: unknown;
-  details?: unknown;
-  hint?: unknown;
-  message?: unknown;
-  name?: unknown;
-  stack?: unknown;
-  status?: unknown;
-};
-
-function serializeError(error: unknown) {
-  if (error instanceof Error) {
-    return {
-      message: error.message,
-      name: error.name,
-      stack: process.env.NODE_ENV === "production" ? undefined : error.stack,
-    };
-  }
-
-  if (error && typeof error === "object") {
-    const errorLike = error as ErrorLike;
-
-    return {
-      code: errorLike.code,
-      details: errorLike.details,
-      hint: errorLike.hint,
-      message: errorLike.message,
-      name: errorLike.name,
-      stack: process.env.NODE_ENV === "production" ? undefined : errorLike.stack,
-    };
-  }
-
-  return {
-    message: String(error),
-    name: typeof error,
-  };
-}
-
 function logUploadError(step: string, error: unknown, details?: Record<string, unknown>) {
-  console.error("[documents-upload]", step, {
-    ...details,
-    error: serializeError(error),
-  });
+  logSafeStageError("documents-upload", step, error, details as Record<string, string | number | boolean | null | undefined>);
 }
 
 function getErrorStatus(error: unknown) {
   if (error && typeof error === "object" && "status" in error) {
-    const status = (error as ErrorLike).status;
+    const status = (error as { status?: unknown }).status;
 
     if (typeof status === "number" && Number.isInteger(status)) {
       return status;
@@ -164,7 +125,7 @@ export async function POST(request: Request) {
 
   const { data: collection, error: collectionError } = await supabase
     .from("collections")
-    .select("id")
+    .select("id,default_processing_mode")
     .eq("id", collectionId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -179,6 +140,7 @@ export async function POST(request: Request) {
   }
 
   const displayFilename = getDisplayFilename(file.name);
+  const capturedPrivacyPolicy = captureDocumentPrivacyPolicy(collection.default_processing_mode);
   const mimeType = file.type || "application/octet-stream";
   const fileData = new Uint8Array(await file.arrayBuffer());
   const processor = getProcessorForFile({
@@ -210,10 +172,11 @@ export async function POST(request: Request) {
       mimeType,
     });
   } catch (error) {
-    logUploadError("file validation failed", error, { collectionId, filename: displayFilename, processor: processor.id, userId: user.id });
-    const message = error instanceof Error ? error.message : "This file could not be validated. Try a different file.";
-
-    return NextResponse.json({ error: message }, { status: getErrorStatus(error) });
+    logUploadError("file validation failed", error, { collectionId, processor: processor.id, userId: user.id });
+    return NextResponse.json(
+      { error: "This file could not be validated safely. Try a supported file." },
+      { status: getErrorStatus(error) }
+    );
   }
 
   const storagePath = `${user.id}/${collectionId}/${crypto.randomUUID()}-${getSafeFilename(displayFilename)}`;
@@ -224,7 +187,7 @@ export async function POST(request: Request) {
   });
 
   if (uploadError) {
-    logUploadError("storage upload failed", uploadError, { collectionId, filename: displayFilename, userId: user.id });
+    logUploadError("storage upload failed", uploadError, { collectionId, userId: user.id });
     return NextResponse.json({ error: "Unable to upload this file. Please try again." }, { status: 500 });
   }
 
@@ -235,6 +198,8 @@ export async function POST(request: Request) {
       file_size: file.size,
       filename: displayFilename,
       processing_stage: "uploading",
+      processing_mode: capturedPrivacyPolicy.mode,
+      privacy_policy_version: capturedPrivacyPolicy.mode === "privacy_minimised" ? capturedPrivacyPolicy.policyVersion : null,
       status: "processing",
       storage_path: storagePath,
       user_id: user.id,
@@ -243,7 +208,7 @@ export async function POST(request: Request) {
     .single();
 
   if (insertError || !insertedDocument) {
-    logUploadError("document row insert failed", insertError, { collectionId, filename: displayFilename, userId: user.id });
+    logUploadError("document row insert failed", insertError, { collectionId, userId: user.id });
     await supabase.storage.from("documents").remove([storagePath]);
     return NextResponse.json({ error: "The file uploaded, but the document record could not be saved. Please try again." }, { status: 500 });
   }

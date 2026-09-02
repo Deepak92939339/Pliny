@@ -11,6 +11,8 @@ function mapDocumentRow(row: DocumentRow): DocumentListItem {
     collectionId: row.collection_id,
     createdAt: row.created_at,
     errorMessage: row.error_message,
+    processingMode: row.processing_mode,
+    privacyPolicyVersion: row.privacy_policy_version ?? null,
     fileSize: row.file_size,
     filename: row.filename,
     id: row.id,
@@ -25,7 +27,7 @@ export async function getDocumentsForCollection(collectionId: string, userId: st
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("documents")
-    .select("id,collection_id,user_id,filename,storage_path,page_count,file_size,status,error_message,created_at")
+    .select("id,collection_id,user_id,filename,storage_path,page_count,file_size,status,processing_stage,error_message,processing_mode,privacy_policy_version,created_at")
     .eq("collection_id", collectionId)
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
