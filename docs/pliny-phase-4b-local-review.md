@@ -4,7 +4,7 @@ Date: 2026-09-01; local database acceptance updated 2026-09-02
 
 Baseline: `8f26210148a7d64d8f190ab76d75f476720d5f9d`
 
-Status: local database acceptance passed after one minimum function-ACL correction; migration applied only to a disposable local database; no provider request, remote migration, commit, push, deployment, or production-data change
+Status: Phase 4B.1 local acceptance passed; Phase 4B production schema and Phase 4B.2A anonymous Data API privilege hardening are applied and independently verified; application push/deployment remains a separate pending gate; no provider request, document upload, reprocessing, or production-data change
 
 ## Architecture decision
 
@@ -180,9 +180,54 @@ Supabase database lint passed. Security Advisor reported only the pre-existing `
 5. Provider-backed generation, citation repair, latency, cost and failure tests were deliberately not run in this provider-free phase.
 6. No original-export override is implemented. Privacy-minimised exports are masked by default and reconstruction remains disabled.
 7. The checked-in migrations remain incremental and require the existing foundational schema when bootstrapping a brand-new local database. The acceptance harness supplied that foundation only inside the disposable project.
-8. The local new-project grant defaults and simulated legacy function defaults are covered, but no hosted-project catalog was queried. The explicit revokes make the corrected function ACLs deterministic across those default regimes.
+8. Hosted production catalog and role witnesses are now recorded below. Future platform default changes still require explicit grant and RLS review as separate controls.
 9. The database acceptance fixtures were synthetic and transactionally rolled back. Production-scale GIN build time, memory, selectivity, semantic recall, and mixed-mode latency remain future release gates.
 
 ## Boundary confirmation
 
 Phase 4B.1 made no Voyage, Anthropic, GLM, Z.ai, or other provider request; no document upload/transmission; no linked or remote migration; no production environment change; no production-data change; no commit; no push; and no deployment. Work stops for explicit approval at the local database acceptance boundary.
+
+## Phase 4B.2 and Phase 4B.2A production database release — 2026-09-02
+
+### Phase 4B schema application
+
+The linked target was positively identified as project `lnvosbeeybisdixfwqdo`. Before application, remote migration history contained the three earlier repository migrations and only `20260901044022_phase_4b_privacy_minimised_processing.sql` was pending. Its repository and dry-run SHA-256 remained `5147cf4cad0a2abb7cb22f574a5c0220333bdddede92d8ce9fa69e9586bb2ab7`.
+
+The first production apply failed transactionally while adding the stored masked lexical column: PostgreSQL required 41 MB while the session default was `maintenance_work_mem=32MB`. Catalog and history witnesses confirmed complete rollback. The already-accepted 64 MB requirement was then supplied as a connection-local startup option for one CLI migration transaction; no database, role, migration SQL, persistent configuration or history repair was changed. The migration applied normally through `supabase db push`.
+
+Catalog, function, RLS, owner/non-owner, immutability, retrieval, vector, Storage and before/after count witnesses passed. The remaining release blocker was a pre-existing production ACL difference: `anon` directly held `SELECT`, `INSERT`, `UPDATE` and `DELETE` on the four private application tables even though RLS returned no rows.
+
+### Phase 4B.2A scope and provenance
+
+The new migration is `20260902043330_revoke_anon_private_application_table_dml.sql`, SHA-256 `0430e163c3d950db131dd2b6b9121a3340ec33c953ecbc0f7ea8942ddea64b07`. Its entire effect is to revoke `SELECT`, `INSERT`, `UPDATE` and `DELETE` from `anon` on exactly `public.collections`, `public.documents`, `public.document_chunks` and `public.chat_messages`.
+
+Production `aclexplode`, `pg_auth_members` and `has_table_privilege` witnesses proved that the four DML privileges were direct grants to `anon`: `PUBLIC` had no matching entry and `anon` inherited from no parent role. Authenticated and `service_role` grants were separate direct entries. Source review found no intended anonymous application-table access: landing pages are static, login/signup use Supabase Auth only, and every application-table query occurs after an authenticated user check or protected route.
+
+### Phase 4B.2A local acceptance
+
+Acceptance used disposable project `pliny-phase4b2a-acceptance.EkUifU`, PostgreSQL 17, unique local database port 56342 and legacy `auto_expose_new_tables=true` so the clean foundation reproduced the hosted project's direct `anon` grants before the revocation. The existing foundational schema was acceptance-only version `20260829000000`; every checked-in migration was copied byte-identically after it.
+
+The complete chain rebuilt cleanly twice. `supabase migration up --local` returned no pending migration after each build. Both public schema dumps were byte-identical with SHA-256 `27fb389250d899a145be3752ebeb071f6badb7ed5726e53a85d09ca0d66c60e0`.
+
+The expanded pgTAP suite passed 59 assertions after each build. It separately checks all four tables have no effective anonymous DML privilege, an actual anonymous table `SELECT` fails at the ACL layer with SQLSTATE `42501`, authenticated DML grants remain, owners retain legitimate standard/privacy flows and retrieval, non-owners remain isolated, the mode-aware RPC privilege matrix is unchanged, and `document_chunks.embedding` remains `vector(1024)`. Database lint passed. Local advisors reported only the established public `vector` extension warning and unused indexes expected in a rebuilt empty database.
+
+### Phase 4B.2A remote witnesses
+
+The dry run contained only `20260902043330_revoke_anon_private_application_table_dml.sql`; it applied once without warning. Remote history is aligned through `20260902043330`.
+
+After application:
+
+- `anon` has no effective `SELECT`, `INSERT`, `UPDATE` or `DELETE` on any of the four tables; an actual anonymous `SELECT` and the Phase 4B RPC both fail at ACL/function privilege checks.
+- `authenticated` and `service_role` retain their prior four DML privileges on all four tables.
+- Authenticated owner access, transactional standard/privacy document-mode capture, immutability, unrelated document updates and missing-projection fail-closed behavior passed.
+- The authenticated non-owner read, mutation, citation and RPC witnesses all returned no owner data.
+- The two Phase 4B functions remain `SECURITY INVOKER` with their accepted search paths; PUBLIC, anon and service-role function restrictions are unchanged.
+- All four tables retain RLS; collection/document UPDATE policies retain `USING` and `WITH CHECK`; `document_chunks.embedding` remains `vector(1024)`.
+- Existing documents remain three standard documents. No privacy documents, masked chunks or masked chat rows were fabricated.
+- Production stayed at 3 collections, 3 documents, 11 chunks, 46 chats, 19 citations, 5 Storage objects and 43,841,029 Storage bytes. The `documents` bucket remains private.
+
+Remote Security Advisor reports the established public `vector` extension warning plus an existing Auth leaked-password-protection warning; neither is changed in this release. Performance Advisor reports low-volume unused-index notices, including the existing lexical, masked lexical and embedding indexes. No unrelated hardening was performed.
+
+Provider-free HTTP compatibility before the application push passed: `/`, `/login` and `/signup` returned 200; unauthenticated dashboard and collection routes redirected to login; chat, search, processing and upload APIs returned 401 before accepting content or invoking a provider. Application regression tests, offline evaluation 14/14, lint, TypeScript, production build, browser privacy-bundle scan, diff check and `npm audit --omit=dev` passed.
+
+Phase 4B.2A provider requests: zero. Uploads/transmissions: zero. Reprocessing operations: zero. Live privacy-mode processing remains not run; Voyage opt-out remains unverified; GLM integration remains not started.

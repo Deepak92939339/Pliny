@@ -91,11 +91,20 @@ select extensions.ok(
   'collection and document UPDATE policies have USING and WITH CHECK'
 );
 select extensions.ok(
-  not has_table_privilege('anon', 'public.collections', 'SELECT,INSERT,UPDATE,DELETE')
-  and not has_table_privilege('anon', 'public.documents', 'SELECT,INSERT,UPDATE,DELETE')
-  and not has_table_privilege('anon', 'public.document_chunks', 'SELECT,INSERT,UPDATE,DELETE')
-  and not has_table_privilege('anon', 'public.chat_messages', 'SELECT,INSERT,UPDATE,DELETE'),
-  'anon has no Data API DML privileges on Phase 4B tables'
+  not has_table_privilege('anon', 'public.collections', 'SELECT,INSERT,UPDATE,DELETE'),
+  'anon has no Data API DML privileges on collections'
+);
+select extensions.ok(
+  not has_table_privilege('anon', 'public.documents', 'SELECT,INSERT,UPDATE,DELETE'),
+  'anon has no Data API DML privileges on documents'
+);
+select extensions.ok(
+  not has_table_privilege('anon', 'public.document_chunks', 'SELECT,INSERT,UPDATE,DELETE'),
+  'anon has no Data API DML privileges on document_chunks'
+);
+select extensions.ok(
+  not has_table_privilege('anon', 'public.chat_messages', 'SELECT,INSERT,UPDATE,DELETE'),
+  'anon has no Data API DML privileges on chat_messages'
 );
 select extensions.ok(
   has_table_privilege('authenticated', 'public.collections', 'SELECT,INSERT,UPDATE,DELETE')
