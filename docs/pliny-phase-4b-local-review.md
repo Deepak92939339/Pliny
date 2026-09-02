@@ -4,7 +4,7 @@ Date: 2026-09-01; local database acceptance updated 2026-09-02
 
 Baseline: `8f26210148a7d64d8f190ab76d75f476720d5f9d`
 
-Status: Phase 4B.1 local acceptance passed; Phase 4B production schema and Phase 4B.2A anonymous Data API privilege hardening are applied and independently verified; application push/deployment remains a separate pending gate; no provider request, document upload, reprocessing, or production-data change
+Status: Phase 4B.1 local acceptance passed; Phase 4B production schema and Phase 4B.2A anonymous Data API privilege hardening are applied and independently verified; the accepted application commits are pushed and the matching Production deployment is READY; no provider request, document upload, reprocessing, or production-data change
 
 ## Architecture decision
 
@@ -231,3 +231,13 @@ Remote Security Advisor reports the established public `vector` extension warnin
 Provider-free HTTP compatibility before the application push passed: `/`, `/login` and `/signup` returned 200; unauthenticated dashboard and collection routes redirected to login; chat, search, processing and upload APIs returned 401 before accepting content or invoking a provider. Application regression tests, offline evaluation 14/14, lint, TypeScript, production build, browser privacy-bundle scan, diff check and `npm audit --omit=dev` passed.
 
 Phase 4B.2A provider requests: zero. Uploads/transmissions: zero. Reprocessing operations: zero. Live privacy-mode processing remains not run; Voyage opt-out remains unverified; GLM integration remains not started.
+
+### Phase 4B.2A application release and provider-free verification
+
+Checkpoint `8c77d097336e53400fe002e689b5c79885bfb6a8` and hardening commit `cac6681ce41a92fd5215df8d26656f7d99e15869` were pushed by fast-forward to GitHub `main`. Vercel Production deployment `dpl_6cshtnfVp1EBmPxAuoWyamc3d6CX` is READY, targets Production, aliases `pliny.vercel.app`, and records the exact hardening commit SHA.
+
+Before deployment, Vercel reported exactly one `PRIVACY_PSEUDONYM_KEY` in Production scope with sensitive storage. The name is server-only and has no `NEXT_PUBLIC_` prefix; its value was never requested, displayed or logged. After deployment, `/`, `/login` and `/signup` returned 200; `/dashboard` and the actual `/collection/[id]` route redirected unauthenticated users to login; unauthenticated chat, search, processing and upload API probes returned 401 before accepting content or invoking a provider. A verifier typo against nonexistent `/collections/[id]` returned the expected 404 and was not treated as an application fault.
+
+Sixteen browser JavaScript assets referenced by the public Production pages were fetched (762,183 bytes total). Neither `PRIVACY_PSEUDONYM_KEY` nor `NEXT_PUBLIC_PRIVACY_PSEUDONYM_KEY` appeared. The complete local Production bundle privacy scan also passed. Deployment-scoped runtime logging contained four error-level records, exactly matching the deliberate unauthenticated API probes and identifying missing auth sessions; there was no 5xx witness or unexpected runtime fault. A deployment-scoped log search found no privacy-key identifier.
+
+Final Phase 4B.2A classifications: local database acceptance **PASS**; Production schema release **PASS**; anonymous Data API hardening **PASS**; provider-free Production compatibility **PASS**; Voyage opt-out **UNVERIFIED**; live privacy-mode processing **NOT RUN**; GLM integration **NOT STARTED**. Deployment does not make the complete privacy system READY. The next separate gate remains independent Voyage opt-out verification plus one explicitly authorized controlled privacy-mode end-to-end document test.
