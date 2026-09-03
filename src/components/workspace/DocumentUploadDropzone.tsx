@@ -3,6 +3,14 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDropzone, type FileRejection } from "react-dropzone";
+import {
+  createFailedUploadItem,
+  createUploadQueue,
+  MAX_UPLOAD_FILES,
+  runSequentialUploadBatch,
+  type UploadBatchItem,
+  type UploadItemStatus,
+} from "@/lib/uploads/uploadBatch";
 import { cn } from "@/lib/utils";
 
 const MAX_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024;
@@ -12,8 +20,6 @@ type DocumentUploadDropzoneProps = {
   className?: string;
   collectionId: string;
 };
-
-type UploadStep = "idle" | "uploading" | "processing";
 
 type InsertedDocument = {
   id: string;
@@ -28,6 +34,7 @@ type ProcessDocumentResponse = {
   error?: string;
   message?: string;
   ok?: boolean;
+  page_count?: number;
   status?: "processing" | "ready" | "failed";
 };
 
@@ -48,11 +55,19 @@ function getRejectionMessage(rejections: FileRejection[]) {
     return "File must be 15 MB or less.";
   }
 
+  if (rejection.errors.some((error) => error.code === "too-many-files")) {
+    return `Select no more than ${MAX_UPLOAD_FILES} files at a time.`;
+  }
+
   if (rejection.errors.some((error) => error.code === "file-invalid-type")) {
     return "Only PDF, DOCX, XLSX, CSV, MD, HTML, and TXT files can be uploaded. Legacy .xls files are not supported.";
   }
 
   return "This file could not be uploaded. Please choose a supported file.";
+}
+
+function getStatusLabel(status: UploadItemStatus) {
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 async function readUploadResponse(response: Response): Promise<UploadDocumentResponse> {
@@ -73,89 +88,88 @@ async function readProcessResponse(response: Response): Promise<ProcessDocumentR
 
 export function DocumentUploadDropzone({ className, collectionId }: DocumentUploadDropzoneProps) {
   const router = useRouter();
-  const [uploadStep, setUploadStep] = useState<UploadStep>("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const isBusy = uploadStep !== "idle";
+  const [uploadItems, setUploadItems] = useState<UploadBatchItem<File>[]>([]);
+  const [isBusy, setIsBusy] = useState(false);
 
-  const uploadFile = useCallback(
-    async (file: File) => {
-      setErrorMessage(null);
-      setSuccessMessage(null);
-
-      if (!isSupportedFile(file)) {
-        setErrorMessage("Only PDF, DOCX, XLSX, CSV, MD, HTML, and TXT files can be uploaded. Legacy .xls files are not supported.");
-        return;
-      }
-
-      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
-        setErrorMessage("File must be 15 MB or less.");
-        return;
-      }
-
-      setUploadStep("uploading");
+  const uploadBatch = useCallback(
+    async (initialItems: UploadBatchItem<File>[]) => {
+      setIsBusy(true);
 
       try {
-        const uploadFormData = new FormData();
-        uploadFormData.append("collection_id", collectionId);
-        uploadFormData.append("file", file);
-
-        const uploadResponse = await fetch("/api/documents/upload", {
-          body: uploadFormData,
-          method: "POST",
-        });
-        const uploadResult = await readUploadResponse(uploadResponse);
-
-        if (!uploadResponse.ok || !uploadResult.document) {
-          setErrorMessage(uploadResult.error ?? "Unable to upload this file. Please try again.");
-          return;
-        }
-
-        setUploadStep("processing");
-        setSuccessMessage("File uploaded. Extracting text now.");
-
-        const processResponse = await fetch("/api/process-document", {
-          body: JSON.stringify({ document_id: uploadResult.document.id }),
-          headers: {
-            "Content-Type": "application/json",
+        await runSequentialUploadBatch(initialItems, {
+          onChange: (items) => {
+            setUploadItems(items);
           },
-          method: "POST",
+          process: async (documentId) => {
+            const processResponse = await fetch("/api/process-document", {
+              body: JSON.stringify({ document_id: documentId }),
+              headers: {
+                "Content-Type": "application/json",
+              },
+              method: "POST",
+            });
+            const processResult = await readProcessResponse(processResponse);
+            router.refresh();
+
+            if (!processResponse.ok || processResult.ok === false || processResult.status === "failed") {
+              throw new Error(processResult.error ?? "File uploaded, but processing failed. You can retry from the document card.");
+            }
+
+            return {
+              message:
+                processResult.status === "processing"
+                  ? processResult.message ?? "File is already processing."
+                  : "File processed and ready.",
+              pageCount: processResult.page_count,
+              status: processResult.status === "processing" ? ("processing" as const) : ("ready" as const),
+            };
+          },
+          upload: async (file) => {
+            if (!isSupportedFile(file)) {
+              throw new Error("Only PDF, DOCX, XLSX, CSV, MD, HTML, and TXT files can be uploaded. Legacy .xls files are not supported.");
+            }
+
+            if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+              throw new Error("File must be 15 MB or less.");
+            }
+
+            const uploadFormData = new FormData();
+            uploadFormData.append("collection_id", collectionId);
+            uploadFormData.append("file", file);
+
+            const uploadResponse = await fetch("/api/documents/upload", {
+              body: uploadFormData,
+              method: "POST",
+            });
+            const uploadResult = await readUploadResponse(uploadResponse);
+
+            if (!uploadResponse.ok || !uploadResult.document) {
+              throw new Error(uploadResult.error ?? "Unable to upload this file. Please try again.");
+            }
+
+            return { documentId: uploadResult.document.id };
+          },
         });
-        const processResult = await readProcessResponse(processResponse);
-
-        router.refresh();
-
-        if (!processResponse.ok || processResult.ok === false) {
-          setErrorMessage(processResult.error ?? "File uploaded, but processing failed. You can retry from the document card.");
-          setSuccessMessage(null);
-          return;
-        }
-
-        setSuccessMessage(processResult.status === "processing" ? processResult.message ?? "File is already processing." : "File processed and ready.");
-      } catch {
-        setErrorMessage("Unable to upload this file. Please try again.");
       } finally {
-        setUploadStep("idle");
+        router.refresh();
+        setIsBusy(false);
       }
     },
     [collectionId, router]
   );
 
-  const onDropAccepted = useCallback(
-    (files: File[]) => {
-      const file = files[0];
+  const onDrop = useCallback(
+    (acceptedFiles: File[], fileRejections: FileRejection[]) => {
+      const acceptedItems = acceptedFiles.length > 0 ? createUploadQueue(acceptedFiles) : [];
+      const rejectedItems = fileRejections.map((rejection) =>
+        createFailedUploadItem(rejection.file, getRejectionMessage([rejection]))
+      );
+      setUploadItems([...acceptedItems, ...rejectedItems]);
 
-      if (file) {
-        void uploadFile(file);
-      }
+      if (acceptedItems.length > 0) void uploadBatch([...acceptedItems, ...rejectedItems]);
     },
-    [uploadFile]
+    [uploadBatch]
   );
-
-  const onDropRejected = useCallback((rejections: FileRejection[]) => {
-    setSuccessMessage(null);
-    setErrorMessage(getRejectionMessage(rejections));
-  }, []);
 
   const { getInputProps, getRootProps, isDragActive } = useDropzone({
     accept: {
@@ -168,11 +182,10 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       "text/plain": [".txt", ".md", ".markdown", ".csv"],
     },
     disabled: isBusy,
-    maxFiles: 1,
+    maxFiles: MAX_UPLOAD_FILES,
     maxSize: MAX_UPLOAD_SIZE_BYTES,
-    multiple: false,
-    onDropAccepted,
-    onDropRejected,
+    multiple: true,
+    onDrop,
   });
 
   return (
@@ -189,14 +202,49 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       >
         <input {...getInputProps({ "aria-label": "Upload document" })} />
         <p className="text-[13px] font-medium text-[color:var(--editorial-muted)]">
-          {uploadStep === "processing" ? "Processing file" : uploadStep === "uploading" ? "Uploading file" : "Drop files or click to upload"}
+          {isBusy ? "Processing selected files" : "Drop files or click to upload"}
         </p>
         <p className="mt-1 text-[11px] leading-5 text-[color:var(--editorial-muted)]">
-          {isDragActive ? "Drop the file here" : "PDF · DOCX · XLSX · CSV · MD · HTML · TXT"}
+          {isDragActive ? "Drop up to 5 files here" : "Up to 5 · PDF · DOCX · XLSX · CSV · MD · HTML · TXT"}
         </p>
       </div>
-      {errorMessage ? <p className="mt-2 text-xs leading-5 text-[color:var(--editorial-destructive)]">{errorMessage}</p> : null}
-      {successMessage ? <p className="mt-2 text-xs leading-5 text-[color:var(--editorial-muted)]">{successMessage}</p> : null}
+      {uploadItems.length > 0 ? (
+        <ul className="mt-2 space-y-1.5" aria-label="Selected file progress" aria-live="polite">
+          {uploadItems.map((item) => (
+            <li
+              key={item.id}
+              data-upload-status={item.status}
+              className="rounded-md border border-black/[0.07] bg-white/55 px-2.5 py-2 text-[11px] leading-4"
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate font-medium text-[color:var(--editorial-ink-soft)]" title={item.filename}>
+                  {item.filename}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 font-semibold uppercase tracking-wide",
+                    item.status === "failed" ? "text-[color:var(--editorial-destructive)]" : "text-[color:var(--editorial-muted)]"
+                  )}
+                >
+                  {getStatusLabel(item.status)}
+                </span>
+              </span>
+              {item.message ? (
+                <p
+                  className={cn(
+                    "mt-1",
+                    item.status === "failed"
+                      ? "text-[color:var(--editorial-destructive)]"
+                      : "text-[color:var(--editorial-muted)]"
+                  )}
+                >
+                  {item.message}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

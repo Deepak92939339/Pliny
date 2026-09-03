@@ -1,4 +1,5 @@
 import { ChartBlock } from "@/components/chart/ChartBlock";
+import { SafeInlineMarkdown } from "@/components/workspace/SafeInlineMarkdown";
 import type { RiskEvidenceReportSpec } from "@/types";
 
 type RiskEvidenceReportPreviewProps = {
@@ -26,7 +27,7 @@ export function RiskEvidenceReportPreview({ artifact }: RiskEvidenceReportPrevie
           <ul className="mt-2 space-y-2 text-sm leading-6 text-[color:var(--editorial-ink-soft)]">
             {artifact.executiveSummary.map((claim) => (
               <li key={claim.id}>
-                {claim.text} <EvidenceRefs refs={claim.sourceRefs} />
+                <SafeInlineMarkdown text={claim.text} /> <EvidenceRefs refs={claim.sourceRefs} />
               </li>
             ))}
           </ul>
@@ -36,7 +37,9 @@ export function RiskEvidenceReportPreview({ artifact }: RiskEvidenceReportPrevie
           <ul className="mt-2 space-y-2 text-sm leading-6 text-[color:var(--editorial-ink-soft)]">
             {artifact.risks.map((risk) => (
               <li key={risk.id} className="flex items-start justify-between gap-3">
-                <span>{risk.text}</span>
+                <span>
+                  <SafeInlineMarkdown text={risk.text} />
+                </span>
                 <span className="shrink-0 text-[11px] font-semibold uppercase text-[color:var(--editorial-muted)]">{risk.severity}</span>
               </li>
             ))}
@@ -50,7 +53,9 @@ export function RiskEvidenceReportPreview({ artifact }: RiskEvidenceReportPrevie
           <ul className="mt-2 grid gap-2 text-sm leading-6 text-[color:var(--editorial-ink-soft)]">
             {artifact.obligations.map((obligation) => (
               <li key={obligation.id} className="flex items-start justify-between gap-3">
-                <span>{obligation.action}</span>
+                <span>
+                  <SafeInlineMarkdown text={obligation.action} />
+                </span>
                 <EvidenceRefs refs={obligation.sourceRefs} />
               </li>
             ))}
@@ -64,14 +69,22 @@ export function RiskEvidenceReportPreview({ artifact }: RiskEvidenceReportPrevie
           <table className="mt-2 min-w-full text-left text-xs">
             <thead>
               <tr>
-                {table.columns.map((column) => <th key={column} className="border-b border-[color:var(--editorial-border-soft)] px-2 py-2 font-semibold text-[color:var(--editorial-muted)]">{column}</th>)}
+                {table.columns.map((column) => (
+                  <th key={column} className="border-b border-[color:var(--editorial-border-soft)] px-2 py-2 font-semibold text-[color:var(--editorial-muted)]">
+                    <SafeInlineMarkdown text={column} />
+                  </th>
+                ))}
                 <th className="border-b border-[color:var(--editorial-border-soft)] px-2 py-2 font-semibold text-[color:var(--editorial-muted)]">Evidence</th>
               </tr>
             </thead>
             <tbody>
               {table.rows.map((row, rowIndex) => (
                 <tr key={`${table.title}-${rowIndex}`}>
-                  {row.values.map((value, valueIndex) => <td key={`${rowIndex}-${valueIndex}`} className="border-b border-[color:var(--editorial-border-soft)] px-2 py-2 text-[color:var(--editorial-ink-soft)]">{String(value)}</td>)}
+                  {row.values.map((value, valueIndex) => (
+                    <td key={`${rowIndex}-${valueIndex}`} className="border-b border-[color:var(--editorial-border-soft)] px-2 py-2 text-[color:var(--editorial-ink-soft)]">
+                      <SafeInlineMarkdown text={String(value)} />
+                    </td>
+                  ))}
                   <td className="border-b border-[color:var(--editorial-border-soft)] px-2 py-2"><EvidenceRefs refs={row.sourceRefs} /></td>
                 </tr>
               ))}

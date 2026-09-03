@@ -14,10 +14,11 @@
     "test:ingestion": "node --experimental-strip-types scripts/test-ingestion.mjs",
     "test:privacy": "node --experimental-strip-types scripts/test-privacy-foundation.mjs && node --experimental-strip-types scripts/test-privacy-phase4b.mjs",
     "test:privacy:bundle": "node scripts/test-browser-privacy-bundle.mjs",
-    "test:retrieval": "node --experimental-strip-types scripts/test-retrieval.mjs",
+    "test:retrieval": "node --experimental-strip-types scripts/test-retrieval.mjs && node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-chat-retrieval-integration.mjs",
     "test:sanitization": "node --experimental-strip-types scripts/test-sanitization.mjs",
     "test:report": "node --experimental-strip-types scripts/test-report.mjs",
     "test:storage-cleanup": "node --experimental-strip-types scripts/test-storage-cleanup.mjs",
+    "test:trust": "node --experimental-strip-types scripts/test-trust-defects.mjs",
     "storage:audit": "node scripts/storage-reconcile.mjs",
     "storage:cleanup": "node scripts/storage-cleanup.mjs",
     "eval": "node --experimental-strip-types scripts/run-evals.mjs"

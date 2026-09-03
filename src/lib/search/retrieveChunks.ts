@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { embedText, getEmbeddingConfig, isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
 import { selectDocumentAwareResults } from "@/lib/search/documentCoverage";
 import { fuseAndRerankCandidates } from "@/lib/search/fusion";
+import { expandKnownRoleTerms, getKnownRoleConcepts } from "@/lib/search/queryEquivalents";
 import {
   assertProviderPayloadExcludes,
   collectOriginalDeterministicIdentifiers,
@@ -77,6 +78,7 @@ const MAX_RESULTS_PER_DOCUMENT_SOFT = 2;
 const MAX_CANDIDATES_PER_DOCUMENT = 10;
 const MIN_CANDIDATES_PER_DOCUMENT = 3;
 const MAX_GLOBAL_CANDIDATES = 60;
+const CTO_SEARCH_TERMS = new Set(["cto", "chief", "technology", "officer"]);
 
 type DocumentMeta = {
   filename?: string | null;
@@ -148,10 +150,27 @@ function normalizeText(value: string) {
 }
 
 function getSearchTerms(query: string) {
-  const matches = normalizeText(query).split(" ").filter(Boolean);
+  const matches = normalizeText(expandKnownRoleTerms(query)).split(" ").filter(Boolean);
   const terms = matches.filter((term) => term.length > 1 && !STOP_WORDS.has(term));
 
   return Array.from(new Set(terms)).slice(0, 24);
+}
+
+function getLexicalQueryVariants(query: string) {
+  if (!getKnownRoleConcepts(query).includes("chief_technology_officer")) {
+    return query.trim().length > 0 ? [query] : [];
+  }
+
+  const pseudonymTokens = query.match(/\[[A-Z][A-Z0-9_]*\]/g) ?? [];
+  const queryWithoutPseudonyms = pseudonymTokens.reduce((value, token) => value.replaceAll(token, " "), query);
+  const terms = getSearchTerms(queryWithoutPseudonyms);
+  const nonRoleTerms = terms.filter((term) => !CTO_SEARCH_TERMS.has(term));
+  const retainedTerms = [...pseudonymTokens, ...nonRoleTerms];
+
+  return [
+    [...retainedTerms, "cto"].join(" "),
+    [...retainedTerms, "chief", "technology", "officer"].join(" "),
+  ];
 }
 
 function countOccurrences(value: string, term: string) {
@@ -198,7 +217,7 @@ function countPartialMatches(tokens: string[], term: string) {
 
 function scoreContent(content: string, query: string, terms: string[]) {
   const normalizedContent = normalizeText(content);
-  const normalizedQuery = normalizeText(query);
+  const normalizedQuery = normalizeText(expandKnownRoleTerms(query));
   const contentTokens = normalizedContent.split(" ").filter(Boolean);
   let score = normalizedQuery.length > 8 && normalizedContent.includes(normalizedQuery) ? 20 : 0;
 
@@ -611,17 +630,23 @@ async function retrieveLexicalResults({
     scopedDocumentIds.length > 0
       ? scopedDocumentIds.map((documentId) => ({ documentId, mode: documentModes.get(documentId) ?? "standard" }))
       : Array.from(new Set(documentModes.values())).map((mode) => ({ documentId: null, mode }));
-  const calls = targets.map(({ documentId, mode }) =>
-    supabase.rpc("match_document_chunks_lexical_by_mode", {
-      match_collection_id: collectionId,
-      match_count:
-        documentId === null ? Math.min(MAX_GLOBAL_CANDIDATES, Math.max(limit * 3, limit)) : candidateLimit,
-      match_document_id: documentId,
-      match_processing_mode: mode,
-      match_query: mode === "privacy_minimised" ? providerSafeQuery : originalQuery,
-      match_user_id: userId,
-    })
-  );
+  const calls = targets.flatMap(({ documentId, mode }) => {
+    const query = mode === "privacy_minimised" ? providerSafeQuery : originalQuery;
+
+    return getLexicalQueryVariants(query).map((queryVariant) =>
+      supabase.rpc("match_document_chunks_lexical_by_mode", {
+        match_collection_id: collectionId,
+        match_count:
+          documentId === null ? Math.min(MAX_GLOBAL_CANDIDATES, Math.max(limit * 3, limit)) : candidateLimit,
+        match_document_id: documentId,
+        match_processing_mode: mode,
+        match_query: queryVariant,
+        match_user_id: userId,
+      })
+    );
+  });
+
+  if (calls.length === 0) return [];
   const matches = await Promise.all(calls);
   const error = matches.find((match) => match.error)?.error;
   if (error) throw error;
@@ -735,7 +760,7 @@ export async function retrieveRelevantChunks(
       collectionId,
       documentIds: scopedDocumentIds,
       limit,
-      query: providerSafeQuery,
+      query: expandKnownRoleTerms(providerSafeQuery),
       originalQuery: query,
       privacyBoundary,
       projectionsByChunkId,

@@ -15,6 +15,14 @@ export function InfoPage({ page }: { page: LandingInfoPage }) {
       <article className="mx-auto max-w-[760px] px-5 py-16 sm:px-8 sm:py-24">
         <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#BA5C3D]">Pliny / {page.label}</p>
         <h1 className="dm-editorial-display mt-5 max-w-[680px] text-[46px] font-semibold leading-[1.02] tracking-[-0.045em] sm:text-[68px]">{page.title}</h1>
+        {page.processingBoundary ? (
+          <section className="mt-10 border-y border-[#D5D2C8] py-6" aria-labelledby="processing-boundary-heading">
+            <h2 id="processing-boundary-heading" className="text-sm font-semibold text-[#0C1427]">{page.processingBoundary.title}</h2>
+            {page.processingBoundary.paragraphs.map((paragraph) => (
+              <p key={paragraph} className="mt-3 text-[14px] leading-7 text-[#596170]">{paragraph}</p>
+            ))}
+          </section>
+        ) : null}
         {page.key === "about" ? (
           <div className="mt-10 border-t border-[#D5D2C8]">
             <p className="border-b border-[#E5E0D8] py-6 text-[16px] leading-8 text-[#394152]">{page.detail[0]}</p>

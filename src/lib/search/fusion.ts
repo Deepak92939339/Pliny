@@ -1,4 +1,5 @@
 import type { SearchChunkResult } from "../../types/index.ts";
+import { expandKnownRoleTerms } from "./queryEquivalents.ts";
 
 const STOP_WORDS = new Set(["a", "an", "and", "both", "document", "explain", "file", "for", "from", "how", "is", "of", "the", "to", "using", "with"]);
 
@@ -7,7 +8,7 @@ function normalizeText(value: string) {
 }
 
 function getSearchTerms(query: string) {
-  return Array.from(new Set(normalizeText(query).split(" ").filter((term) => term.length > 1 && !STOP_WORDS.has(term)))).slice(0, 24);
+  return Array.from(new Set(normalizeText(expandKnownRoleTerms(query)).split(" ").filter((term) => term.length > 1 && !STOP_WORDS.has(term)))).slice(0, 24);
 }
 
 export function normalizeScores(values: Array<number | null | undefined>) {
@@ -22,7 +23,7 @@ export function normalizeScores(values: Array<number | null | undefined>) {
 }
 
 function getDeterministicRerankBoost(result: SearchChunkResult, query: string) {
-  const normalizedQuery = normalizeText(query);
+  const normalizedQuery = normalizeText(expandKnownRoleTerms(query));
   const normalizedFilename = normalizeText(result.filename);
   const normalizedContent = normalizeText(result.content);
   const exactFilename = normalizedFilename.length > 2 && normalizedQuery.includes(normalizedFilename) ? 1 : 0;

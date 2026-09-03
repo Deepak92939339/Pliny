@@ -13,6 +13,7 @@ import {
   getReportMarkdownFilename,
   isSourceSupportedResult,
 } from "@/lib/export/reportExport";
+import { tokenizeSafeInlineMarkdown } from "@/lib/markdown/safeInline";
 import { cn } from "@/lib/utils";
 import type { ChatCitation, ReportTemplate, SearchChunkResult, WorkspaceSearchResult } from "@/types";
 
@@ -22,8 +23,6 @@ type AnalysisRecordProps = {
   onSelectSource: (source: SearchChunkResult) => void;
   workspaceName?: string;
 };
-
-const inlinePattern = /(\[\[(?:s|p)\.\d+\]\]|\*\*[^*]+\*\*|`[^`\n]+`)/g;
 
 type AnswerBlock =
   | {
@@ -410,8 +409,8 @@ function renderInlineContent(
   selectedSourceId: string | undefined,
   onSelectSource: (source: SearchChunkResult) => void
 ) {
-  return text.split(inlinePattern).map((segment, index) => {
-    const citation = citations.find((item) => isUsableCitation(item) && item.marker === segment);
+  return tokenizeSafeInlineMarkdown(text).map((token, index) => {
+    const citation = token.type === "citation" ? citations.find((item) => isUsableCitation(item) && item.marker === token.value) : undefined;
 
     if (citation) {
       const isSelected = citation.source.id === selectedSourceId;
@@ -434,30 +433,26 @@ function renderInlineContent(
       );
     }
 
-    if (segment.startsWith("**") && segment.endsWith("**")) {
-      const strongText = segment.slice(2, -2).trim();
-
+    if (token.type === "strong") {
       return (
-        <strong key={`${strongText}-${index}`} className="font-semibold text-[color:var(--editorial-ink)]">
-          {renderInlineContent(strongText, citations, selectedSourceId, onSelectSource)}
+        <strong key={`${token.value}-${index}`} className="font-semibold text-[color:var(--editorial-ink)]">
+          {renderInlineContent(token.value, citations, selectedSourceId, onSelectSource)}
         </strong>
       );
     }
 
-    if (segment.startsWith("`") && segment.endsWith("`")) {
-      const codeText = segment.slice(1, -1).trim();
-
+    if (token.type === "code") {
       return (
         <code
-          key={`${codeText}-${index}`}
+          key={`${token.value}-${index}`}
           className="rounded-[5px] border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-panel)] px-1 py-0.5 font-mono text-[0.88em] text-[color:var(--editorial-ink)]"
         >
-          {codeText}
+          {token.value}
         </code>
       );
     }
 
-    return <span key={`${segment}-${index}`}>{segment}</span>;
+    return <span key={`${token.value}-${index}`}>{token.value}</span>;
   });
 }
 

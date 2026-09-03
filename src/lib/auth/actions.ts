@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getAuthErrorMessage, getSafeAuthErrorMetadata, type AuthProviderError } from "@/lib/auth/errors";
 import { authFormSchema, type AuthFormValues } from "@/lib/auth/schema";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,8 +16,11 @@ export type AuthActionResult =
       message: string;
     };
 
-function getAuthErrorMessage(error: { message?: string }) {
-  return error.message ?? "Unable to complete the request. Please try again.";
+function logAuthFailure(stage: "login" | "signup", error: AuthProviderError) {
+  console.warn("[auth] request failed", {
+    stage,
+    ...getSafeAuthErrorMetadata(error),
+  });
 }
 
 export async function signupWithPassword(values: AuthFormValues): Promise<AuthActionResult> {
@@ -45,9 +49,10 @@ export async function signupWithPassword(values: AuthFormValues): Promise<AuthAc
   });
 
   if (error) {
+    logAuthFailure("signup", error);
     return {
       status: "error",
-      message: getAuthErrorMessage(error),
+      message: getAuthErrorMessage(error, "signup"),
     };
   }
 
@@ -75,9 +80,10 @@ export async function loginWithPassword(values: AuthFormValues): Promise<AuthAct
   });
 
   if (error) {
+    logAuthFailure("login", error);
     return {
       status: "error",
-      message: getAuthErrorMessage(error),
+      message: getAuthErrorMessage(error, "login"),
     };
   }
 

@@ -717,3 +717,33 @@ This section is authoritative for the privacy-minimised processing foundation an
 - Reprocessing operations in Phase 4B.2/4B.2A: **zero**.
 
 **Phase 4B.2A verdict: PASS within its authorized provider-free scope.** The complete privacy system is not declared READY. The next separate gate is Voyage opt-out verification plus one explicitly authorized controlled privacy-mode end-to-end document test.
+
+## PHASE 5A TRUST-DEFECT VERIFICATION — 2026-09-03
+
+This is the current authoritative Phase 5A result only. Work began from clean released commit `7d17174b83bb2af2fa6d40a5ce9010dfb07b2004`. The requested audit ZIP was absent, no GLM sandbox work was reconstructed, and all hypotheses were checked against current released code and behavior.
+
+- U-01 document refresh: **NOT REPRODUCED**. The current force-dynamic page and post-processing `router.refresh()` path already reload server document data; no authenticated contrary witness was available, so no defect-specific change was retained.
+- U-02 multi-file upload: **REPRODUCED / REMEDIATED LOCALLY**. Released code accepted one file and selected `files[0]`. The local implementation accepts a maximum of five, processes sequentially, keeps every accepted/rejected file visible, and reports queued/uploading/processing/ready/failed states with explicit partial success.
+- U-03 report Markdown: **REPRODUCED / REMEDIATED LOCALLY**. Risk report strings bypassed the existing safe inline-Markdown path. They now reuse it; parsed DOM regression evidence shows `$4.27M` in a `strong` node with no literal `**` text and no `dangerouslySetInnerHTML`.
+- U-04 retrieval disagreement: **REPRODUCED / REPAIRED LOCALLY / BROWSER REVIEW PENDING**. Production stores the complete CTO sentence in one page-1 chunk, but the chunk has no embedding. The released lexical RPC received the raw question under the `simple` text-search configuration, so stop words and `cto` became mandatory nonmatching terms. The first helper-level repair did not alter that RPC input. The revised path issues separate bounded lexical alternatives for the acronym and expanded title, applies the bounded expansion to semantic-query text, and retains other meaningful terms. The real retrieval-plus-evidence route pipeline now passes for both CTO forms; CFO and `October` remain fail-closed broad fallbacks.
+- F-05 authentication copy: **REPRODUCED / REMEDIATED LOCALLY**. The configured Auth API returned `invalid_credentials` plus the raw text `Invalid login credentials`, which released code passed to the form. Known errors now map to clean copy; unknown errors remain generic; only stage/code/name/status may be logged.
+- Trust disclosure: the exact requested copy is shared by a restrained workspace-toolbar popover and Data Privacy detail section. No permanent banner or landing-page expansion was added.
+
+Validation currently passing: Phase 5A trust regressions; privacy and privacy-bundle tests; ingestion, retrieval, embeddings, evidence, citations, sanitization, report and Storage tests; offline evaluation 14/14; ESLint; TypeScript; Production build; and diff check. Dependency audit currently reports one moderate transitive `@xmldom/xmldom` advisory (`GHSA-6gmq-8vp8-gcm6`), newly visible from the registry; it was not changed outside scope.
+
+Authenticated local desktop/mobile browser QA and fresh screenshots are **BLOCKED**: no browser instance is connected and no disposable authenticated credential source is available. The audit bundle is also absent. Public localhost checks are passing but are not treated as a substitute. No commit, push, deployment, migration, RLS/privilege/auth configuration, vector dimension, provider configuration or unrelated Production data change occurred. AI/embedding provider requests: **zero**. Uploads: **zero**. One invalid synthetic Supabase Auth request reproduced F-05 and created no data.
+
+**Phase 5A pre-browser status: BLOCKED at the authenticated browser/screenshot acceptance gate. The local remediation was not committed or released at this point.**
+
+### U-04 resumed witness
+
+Read-only Production witnesses confirm the extracted 166-character source passage is intact, `processing_mode` is `standard`, and its sole chunk has no embedding. Database text-search evaluation returns no match for `cto`, but a positive match/rank for `chief technology officer`. The route-level integration regression exercises `retrieveRelevantChunks` followed by `assessEvidenceSufficiency` with that no-embedding fixture; it returns `direct_keyword_match` and sufficient evidence for CTO and the expanded title, while CFO and `October` remain insufficient `broad_context_fallback` results. All existing automated validation remains green. Because the browser runtime exposes zero connected sessions, the existing authenticated browser question was not resent and no answer/citation acceptance claim is made.
+
+### Phase 5A final browser acceptance
+
+- **U-02 PASS.** The supplied simultaneous two-file browser witness is backed independently by `zephyr-sla.txt` and `alpha-metrics.csv` in the same owner/workspace. Their document rows were created 13 seconds apart by the sequential batch; both are `ready`, retain standard-mode capture, have one embedded chunk each, and resolve to distinct exact-path private Storage objects with byte counts matching their document records.
+- **U-03 PASS.** Manual authenticated browser evidence confirms `$4.27M` and `68.4%` render correctly in the answer and Risk and Evidence Report without literal Markdown markers. The DOM regression independently proves bold text renders through a `strong` node and no `dangerouslySetInnerHTML` path exists.
+- **U-04 PASS.** Manual authenticated browser evidence confirms `Who is the CTO?` identifies Aster Quill and cites `This is fictional test data..pdf`, page 1. The persisted assistant citation independently resolves to the exact document ID and chunk ID, correct filename and page label, and the complete correct excerpt. The route-pipeline regression retains CFO and `October` fail-closed controls.
+- The stale Next.js development cache was cleared and the application restarted cleanly before these manual witnesses.
+
+**Phase 5A acceptance status: PASS for the scoped trust-defect remediation. Production release verification follows below.**

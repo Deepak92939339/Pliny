@@ -1,9 +1,15 @@
+import { PROCESSING_BOUNDARY_PARAGRAPHS, PROCESSING_BOUNDARY_TITLE } from "@/lib/privacy/disclosure";
+
 export type LandingInfoKey = "security" | "privacy" | "file-support" | "access" | "about";
 
 export type LandingInfoPage = {
   key: LandingInfoKey;
   label: string;
   href: `/${LandingInfoKey}`;
+  processingBoundary?: {
+    paragraphs: readonly string[];
+    title: string;
+  };
   title: string;
   summary: string[];
   detail: string[];
@@ -39,6 +45,10 @@ export const landingInfoPages: LandingInfoPage[] = [
       "Provider zero retention is being evaluated; no automatic retention window is claimed.",
       "Privacy minimisation is not anonymisation: names, addresses, organisations and unsupported identifiers may remain.",
     ],
+    processingBoundary: {
+      paragraphs: PROCESSING_BOUNDARY_PARAGRAPHS,
+      title: PROCESSING_BOUNDARY_TITLE,
+    },
     detail: [
       "Pliny stores uploaded objects in private Supabase Storage, along with extracted chunks, embeddings, provenance metadata, collection records, chat messages and usage records needed by the deployed workspace.",
       "Each workspace has a default for new documents, and each document captures an immutable standard or privacy-minimised processing mode. Changing the workspace default does not reprocess existing documents.",

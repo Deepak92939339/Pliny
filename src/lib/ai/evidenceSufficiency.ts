@@ -1,5 +1,6 @@
 import type { CitationValidationResult } from "../citations/validateCitations.ts";
 import { getMissingRequiredCitationDocumentIds, isQualifyingRetrievalCandidate } from "../search/documentCoverage.ts";
+import { contentMatchesKnownRoleConcept, getKnownRoleConcepts, type KnownRoleConcept } from "../search/queryEquivalents.ts";
 import type { EvidenceStatus, RetrievalReason, SearchChunkResult } from "../../types/index.ts";
 
 const MIN_MEANINGFUL_CONTENT_CHARS = 40;
@@ -79,17 +80,28 @@ function normalize(value: string) {
     .trim();
 }
 
+const KNOWN_ROLE_TERMS = new Set(["chief", "technology", "officer"]);
+const KNOWN_ROLE_PREFIX = "known-role:";
+
 function meaningfulTerms(question: string) {
-  return Array.from(
+  const knownRoles = getKnownRoleConcepts(question);
+  const terms = Array.from(
     new Set(
       normalize(question)
         .split(" ")
         .filter((term) => term.length >= 4 && !STOP_WORDS.has(term))
     )
-  ).slice(0, 12);
+  );
+  const nonRoleTerms = knownRoles.length > 0 ? terms.filter((term) => !KNOWN_ROLE_TERMS.has(term)) : terms;
+
+  return [...nonRoleTerms, ...knownRoles.map((role) => `${KNOWN_ROLE_PREFIX}${role}`)].slice(0, 12);
 }
 
 function termMatchesContent(term: string, content: string) {
+  if (term.startsWith(KNOWN_ROLE_PREFIX)) {
+    return contentMatchesKnownRoleConcept(content, term.slice(KNOWN_ROLE_PREFIX.length) as KnownRoleConcept);
+  }
+
   const tokens = new Set(normalize(content).split(" ").filter(Boolean));
 
   if (tokens.has(term)) {

@@ -52,6 +52,38 @@ const supportedSemanticParaphrase = assessEvidenceSufficiency({
 });
 assert.equal(supportedSemanticParaphrase.sufficient, true, "strong semantic evidence must support paraphrased questions");
 
+const ctoSource = source({
+  content: "The leadership directory states that Avery Example serves as the Chief Technology Officer for the organization.",
+  keywordScore: 1,
+});
+const supportedCtoAcronym = assessEvidenceSufficiency({
+  question: "Who is the CTO?",
+  retrievalReason: "direct_keyword_match",
+  sources: [ctoSource],
+});
+assert.equal(supportedCtoAcronym.sufficient, true, "the bounded CTO equivalence must agree with the expanded role title");
+
+const supportedExpandedCto = assessEvidenceSufficiency({
+  question: "Who serves as the Chief Technology Officer?",
+  retrievalReason: "direct_keyword_match",
+  sources: [ctoSource],
+});
+assert.equal(supportedExpandedCto.sufficient, true, "the expanded CTO title must remain supported");
+
+const unsupportedUnknownAcronym = assessEvidenceSufficiency({
+  question: "Who is the CFO?",
+  retrievalReason: "direct_keyword_match",
+  sources: [ctoSource],
+});
+assert.equal(unsupportedUnknownAcronym.sufficient, false, "unknown acronyms must not borrow the CTO equivalence");
+
+const unsupportedEmbeddedLetters = assessEvidenceSufficiency({
+  question: "What happened in October?",
+  retrievalReason: "direct_keyword_match",
+  sources: [ctoSource],
+});
+assert.equal(unsupportedEmbeddedLetters.sufficient, false, "letters inside an unrelated word must not activate the CTO equivalence");
+
 const invalidCitation = validateCitations("The renewal term is twelve months [[s.9]].", [{ pageNumber: 1 }]);
 const citationRejected = assessEvidenceSufficiency({
   citationValidation: invalidCitation,
