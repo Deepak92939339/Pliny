@@ -747,3 +747,16 @@ Read-only Production witnesses confirm the extracted 166-character source passag
 - The stale Next.js development cache was cleared and the application restarted cleanly before these manual witnesses.
 
 **Phase 5A acceptance status: PASS for the scoped trust-defect remediation. Production release verification follows below.**
+
+### Phase 5A Production release — 2026-09-03
+
+- Implementation commit `8987e383c563a2b054507e50110317e32995f356` was pushed to GitHub `main` without rewriting prior history.
+- Vercel Production deployment `dpl_Ghpms2sfV4BAPnH7n7E7EZ3xjh7L` built that exact commit and reached `READY`; `https://pliny.vercel.app` was assigned with no alias error.
+- Public `/`, `/login`, `/signup`, and `/privacy` returned HTTP 200. Unauthenticated `/dashboard` and a collection route returned HTTP 307 to `/login`.
+- Body-free unauthenticated POST probes to `/api/chat`, `/api/search-chunks`, `/api/process-document`, and `/api/documents/upload` returned HTTP 401 before provider, processing, or upload handling.
+- The Production Data Privacy page contains the processing-boundary disclosure. Twelve deployed browser JavaScript assets were scanned; no privacy pseudonym key name, Anthropic/Voyage key name, service-role key name, provider key prefix, or Supabase secret-key prefix was present.
+- Deployment runtime counts for the verification window were six HTTP 200 responses, four expected HTTP 401 responses, and one HTTP 307 response. The only error-group records were the four deliberate `AuthSessionMissingError` denials from the protected API probes; no unexpected 5xx, fatal, or application runtime fault was observed.
+- The responsive implementation retains a viewport-bound mobile processing-boundary popover with a `sm` desktop override, shrinkable workspace title, bounded upload progress rows, and no fixed-width upload surface. Manual authenticated browser acceptance covered the populated workspace; an automated post-deployment screenshot could not be captured because no browser session was exposed to the verifier.
+- No migration, RLS/privilege, authentication configuration, provider integration, OAuth, streaming, vector dimension, dependency, or unrelated Production data change was made. Release-verification provider requests and uploads were zero.
+
+**Phase 5A Production status: PASS.** Remaining known conditions are the independently scoped moderate `@xmldom/xmldom` advisory (`GHSA-6gmq-8vp8-gcm6`), unavailable automated post-deployment visual capture, and Voyage account-level zero-retention remaining unverified for this portfolio deployment. GLM integration remains not started.
