@@ -1,209 +1,136 @@
-# Pliny AI
+<p align="center">
+  <img src="./public/brand/pliny-mark.png" alt="Pliny logo" width="88" height="88" />
+</p>
 
-Product mark: `pliny.ai`
+# Pliny
 
-From complex documents to verifiable decisions.
+## Knowledge, traced to its source.
 
-Private document intelligence with traceable answers, source-backed analysis and decision-ready reports.
+Pliny is a private, source-grounded document intelligence workspace with verifiable citations and privacy-minimised external processing. It turns mixed-format work files into searchable evidence, refuses unsupported answers, and keeps every accepted claim connected to the passage that supports it.
 
-Ask questions across private work files and verify answers with source passages.
+[Live Product](https://pliny.vercel.app) · [Architecture](./docs/architecture.md) · [Security & Privacy](./docs/security-and-privacy.md) · [Evaluation](./docs/evaluation.md)
 
-![Pliny workspace screenshot placeholder](./public/screenshot-placeholder.svg)
+![Pliny production interface](./docs/assets/pliny-social-preview-1280x640.png)
 
-Live demo: pending deployment.
+![Pliny workspace with a grounded answer and citation](./docs/assets/pliny-workspace.png)
 
-## Verification
+*A synthetic CTO question answered with a citation anchored to the owner-visible source.*
 
-Run the credential-free unit/contract and mocked-integration evaluation suite with:
+## The problem
 
-```bash
-npm run eval
-```
+Document tools often make fluent answers easier to produce than trustworthy decisions. Relevant passages can be buried across PDFs, spreadsheets and working notes; retrieval can disagree across search paths; and an answer without resolvable provenance is difficult to review.
 
-The report separates unit/contract, mocked integration, and live end-to-end checks. Live tests are not run by default and require a real `.env.local` with the project’s configured Supabase, Voyage, Anthropic, and rate-limit services. Do not commit `.env.local` or place credentials in fixtures.
+Pliny treats evidence as the product boundary. Retrieval happens before generation, weak context is rejected, and citations resolve back to owner-visible source material.
 
-For the full manual live workflow, use: create workspace → upload documents → process and index → ask a supported question → inspect its exact citation → ask an unsupported question → verify the structured refusal → generate the Risk and Evidence Report → print/export it.
+## What makes Pliny different
 
-## What It Does
+- **Evidence before generation.** Lexical and semantic candidates are fused, bounded and checked for sufficiency before an answer provider is called.
+- **Citations that resolve.** Source markers are parsed and validated against the exact retrieved chunks; the Source Inspector opens the corresponding filename, location and excerpt.
+- **Privacy is a processing mode, not a slogan.** Privacy-minimised documents receive document-scoped HMAC pseudonyms and separate provider-safe content and metadata projections.
+- **Failure is explicit.** Missing evidence, incomplete masked projections, provider failures and budget failures stop or degrade safely instead of producing unsupported certainty.
+- **Operational controls are part of the system.** Private object storage, tenant-scoped database policies, rate and cost limits, safe logging and guarded storage reconciliation are implemented boundaries.
 
-Pliny AI is a private document-intelligence workspace. Users create workspaces, upload supported files, process text into searchable chunks, ask questions, inspect cited evidence, and generate decision-ready reports.
+![Pliny Source Inspector showing the exact synthetic PDF passage](./docs/assets/pliny-source-evidence.png)
 
-## Built With
+*The Source Inspector resolves the citation to the fictional PDF, page 1 and the exact retrieved passage.*
 
-- Next.js 15 App Router
-- React 19
-- TypeScript
-- Tailwind CSS
-- shadcn-style UI primitives
-- Supabase Auth
-- Supabase Postgres
-- Supabase Storage
-- Anthropic Claude
-- Voyage AI embeddings
-- Zod
-- React Hook Form
-- pdf-parse
-- mammoth DOCX extraction
-- read-excel-file XLSX extraction
-- Tesseract OCR fallback
-- Upstash Redis rate limiting
+## Product capabilities
+
+- Authenticated, owner-scoped workspaces
+- Sequential batch upload for one to five files with per-file status
+- Native multi-format extraction with bounded PDF OCR fallback
+- Provenance-preserving chunks for pages, headings, rows, sheets and text blocks
+- Hybrid PostgreSQL lexical search and 1,024-dimension semantic retrieval
+- Bounded acronym/title equivalence for supported retrieval concepts
+- Evidence-sufficiency refusal before external answer generation
+- Validated inline citations and an exact-source inspector
+- Source-grounded charts, Risk and Evidence Reports, Markdown exports and print output
+- Standard and privacy-minimised processing modes captured immutably per document
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  A[User] --> B[Next.js App Router]
-  B --> C[Supabase Auth]
-  B --> D[Server upload validation]
-  D --> E[Supabase Storage]
-  E --> F[Processor registry]
-  F --> G[PDF text extraction + OCR fallback]
-  F --> H[TXT / MD / CSV / DOCX / XLSX extraction]
-  G --> I[document_chunks]
-  H --> I
-  I --> N[Optional embeddings]
-  N --> O[pgvector]
-  B --> P[Hybrid retrieval]
-  I --> P
-  O --> P
-  P --> J[Claude]
-  J --> K[Cited answer]
-  K --> L[Source Inspector]
-  B --> M[chat_messages]
-  B --> Q[ai_usage_events]
-```
+Pliny uses a React 19 interface and Next.js 15 App Router on Vercel. Supabase provides authentication, private object storage and PostgreSQL with pgvector, generated lexical indexes, row-level security and explicit role grants. Server-side ingestion selects a processor by file type, normalises provenance, creates bounded chunks and builds either original or provider-safe retrieval material.
 
-## Core Flow
+At query time, Pliny resolves document scope and the strictest participating privacy boundary, runs lexical and semantic retrieval, fuses and validates the evidence, and only then constructs a bounded generation envelope. Voyage currently supplies embeddings and Anthropic currently supplies answer generation; both sit behind replaceable server-side provider boundaries rather than defining the product architecture.
 
-```text
-Sign in -> Create project -> Upload supported file -> Process text -> Optional embeddings -> Ask question -> Retrieve chunks -> Answer with sources
-```
+The [complete architecture](./docs/architecture.md) documents system topology, ingestion, query-to-answer behavior, privacy boundaries and failure handling.
 
-1. Supabase Auth protects dashboard and project routes.
-2. Uploads go through a server route that validates ownership, file size, extension, MIME type, and format-specific safety checks before writing to Storage.
-3. Processing uses a plugin registry. Active processors support PDF, DOCX, XLSX, CSV, Markdown, and TXT. Legacy `.xls` and macro-enabled `.xlsm` files are rejected; upload `.xlsx` or CSV instead.
-4. PDF processing extracts selectable text first, then tries a bounded OCR fallback for low-text documents.
-5. Text is split into chunks with location metadata and saved in `document_chunks`.
-6. When embeddings are enabled, Voyage chunk embeddings are stored in Supabase Postgres with pgvector.
-7. Questions retrieve relevant chunks before Claude is called. Retrieval falls back to keyword search when embeddings are disabled or unavailable.
-8. Claude is instructed to answer only from retrieved excerpts and cite source indexes as `[[s.X]]`.
-9. Citations open the matching source in the Source Inspector.
-10. Chat messages and AI usage events are saved for continuity and auditability.
+## Security and privacy posture
 
-## Security Posture
+- Supabase Auth gates workspaces and protected routes.
+- Row-level security and ownership predicates isolate collections, documents, chunks, messages and usage records.
+- Anonymous DML grants are revoked from private application tables.
+- Original files live in a private Storage bucket under owner-prefixed exact paths.
+- Privacy-minimised processing masks supported deterministic identifiers before embedding and answer-provider requests.
+- Provider payloads are bounded and asserted against detected original identifiers in privacy-minimised mode.
+- Server logs use safe stage metadata rather than document passages or provider bodies.
+- Browser bundles are scanned for server-only secret names and provider-key indicators.
+- Rate limits and persistent daily request/cost checks fail closed in Production when their backing controls are unavailable.
+- Storage reconciliation requires repeated orphan witnesses, signed manifests and exact-path deletion.
 
-- `.env.local` and local environment files are ignored by git.
-- API routes check `auth.getUser()` before database, storage, processing, or model work.
-- Project and document ownership checks are performed before protected reads or writes.
-- Supabase RLS policies scope rows by user ownership and collection/document relationships.
-- Storage policies scope access to paths beginning with the authenticated user id.
-- Upload validation runs on the server before document rows are created.
-- AI requests are guarded by a kill switch, route rate limits, daily request limits, prompt-size limits, chunk caps, model routing, token caps, and `maxRetries: 0`.
-- Usage is logged to `ai_usage_events`.
-- Security headers are configured in `next.config.ts`, including report-only CSP for first deployment testing.
-- Model output is rendered through controlled React text and citation components, not raw HTML.
+![Pliny Processing boundary disclosure](./docs/assets/pliny-processing-boundary.png)
 
-Mitigations are aligned with OWASP Top 10 for LLM Applications 2025:
+*The Processing boundary control keeps external-processing limits visible without a permanent warning banner.*
 
-- LLM01 Prompt Injection: retrieved chunks are wrapped in source delimiters and treated as evidence, not instructions.
-- LLM02 Sensitive Information Disclosure: credentials and private operational details are not placed in the system prompt.
-- LLM05 Improper Output Handling: model output is rendered through controlled React text/citation components, not raw HTML.
-- LLM07 System Prompt Leakage: prompts are written assuming they may be visible to users.
-- LLM10 Unbounded Consumption: AI requests are limited by rate, token, model, and daily budget guardrails.
+Privacy-minimised processing is not local-only processing. Detection can miss sensitive values, and provider zero-retention has not been verified for this deployment. See the [full security and privacy posture](./docs/security-and-privacy.md).
 
-## Current Limitations
+## Verified engineering evidence
 
-- Retrieval supports keyword search by default. Semantic hybrid retrieval is available when embeddings and pgvector schema are enabled.
-- If embeddings are disabled or unavailable, the app falls back to keyword and broad-context retrieval.
-- Active ingestion currently supports PDF, DOCX, XLSX, CSV, Markdown, and TXT. PPTX, code files, and IPYNB are not supported.
-- OCR is bounded for CPU safety and may not recover enough text from poor scans.
-- RLS verification SQL is included, but cross-user tests must be run manually before a public launch.
-- CSP is report-only and should be tightened after preview testing.
-- Production rate limits require Upstash Redis environment variables.
-- Billing, team accounts, SSO, and deployment automation are not included.
+| Evidence | Current witness |
+| --- | --- |
+| Offline behavior evaluation | 14/14 automated cases passed |
+| Privacy/database acceptance | 59/59 pgTAP assertions passed on two clean rebuilds |
+| Tenant and API boundary | Anonymous database DML denied; protected Production APIs reject unauthenticated requests |
+| Retrieval | Hybrid, lexical-only, semantic-only, scoped and fail-closed paths covered deterministically |
+| Citations | Marker validation, multi-document coverage and Source Inspector resolution verified |
+| Ingestion | PDF, DOCX, XLSX, CSV, HTML, Markdown and TXT processors covered |
+| Privacy boundary | Mock provider payload assertions and Production browser-bundle secret scans passed |
+| Production acceptance | Multi-file upload, safe Markdown rendering and acronym/title retrieval defects accepted in the real interface |
+| Build quality | ESLint, TypeScript and the Next.js Production build passed at the released commit |
 
-## Local Setup
+The [evaluation record](./docs/evaluation.md) separates deterministic evidence from provider-backed and browser acceptance.
 
-Install dependencies:
+## Supported formats
 
-```bash
-npm install
-```
+| Format | Implemented handling |
+| --- | --- |
+| PDF | Native text extraction with bounded per-page OCR fallback |
+| DOCX | Paragraph extraction with layout caveats |
+| XLSX | Sheet, row, header and cell-aware extraction |
+| CSV | Structured row batches with source ranges |
+| HTML | Safe visible-text and structural block extraction |
+| Markdown | Headings, lists, code and text blocks |
+| TXT | Bounded line-oriented text extraction |
 
-Copy environment variables:
+Legacy `.xls`, macro-enabled spreadsheets, presentations, notebooks and arbitrary code files are not accepted.
 
-```bash
-cp .env.local.example .env.local
-```
+## Current limitations
 
-Fill `.env.local` locally. Do not commit it.
+- Deterministic identifier detection is intentionally bounded and can miss sensitive values.
+- External processors receive original or masked content depending on the document mode; this is not a local-only system.
+- Provider account-level zero-retention remains unverified.
+- Poor scans may exceed the bounded OCR path.
+- Provider-backed quality evaluation is still limited relative to the deterministic suite.
+- GLM is planned but not implemented; Anthropic remains the current answer provider.
+- Team roles, SSO and billing are not implemented.
+- A moderate transitive `@xmldom/xmldom` advisory remains open.
 
-Run the dev server:
+See [current limitations](./docs/limitations.md) for the precise boundaries.
 
-```bash
-npm run dev
-```
+## Technology map
 
-Open [http://localhost:3000](http://localhost:3000).
+| Layer | Implemented technology |
+| --- | --- |
+| Interface | React 19, Next.js 15 App Router, TypeScript, Tailwind CSS |
+| Runtime | Vercel Functions, Node.js route handlers |
+| Identity and data | Supabase Auth, PostgreSQL, private Storage, RLS |
+| Retrieval | PostgreSQL generated `tsvector` indexes, pgvector `vector(1024)`, deterministic rank fusion |
+| Document processing | pdf-parse, Tesseract.js, Mammoth, read-excel-file, parse5 |
+| External processing | Voyage embeddings, Anthropic generation |
+| Operational controls | Upstash Redis rate limits, persistent usage accounting, signed cleanup manifests |
 
-## Environment Variables
+## About
 
-```bash
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-ANTHROPIC_API_KEY=
-VOYAGE_API_KEY=
-AI_ENABLED=true
-ANTHROPIC_DEFAULT_MODEL=claude-haiku-4-5
-ANTHROPIC_STRONG_MODEL=claude-sonnet-4-6
-AI_MAX_OUTPUT_TOKENS=700
-AI_MAX_CHUNKS=4
-AI_MAX_CHARS_PER_CHUNK=900
-AI_MAX_REQUESTS_PER_MINUTE=3
-AI_MAX_REQUESTS_PER_DAY=20
-AI_DAILY_BUDGET_INR=30
-# Keyword retrieval works without embeddings. Set this to true only when VOYAGE_API_KEY is configured.
-EMBEDDINGS_ENABLED=false
-EMBEDDINGS_PROVIDER=voyage
-EMBEDDING_MODEL=voyage-4
-EMBEDDING_DIMENSIONS=1024
-EMBEDDING_BATCH_SIZE=10
-EMBEDDING_MAX_CHUNKS_PER_DOCUMENT=200
-EMBEDDING_QUERY_MAX_CHARS=2000
-OCR_ENABLED=true
-OCR_MAX_PAGES=5
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
-UPLOAD_MAX_REQUESTS_PER_HOUR=5
-PROCESS_MAX_REQUESTS_PER_HOUR=5
-SUPABASE_SERVICE_ROLE_KEY=
-```
+Pliny is a portfolio-scale exploration of trustworthy document intelligence: retrieval quality, verifiable provenance, privacy boundaries and operational failure behavior are treated as first-class engineering concerns.
 
-## Supabase Setup
-
-Run the SQL in `src/lib/supabase/schema.sql` in the Supabase SQL Editor. The schema includes projects, documents, chunks, chat messages, AI usage events, row-level security policies, and private Storage policies for the `documents` bucket.
-
-Then run `src/lib/supabase/rls-verification.sql` and manually test cross-user access before making the project public.
-
-## Scripts
-
-```bash
-npm run dev
-npm run lint
-npx tsc --noEmit
-npm run build
-npm run backfill:embeddings
-npm audit --omit=dev
-```
-
-## Deployment Notes
-
-Before deploying:
-
-1. Configure Supabase Auth Site URL and redirect URLs for localhost, preview deployments, and the production domain.
-2. Add production environment variables in the hosting provider.
-3. Configure Upstash Redis environment variables for production rate limits.
-4. Run the RLS verification SQL and manual cross-user tests.
-5. Enable GitHub Push Protection.
-6. Review CSP reports before moving from report-only to enforced CSP.
-7. Run a secret scanner such as gitleaks or trufflehog before making the repository public.
+Designed and built by [Deepak Patro](https://github.com/Deepak92939339).
