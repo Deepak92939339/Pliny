@@ -53,7 +53,68 @@ Pliny uses a React 19 interface and Next.js 15 App Router on Vercel. Supabase pr
 
 At query time, Pliny resolves document scope and the strictest participating privacy boundary, runs lexical and semantic retrieval, fuses and validates the evidence, and only then constructs a bounded generation envelope. Voyage currently supplies embeddings and Anthropic currently supplies answer generation; both sit behind replaceable server-side provider boundaries rather than defining the product architecture.
 
-The [complete architecture](./docs/architecture.md) documents system topology, ingestion, query-to-answer behavior, privacy boundaries and failure handling.
+```mermaid
+flowchart LR
+  User["Authenticated user"] --> UI["React 19 workspace"] --> Routes["Next.js 15<br/>authenticated route handlers"]
+
+  subgraph Server["Vercel server-only privacy boundary"]
+    Upload["Upload validation"]
+    Extract["Format-specific extraction<br/>PDF · DOCX · XLSX · CSV · HTML · MD · TXT"]
+    Chunk["Provenance-preserving chunking"]
+    Mode["Standard / privacy-minimised<br/>processing"]
+    Mask["Document-scoped HMAC masking<br/>when required"]
+    DocEmbed["Voyage document embeddings"]
+    Scope["Document scope"]
+    Transform["Privacy-aware query transformation"]
+    QueryEmbed["Voyage query embedding"]
+    Lexical["Mode-aware lexical retrieval"]
+    Fusion["Hybrid rank fusion"]
+    Gate{"Evidence-sufficiency gate"}
+    Refusal["Refusal when insufficient"]
+    Generate["Bounded Anthropic generation<br/>when sufficient"]
+    Cite["Citation validation"]
+    Persist["Persistence"]
+    Inspector["Source Inspector"]
+    Reports["Reports"]
+  end
+
+  subgraph Data["Supabase protected data boundary"]
+    Auth["Supabase Auth"]
+    Storage["Private Supabase Storage<br/>original documents"]
+    Chunks["PostgreSQL chunks"]
+    Indexes["pgvector + generated tsvector indexes"]
+    RLS["RLS + ownership enforcement"]
+  end
+
+  subgraph Controls["Control and provider boundaries"]
+    Rate["Upstash rate limits"]
+    Providers["Provider boundaries<br/>Voyage · Anthropic"]
+  end
+
+  Routes --> Auth
+  Routes --> Rate
+  Routes --> Upload --> Extract --> Chunk --> Mode
+  Upload --> Storage
+  Mode -->|standard| DocEmbed
+  Mode -->|privacy-minimised| Mask --> DocEmbed
+  DocEmbed --> Chunks --> Indexes
+  RLS -. protects .-> Storage
+  RLS -. protects .-> Chunks
+
+  Routes --> Scope --> Transform
+  Transform --> QueryEmbed --> Fusion
+  Scope --> Lexical --> Fusion
+  Fusion --> Gate
+  Gate -->|insufficient| Refusal
+  Gate -->|sufficient| Generate --> Cite --> Persist
+  Persist --> Inspector
+  Persist --> Reports
+  DocEmbed -. provider .-> Providers
+  QueryEmbed -. provider .-> Providers
+  Generate -. provider .-> Providers
+```
+
+The [complete architecture](./docs/architecture.md) contains the complete system topology, 23-stage ingestion lifecycle, 30-stage query-to-answer lifecycle, and privacy/security/failure boundaries.
 
 ## Security and privacy posture
 
@@ -116,21 +177,3 @@ Legacy `.xls`, macro-enabled spreadsheets, presentations, notebooks and arbitrar
 - A moderate transitive `@xmldom/xmldom` advisory remains open.
 
 See [current limitations](./docs/limitations.md) for the precise boundaries.
-
-## Technology map
-
-| Layer | Implemented technology |
-| --- | --- |
-| Interface | React 19, Next.js 15 App Router, TypeScript, Tailwind CSS |
-| Runtime | Vercel Functions, Node.js route handlers |
-| Identity and data | Supabase Auth, PostgreSQL, private Storage, RLS |
-| Retrieval | PostgreSQL generated `tsvector` indexes, pgvector `vector(1024)`, deterministic rank fusion |
-| Document processing | pdf-parse, Tesseract.js, Mammoth, read-excel-file, parse5 |
-| External processing | Voyage embeddings, Anthropic generation |
-| Operational controls | Upstash Redis rate limits, persistent usage accounting, signed cleanup manifests |
-
-## About
-
-Pliny is a portfolio-scale exploration of trustworthy document intelligence: retrieval quality, verifiable provenance, privacy boundaries and operational failure behavior are treated as first-class engineering concerns.
-
-Designed and built by [Deepak Patro](https://github.com/Deepak92939339).
