@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getFileExtension } from "@/lib/document-processing/fileKinds";
-import { getProcessorForFile, supportedFileExtensions } from "@/lib/document-processing/registry";
+import { getProcessorForFile, normalizeDocumentMimeType, supportedFileExtensions } from "@/lib/document-processing/registry";
 import { checkRouteRateLimit } from "@/lib/rate-limit";
 import { logSafeStageError } from "@/lib/privacy/safeLogging";
 import { captureDocumentPrivacyPolicy } from "@/lib/privacy/types";
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
 
   const displayFilename = getDisplayFilename(file.name);
   const capturedPrivacyPolicy = captureDocumentPrivacyPolicy(collection.default_processing_mode);
-  const mimeType = file.type || "application/octet-stream";
+  const mimeType = normalizeDocumentMimeType(file.type || "application/octet-stream");
   const fileData = new Uint8Array(await file.arrayBuffer());
   const processor = getProcessorForFile({
     bytes: fileData,

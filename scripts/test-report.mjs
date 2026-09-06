@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { parseFragment } from "parse5";
 import { SafeInlineMarkdown } from "../src/components/workspace/SafeInlineMarkdown.ts";
 import { buildRiskEvidenceReportSpec, formatRiskEvidenceReport, riskEvidenceReportSchema } from "../src/lib/export/riskEvidenceReport.ts";
+import { buildCitedAnswerReport } from "../src/lib/export/reportExport.ts";
 
 const bundle = {
   markerToIndex: new Map([["[[s.1]]", 1], ["[[s.2]]", 2]]),
@@ -38,5 +39,53 @@ assert.equal(hasNode(markdownDom, "code"), true, "inline code must render as a c
 const reportPreviewSource = readFileSync("src/components/workspace/RiskEvidenceReportPreview.tsx", "utf8");
 assert.equal(reportPreviewSource.includes("<SafeInlineMarkdown text={claim.text} />"), true, "risk report claims must use the existing safe inline pipeline");
 assert.equal(reportPreviewSource.includes("dangerouslySetInnerHTML"), false, "risk reports must never use raw HTML injection");
+
+const uncitedMetaReport = buildCitedAnswerReport({
+  generatedAt: "2026-01-01T00:00:00.000Z",
+  result: {
+    answer: "This workspace contains three ready documents.",
+    citations: [],
+    collectionId: "collection",
+    createdAt: "now",
+    id: "answer",
+    metadata: {
+      maxOutputTokens: 0,
+      model: "document_inventory",
+      modelReason: "Answered from uploaded document metadata.",
+      retrievalReason: "no_chunks_found",
+    },
+    question: "What can you see in this workspace?",
+    sources: [],
+    status: "answered",
+  },
+  workspaceName: "Synthetic workspace",
+});
+assert.equal(uncitedMetaReport.title, "Answer Report");
+assert.match(uncitedMetaReport.content, /three ready documents/);
+assert.match(uncitedMetaReport.verificationNote, /did not rely on document citations/);
+
+const insufficientReport = buildCitedAnswerReport({
+  generatedAt: "2026-01-01T00:00:00.000Z",
+  result: {
+    answer: "I could not find relevant evidence in the uploaded documents.",
+    citations: [],
+    collectionId: "collection",
+    createdAt: "now",
+    id: "insufficient",
+    metadata: {
+      evidenceStatus: "none",
+      maxOutputTokens: 0,
+      model: "not_selected",
+      modelReason: "Evidence gate refused generation.",
+      retrievalReason: "no_chunks_found",
+    },
+    question: "What is the renewal date?",
+    reason: "No supporting passage.",
+    sources: [],
+    status: "insufficient_evidence",
+  },
+  workspaceName: "Synthetic workspace",
+});
+assert.equal(insufficientReport.title, "Insufficient Evidence Report");
 
 console.log("Risk and evidence report tests passed.");

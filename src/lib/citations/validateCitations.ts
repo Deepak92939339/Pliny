@@ -25,7 +25,14 @@ export type CitationMarkerMatch = {
 };
 
 const CITATION_MARKER_PATTERN = /\[\[(s|p)\.(\d+)\]\]/g;
+const CITATION_LIKE_PATTERN = /\[\[(?:s|p)\.[^\s\]]*(?:\]\])?/gi;
 const CHART_BLOCK_PATTERN = /<chart>[\s\S]*?<\/chart>/gi;
+
+function getMalformedCitationMarkers(answer: string) {
+  return Array.from(answer.matchAll(CITATION_LIKE_PATTERN), (match) => match[0]).filter(
+    (marker) => !/^\[\[(?:s|p)\.\d+\]\]$/.test(marker)
+  );
+}
 
 export function parseCitationMarkers(answer: string): CitationMarkerMatch[] {
   const matches: CitationMarkerMatch[] = [];
@@ -66,6 +73,7 @@ function isResolvableMarker(match: CitationMarkerMatch, sources: readonly Citati
 
 export function validateCitations(answer: string, sources: readonly CitationValidationSource[]): CitationValidationResult {
   const matches = parseCitationMarkers(answer);
+  const malformedMarkers = getMalformedCitationMarkers(answer);
   const validMarkers: string[] = [];
   const invalidMarkers: string[] = [];
   const seenValidMarkers = new Set<string>();
@@ -83,6 +91,13 @@ export function validateCitations(answer: string, sources: readonly CitationVali
     if (!seenInvalidMarkers.has(match.marker)) {
       seenInvalidMarkers.add(match.marker);
       invalidMarkers.push(match.marker);
+    }
+  }
+
+  for (const marker of malformedMarkers) {
+    if (!seenInvalidMarkers.has(marker)) {
+      seenInvalidMarkers.add(marker);
+      invalidMarkers.push(marker);
     }
   }
 
@@ -120,7 +135,7 @@ export function validateCitations(answer: string, sources: readonly CitationVali
   const rejectedChart = chartCount > 0 && (chartErrors.length > 0 || missingChartSourceRefs.length > 0 || invalidChartSourceRefs.length > 0);
 
   return {
-    allMarkers: matches.map((match) => match.marker),
+    allMarkers: [...matches.map((match) => match.marker), ...malformedMarkers],
     chartCount,
     invalidChartSourceRefs: Array.from(new Set(invalidChartSourceRefs)),
     invalidMarkers,

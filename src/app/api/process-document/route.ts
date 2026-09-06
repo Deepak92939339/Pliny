@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { chunkExtractedDocument, type ExtractedDocumentChunk } from "@/lib/document-processing/chunkExtractedDocument";
 import { assertExtractedDocumentLimits } from "@/lib/document-processing/limits";
-import { getDocumentProcessor, getProcessorForExtension } from "@/lib/document-processing/registry";
+import { getDocumentProcessor, getProcessorForExtension, normalizeDocumentMimeType } from "@/lib/document-processing/registry";
 import { prepareChunkRowsWithEmbeddings } from "@/lib/document-processing/prepareChunkRowsWithEmbeddings";
 import { sanitizeExtractedDocument } from "@/lib/document-processing/sanitizeExtractedDocument";
 import { DocumentProcessingError, type DocumentProcessingMetadata, type DocumentProcessingStage, type SupportedFileKind } from "@/lib/document-processing/types";
@@ -531,7 +531,7 @@ export async function POST(request: Request) {
     }
 
     const documentBytes = new Uint8Array(await documentBlob.arrayBuffer());
-    const mimeType = documentBlob.type || getMimeTypeForDocument(processingDocument);
+    const mimeType = normalizeDocumentMimeType(documentBlob.type || getMimeTypeForDocument(processingDocument));
     logProcessStep("document downloaded", { byteLength: documentBytes.byteLength, documentId: processingDocument.id });
 
     const processor = getDocumentProcessor({

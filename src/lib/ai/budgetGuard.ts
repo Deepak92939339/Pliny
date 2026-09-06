@@ -20,6 +20,7 @@ export type AiConfig = {
   enabled: boolean;
   maxCharsPerChunk: number;
   maxChunks: number;
+  maxContextCharacters: number;
   maxOutputTokens: number;
   maxRequestsPerDay: number;
   maxRequestsPerMinute: number;
@@ -108,8 +109,9 @@ export function getAiConfig(): AiConfig {
   return {
     dailyBudgetInr: getNumberEnv("AI_DAILY_BUDGET_INR", 50, 1, 100_000),
     enabled: process.env.AI_ENABLED === "true",
-    maxCharsPerChunk: getNumberEnv("AI_MAX_CHARS_PER_CHUNK", 1_200, 200, 3_000),
+    maxCharsPerChunk: getNumberEnv("AI_MAX_CHARS_PER_CHUNK", 3_000, 200, 3_000),
     maxChunks: getNumberEnv("AI_MAX_CHUNKS", 5, 1, 10),
+    maxContextCharacters: getNumberEnv("AI_MAX_CONTEXT_CHARS", 12_000, 1_000, 20_000),
     maxOutputTokens: getNumberEnv("AI_MAX_OUTPUT_TOKENS", 700, 100, 1_500),
     maxRequestsPerDay: getNumberEnv("AI_MAX_REQUESTS_PER_DAY", 30, 1, 1_000),
     maxRequestsPerMinute: getNumberEnv("AI_MAX_REQUESTS_PER_MINUTE", 5, 1, 60),

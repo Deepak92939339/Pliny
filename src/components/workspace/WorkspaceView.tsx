@@ -13,6 +13,7 @@ import type { ChatResponse, CollectionListItem, DocumentListItem, RetrievalReaso
 
 type WorkspaceViewProps = {
   chatError?: string | null;
+  chatNotice?: string | null;
   collection?: CollectionListItem;
   collections?: CollectionListItem[];
   documents?: DocumentListItem[];
@@ -130,6 +131,7 @@ function getActiveSourceContext(results: WorkspaceSearchResult[], selectedSource
 
 export function WorkspaceView({
   chatError,
+  chatNotice,
   collection,
   collections = [],
   documents = [],
@@ -295,6 +297,11 @@ export function WorkspaceView({
                 {chatError || documentsError || searchError ? (
                   <div className="mb-6 rounded-xl border border-[#BA5C3D]/20 bg-[#BA5C3D]/10 px-4 py-3 text-sm leading-6 text-[color:var(--editorial-rust-strong)]">
                     {searchError ?? chatError ?? documentsError}
+                  </div>
+                ) : null}
+                {chatNotice ? (
+                  <div className="mb-6 rounded-xl border border-black/10 bg-white/45 px-4 py-3 text-sm leading-6 text-[color:var(--editorial-muted)]">
+                    {chatNotice}
                   </div>
                 ) : null}
 

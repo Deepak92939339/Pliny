@@ -96,10 +96,13 @@ function createSupabaseWitness() {
         assert.equal(name, "match_document_chunks_lexical_by_mode");
         lexicalQueries.push(args.match_query);
         const normalizedContent = chunk.content.toLowerCase();
-        const matchesLexically = args.match_query
-          .split(" ")
-          .filter(Boolean)
-          .every((term) => normalizedContent.includes(term));
+        const matchesLexically = args.match_query.split(" OR ").some((clause) =>
+          clause
+            .replaceAll('"', "")
+            .split(" ")
+            .filter(Boolean)
+            .every((term) => normalizedContent.includes(term))
+        );
         return { data: matchesLexically ? [chunk] : [], error: null };
       },
     },
@@ -125,24 +128,24 @@ async function runChatRetrievalPipeline(question) {
 }
 
 const acronym = await runChatRetrievalPipeline("Who is the CTO?");
-assert.deepEqual(acronym.witness.lexicalQueries, ["cto", "chief technology officer"]);
+assert.deepEqual(acronym.witness.lexicalQueries, ["cto", '"chief technology officer"']);
 assert.equal(acronym.retrieval.retrievalReason, "direct_keyword_match");
 assert.equal(acronym.retrieval.results.length, 1);
 assert.match(acronym.retrieval.results[0].content, /Aster Quill serves as Chief Technology Officer/);
 assert.equal(acronym.evidence.sufficient, true);
 
 const expanded = await runChatRetrievalPipeline("Who serves as the Chief Technology Officer?");
-assert.deepEqual(expanded.witness.lexicalQueries, ["serves cto", "serves chief technology officer"]);
+assert.deepEqual(expanded.witness.lexicalQueries, ["serves OR cto", '"chief technology officer" OR serves']);
 assert.equal(expanded.retrieval.retrievalReason, "direct_keyword_match");
 assert.equal(expanded.evidence.sufficient, true);
 
 const unrelatedAcronym = await runChatRetrievalPipeline("Who is the CFO?");
-assert.deepEqual(unrelatedAcronym.witness.lexicalQueries, ["Who is the CFO?"]);
+assert.deepEqual(unrelatedAcronym.witness.lexicalQueries, ["cfo"]);
 assert.equal(unrelatedAcronym.retrieval.retrievalReason, "broad_context_fallback");
 assert.equal(unrelatedAcronym.evidence.sufficient, false);
 
 const october = await runChatRetrievalPipeline("What happened in October?");
-assert.deepEqual(october.witness.lexicalQueries, ["What happened in October?"]);
+assert.deepEqual(october.witness.lexicalQueries, ["happened OR october"]);
 assert.equal(october.retrieval.retrievalReason, "broad_context_fallback");
 assert.equal(october.evidence.sufficient, false);
 

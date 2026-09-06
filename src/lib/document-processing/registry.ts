@@ -22,8 +22,12 @@ export const supportedFileExtensions = Array.from(new Set(documentProcessorPlugi
 export const supportedMimeTypes = Array.from(new Set(documentProcessorPlugins.flatMap((plugin) => plugin.mimeTypes))).sort();
 export const supportedFileKinds = Array.from(new Set(documentProcessorPlugins.map((plugin) => plugin.kind))) as SupportedFileKind[];
 
+export function normalizeDocumentMimeType(mimeType: string) {
+  return mimeType.split(";", 1)[0].trim().toLowerCase();
+}
+
 export function getProcessorForFile(input: DocumentProcessorInput) {
-  return documentProcessorPlugins.find((plugin) => plugin.canProcess(input)) ?? null;
+  return documentProcessorPlugins.find((plugin) => plugin.canProcess({ ...input, mimeType: normalizeDocumentMimeType(input.mimeType) })) ?? null;
 }
 
 export const getDocumentProcessor = getProcessorForFile;

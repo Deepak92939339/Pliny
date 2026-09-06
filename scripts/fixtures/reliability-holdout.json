@@ -1,0 +1,131 @@
+{
+  "meta": {
+    "name": "Pliny reliability holdout v1",
+    "provenance": "New synthetic fixtures created for remediation verification; distinct from the assurance bundle corpus.",
+    "ground_truth": "Manually explicit",
+    "retrieval": "Deterministic local emulation of PostgreSQL websearch semantics",
+    "generation": "Mocked extractive response assembly",
+    "provider_requests": 0
+  },
+  "documents": [
+    {
+      "id": "cedar-operations",
+      "filename": "cedar-operations.md",
+      "chunks": [
+        {
+          "id": "cedar-role",
+          "content": "Cedar Atlas Cooperative operations roster. Leena Moravec serves as Chief Operating Officer (COO) and leads day-to-day operations."
+        },
+        {
+          "id": "cedar-staffing",
+          "content": "Cedar Atlas Cooperative staffing record. Active headcount is 84 people. Monthly payroll is 638,400 credits."
+        },
+        {
+          "id": "cedar-tail",
+          "content": "__LONG_TAIL_CHUNK__"
+        }
+      ]
+    },
+    {
+      "id": "archived-handbook",
+      "filename": "archived-dock-handbook.txt",
+      "chunks": [
+        {
+          "id": "archived-cadence",
+          "content": "The archived dock handbook sets the inspection cadence at every 45 days. This superseded schedule remains available for historical comparison."
+        }
+      ]
+    },
+    {
+      "id": "maintenance-budget",
+      "filename": "maintenance-budget.csv",
+      "chunks": [
+        {
+          "id": "budget-q4",
+          "content": "Quarter=Q4 | Category=Maintenance | Approved budget=92,000 credits | Status=Final"
+        }
+      ]
+    },
+    {
+      "id": "current-policy",
+      "filename": "current-inspection-policy.md",
+      "chunks": [
+        {
+          "id": "current-cadence",
+          "content": "The current inspection policy requires dock inspections every 30 days. It explicitly replaces the archived handbook interval."
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "H-01",
+      "category": "direct_fact",
+      "question": "How many people are on staff at Cedar Atlas Cooperative?",
+      "answerable": true,
+      "requiredDocumentIds": ["cedar-operations"],
+      "requiredPassages": [{ "chunkId": "cedar-staffing", "phrase": "Active headcount is 84 people" }],
+      "expectedAnswerParts": ["84 people"]
+    },
+    {
+      "id": "H-02",
+      "category": "paraphrase",
+      "question": "Who runs day-to-day operations for Cedar Atlas Cooperative?",
+      "answerable": true,
+      "requiredDocumentIds": ["cedar-operations"],
+      "requiredPassages": [{ "chunkId": "cedar-role", "phrase": "Leena Moravec" }],
+      "expectedAnswerParts": ["Leena Moravec"]
+    },
+    {
+      "id": "H-03",
+      "category": "acronym_and_role",
+      "question": "Who is the COO of Cedar Atlas Cooperative?",
+      "answerable": true,
+      "requiredDocumentIds": ["cedar-operations"],
+      "requiredPassages": [{ "chunkId": "cedar-role", "phrase": "Chief Operating Officer (COO)" }],
+      "expectedAnswerParts": ["Leena Moravec", "Chief Operating Officer"]
+    },
+    {
+      "id": "H-04",
+      "category": "chunk_ending",
+      "question": "What emergency rotation code is assigned to Imani Voss?",
+      "answerable": true,
+      "requiredDocumentIds": ["cedar-operations"],
+      "requiredPassages": [{ "chunkId": "cedar-tail", "phrase": "Imani Voss uses emergency rotation code LANTERN-47" }],
+      "expectedAnswerParts": ["LANTERN-47"]
+    },
+    {
+      "id": "H-05",
+      "category": "multi_document",
+      "question": "What are the Q4 maintenance budget and the archived dock inspection cadence?",
+      "answerable": true,
+      "requiredDocumentIds": ["maintenance-budget", "archived-handbook"],
+      "requiredPassages": [
+        { "chunkId": "budget-q4", "phrase": "92,000 credits" },
+        { "chunkId": "archived-cadence", "phrase": "every 45 days" }
+      ],
+      "expectedAnswerParts": ["92,000 credits", "45 days"]
+    },
+    {
+      "id": "H-06",
+      "category": "conflict",
+      "question": "What inspection interval do the current policy and archived handbook state?",
+      "answerable": true,
+      "requiredDocumentIds": ["current-policy", "archived-handbook"],
+      "requiredPassages": [
+        { "chunkId": "current-cadence", "phrase": "every 30 days" },
+        { "chunkId": "archived-cadence", "phrase": "every 45 days" }
+      ],
+      "expectedAnswerParts": ["30 days", "45 days", "conflict"]
+    },
+    {
+      "id": "H-07",
+      "category": "unsupported",
+      "question": "What is the cafeteria lunch price?",
+      "answerable": false,
+      "requiredDocumentIds": [],
+      "requiredPassages": [],
+      "expectedAnswerParts": []
+    }
+  ]
+}

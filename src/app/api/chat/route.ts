@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { checkAiBudget, getAiConfig, type AiBudgetDecision } from "@/lib/ai/budgetGuard";
+import { selectPromptChunks } from "@/lib/ai/contextSelection";
 import { assessEvidenceSufficiency } from "@/lib/ai/evidenceSufficiency";
 import { routeModel } from "@/lib/ai/modelRouter";
 import {
@@ -620,22 +621,6 @@ function getDocumentScope(message: string, documents: WorkspaceDocument[]): Docu
     documents: matchedDocuments,
     reason: "filename_match",
   };
-}
-
-function clampContent(content: string, maxCharacters: number) {
-  if (content.length <= maxCharacters) {
-    return content;
-  }
-
-  return `${content.slice(0, maxCharacters).trim()}...`;
-}
-
-function clampChunks(chunks: SearchChunkResult[], maxCharacters: number) {
-  return chunks.map((chunk) => ({
-    ...chunk,
-    content: clampContent(chunk.content, maxCharacters),
-    providerSafeContent: chunk.providerSafeContent ? clampContent(chunk.providerSafeContent, maxCharacters) : chunk.providerSafeContent,
-  }));
 }
 
 function escapePromptAttribute(value: string) {
@@ -1396,7 +1381,12 @@ export async function POST(request: Request) {
     return NextResponse.json(response);
   }
 
-  const promptChunks = clampChunks(retrievedChunks, config.maxCharsPerChunk);
+  const promptChunks = selectPromptChunks(retrievedChunks, {
+    maxCharactersPerChunk: config.maxCharsPerChunk,
+    maxTotalCharacters: config.maxContextCharacters,
+    providerSafeQuestion: providerSafeQuery,
+    question: message,
+  });
   let generationBoundary: PrivacyGenerationBoundary | null = null;
   let prompt = buildPrompt(message, promptChunks, retrievalReason, documentScope);
   if (privacyBoundary) {

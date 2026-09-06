@@ -46,16 +46,29 @@ const TEMPLATE_LABELS: Record<ReportTemplate, string> = {
 export function buildCitedAnswerReport({ generatedAt, result, workspaceName }: ReportBuildInput): GeneratedReport {
   const bundle = getSourceBundle(result);
   const hasSourceSupport = isSourceSupportedResult(result);
+  const isUncitedAnswer =
+    result.status === "answered" &&
+    result.metadata?.evidenceStatus !== "weak" &&
+    result.metadata?.evidenceStatus !== "none" &&
+    !isInsufficientEvidenceAnswer(result.answer) &&
+    bundle.sources.length === 0;
   const sources = hasSourceSupport ? bundle.sources : [];
 
   return {
-    content: hasSourceSupport ? formatAnswerForReport(getPrivacySafeExportAnswer(result), bundle) : formatInsufficientEvidenceContent(result),
+    content:
+      hasSourceSupport || isUncitedAnswer
+        ? formatAnswerForReport(getPrivacySafeExportAnswer(result), bundle)
+        : formatInsufficientEvidenceContent(result),
     generatedAt: generatedAt ?? new Date().toISOString(),
     question: getExportQuestion(result),
     sources,
     template: "cited_answer",
-    title: hasSourceSupport ? TEMPLATE_LABELS.cited_answer : "Insufficient Evidence Report",
-    verificationNote: hasSourceSupport ? STANDARD_VERIFICATION_NOTE : INSUFFICIENT_EVIDENCE_NOTE,
+    title: hasSourceSupport ? TEMPLATE_LABELS.cited_answer : isUncitedAnswer ? "Answer Report" : "Insufficient Evidence Report",
+    verificationNote: hasSourceSupport
+      ? STANDARD_VERIFICATION_NOTE
+      : isUncitedAnswer
+        ? "This workspace answer did not rely on document citations."
+        : INSUFFICIENT_EVIDENCE_NOTE,
     workspaceName: getPrivacySafeExportWorkspaceName(workspaceName, [result]),
   };
 }
