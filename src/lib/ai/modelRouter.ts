@@ -1,3 +1,5 @@
+import { getConfiguredAnswerProviderName, getConfiguredOpenRouterModel, type AnswerProviderName } from "./answerProvider.ts";
+
 const HARD_QUESTION_PATTERNS = [
   "compare",
   "risk",
@@ -10,6 +12,7 @@ const HARD_QUESTION_PATTERNS = [
 ];
 
 type ModelRouteInput = {
+  answerProvider?: AnswerProviderName;
   maxOutputTokens: number;
   question: string;
   retrievedChunkCount: number;
@@ -27,7 +30,17 @@ function getModelEnv(name: string, fallback: string) {
   return value || fallback;
 }
 
-export function routeModel({ maxOutputTokens, question, retrievedChunkCount }: ModelRouteInput): ModelRoute {
+export function routeModel({ answerProvider, maxOutputTokens, question, retrievedChunkCount }: ModelRouteInput): ModelRoute {
+  const provider = answerProvider ?? getConfiguredAnswerProviderName();
+
+  if (provider === "openrouter") {
+    return {
+      maxOutputTokens,
+      reason: "OpenRouter is configured as the answer provider.",
+      selectedModel: getConfiguredOpenRouterModel(),
+    };
+  }
+
   const defaultModel = getModelEnv("ANTHROPIC_DEFAULT_MODEL", "claude-haiku-4-5");
   const strongModel = getModelEnv("ANTHROPIC_STRONG_MODEL", "claude-sonnet-4-6");
   const normalizedQuestion = question.toLowerCase();

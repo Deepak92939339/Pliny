@@ -22,6 +22,7 @@ assert.ok(anonKey, "NEXT_PUBLIC_SUPABASE_ANON_KEY must be configured.");
 assert.ok(serviceRoleKey, "SUPABASE_SERVICE_ROLE_KEY must be configured.");
 assert.equal(process.env.EMBEDDINGS_ENABLED, "false", "The local E2E suite must not call an embedding provider.");
 assert.equal(process.env.ANTHROPIC_API_KEY ?? "", "", "The local E2E suite must not call an answer provider.");
+assert.equal(process.env.OPENROUTER_API_KEY ?? "", "", "The local E2E suite must not call an answer provider.");
 assert.ok((process.env.PRIVACY_PSEUDONYM_KEY ?? "").length >= 32, "PRIVACY_PSEUDONYM_KEY must be configured for privacy-minimised testing.");
 
 const cookieValues = new Map();

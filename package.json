@@ -19,6 +19,8 @@
     "test:holdout": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-reliability-holdout.mjs",
     "test:privacy": "node --experimental-strip-types scripts/test-privacy-foundation.mjs && node --experimental-strip-types scripts/test-privacy-phase4b.mjs",
     "test:privacy:bundle": "node scripts/test-browser-privacy-bundle.mjs",
+    "test:answer-provider": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-answer-provider.mjs",
+    "test:openrouter-live": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-openrouter-answer-live.mjs",
     "test:provider-smoke": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-provider-smoke.mjs",
     "test:retrieval": "node --experimental-strip-types scripts/test-retrieval.mjs && node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-chat-retrieval-integration.mjs",
     "test:sanitization": "node --experimental-strip-types scripts/test-sanitization.mjs",

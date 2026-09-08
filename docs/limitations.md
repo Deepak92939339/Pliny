@@ -21,7 +21,7 @@ Pliny is a production-deployed portfolio system with deliberately narrow guarant
 
 ## Product scope
 
-- GLM is planned but not integrated. Anthropic is the current answer-generation provider and Voyage is the current embedding provider.
+- OpenRouter with `z-ai/glm-5.3-flash` is the default answer-generation provider; Anthropic remains manually selectable without automatic fallback. Voyage remains the embedding provider.
 - Team roles, shared workspaces, enterprise SSO and billing are not implemented.
 - Presentations, legacy `.xls`, macro-enabled spreadsheets, notebooks and arbitrary code files are not supported.
 - Provider-backed answer-quality evaluation remains limited compared with the deterministic suite.

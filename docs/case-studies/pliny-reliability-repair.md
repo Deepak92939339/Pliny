@@ -65,10 +65,22 @@ With Docker available, a fresh **local Supabase** instance applied all six migra
 | Parameterized MIME TXT processing | Accepted upload then `422` at processing | Upload → extraction → chunk storage completes |
 | Synthetic database-backed E2E | Not available | Passes with provider calls `0` |
 
+## OpenRouter GLM answer-provider phase
+
+On 2026-09-08, a focused local phase made OpenRouter the default answer-provider transport and `z-ai/glm-5.3-flash` its default API model identifier. The upstream endpoint label `z-ai/fp8` is explicitly rejected as a model configuration. Anthropic remains manually selectable with `ANSWER_PROVIDER=anthropic`; there is no automatic cross-provider fallback. Voyage embeddings, retrieval, context selection, ingestion, OCR, Supabase schema and the interface were unchanged.
+
+The adapter preserves the existing generation payload contract at the orchestration boundary. OpenRouter receives only the system instructions and the already-bounded question/source prompt through its OpenAI-compatible `/chat/completions` endpoint. Citation repair uses the same selected provider and the same bounded evidence. Provider errors are normalized without retaining response bodies, request headers or credentials; retries remain disabled. Privacy payload assertions, pseudonym checks, citation validation, evidence reassessment and structured refusal behavior remain outside the adapter and unchanged.
+
+Provider-mocked coverage passed for a grounded answer, a resolvable `[[s.1]]` citation, an exact insufficient-evidence refusal, malformed response data, missing credentials, timeout, HTTP `429`, HTTP `500`/`503`, the exact OpenRouter request shape and manual Anthropic selection without fallback. The complete deterministic gate passed: `test:answer-provider`, `test:citations`, `test:context`, `test:embeddings`, `test:evidence`, `test:ingestion`, `test:history`, `test:holdout`, `test:privacy`, `test:privacy:bundle`, `test:retrieval`, `test:sanitization`, `test:report`, `test:storage-cleanup`, `test:trust`, `test:local-migrations`, 59/59 local pgTAP assertions, the synthetic local database E2E, ESLint, TypeScript and the optimized Production build. The first local E2E invocation used `AI_ENABLED=false` and correctly returned `403`; it was rerun successfully with orchestration enabled, embeddings disabled and both answer-provider credentials blank, proving the unsupported path refused before provider generation.
+
+Two authorized live OpenRouter requests used only invented Cedar Laboratory evidence and made no database writes. The supported-answer request passed citation and factual-contract validation in 2,558 ms using 127 input and 14 output tokens (141 total), with reported cost approximately `$0.00001760`. The unsupported-answer request returned the required refusal and passed contract validation in 1,940 ms using 126 input and 8 output tokens (134 total), with reported cost approximately `$0.00001028`. Total: 2 requests, 253 input tokens, 22 output tokens, 275 tokens and approximately `$0.00002788`. The optional third adversarial request was not needed.
+
+The rebuilt browser bundle contains neither the configured OpenRouter credential nor the server-only names `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` and `ANSWER_PROVIDER`. The local configuration check reported only booleans: `.env.local` is Git-ignored, the key is present, and the provider/model selectors match the required values.
+
 ## Remaining limitations
 
 - The database proof uses local Supabase and server-rendered HTTP checks. A separate shared staging environment and interactive browser automation remain unverified; the linked remote project was not accessed because it could not be safely classified as non-Production.
-- OCR-provider, shared staging, and Production requests were not made. The successful Voyage and Anthropic smoke test is limited to synthetic provider payloads. The local database E2E deliberately disabled both providers, so it does not prove live generation in the authenticated workflow.
+- OCR-provider, shared staging, and Production requests were not made. The successful historical Voyage/Anthropic smoke and current OpenRouter GLM contract checks are limited to synthetic provider payloads. The local database E2E deliberately disabled providers, so it does not prove live generation in the authenticated workflow.
 - The original Production PDF 422 and prior garbled adversarial refusal remain unverified without runtime evidence.
 - One supplied assurance-bundle manifest entry is internally inconsistent, as noted above.
 - History restoration remains intentionally bounded at 1,000 messages; the interface now discloses truncation instead of silently showing only ten exchanges.

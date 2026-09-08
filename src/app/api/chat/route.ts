@@ -1,6 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { createAnswerProvider, getConfiguredAnswerProviderName } from "@/lib/ai/answerProvider";
 import { checkAiBudget, getAiConfig, type AiBudgetDecision } from "@/lib/ai/budgetGuard";
 import { selectPromptChunks } from "@/lib/ai/contextSelection";
 import { assessEvidenceSufficiency } from "@/lib/ai/evidenceSufficiency";
@@ -224,10 +224,6 @@ const DOCUMENT_QUERY_STOP_WORDS = new Set([
   "with",
   "workspace",
 ]);
-
-function getAnthropicApiKey() {
-  return process.env.ANTHROPIC_API_KEY;
-}
 
 function logChatError(step: string, error: unknown, details?: Record<string, unknown>) {
   logSafeStageError("chat", step, error, details as Record<string, string | number | boolean | null | undefined>);
@@ -755,14 +751,6 @@ function getSourceLocationLabel(chunk: SearchChunkResult) {
   return "Location unavailable";
 }
 
-function getAssistantText(message: Anthropic.Messages.Message) {
-  return message.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("\n")
-    .trim();
-}
-
 function buildCitations(answer: string, chunks: SearchChunkResult[]) {
   const citationSafeAnswer = answer.replace(/<chart>[\s\S]*?<\/chart>/g, "");
   const citationValidation = validateCitations(answer, chunks);
@@ -1236,6 +1224,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "AI is disabled for this environment." }, { status: 403 });
   }
 
+  const answerProviderName = getConfiguredAnswerProviderName();
+
   const requiredDocumentIds = documentScope?.documents.map((document) => document.id) ?? [];
   const {
     error: chunksError,
@@ -1268,6 +1258,7 @@ export async function POST(request: Request) {
   }
 
   const modelRoute = routeModel({
+    answerProvider: answerProviderName,
     maxOutputTokens: answerConfig.maxOutputTokens,
     question: message,
     retrievedChunkCount: retrievedChunks.length,
@@ -1459,9 +1450,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: budget.message ?? "This request was blocked by the AI budget guard." }, { status: statusCode });
   }
 
-  const apiKey = getAnthropicApiKey();
+  const answerProvider = createAnswerProvider();
 
-  if (!apiKey) {
+  if (!answerProvider.configured) {
     await saveUsageEvent({
       collectionId,
       estimatedCostUsd: budget.estimatedCostUsd,
@@ -1473,7 +1464,7 @@ export async function POST(request: Request) {
       supabase,
       userId: user.id,
     });
-    return NextResponse.json({ error: "Claude is not configured. Add ANTHROPIC_API_KEY and restart the dev server." }, { status: 500 });
+    return NextResponse.json({ error: "The selected answer provider is not configured." }, { status: 500 });
   }
 
   const userMessageError = await saveChatMessage(supabase, {
@@ -1501,7 +1492,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    const anthropic = new Anthropic({ apiKey, maxRetries: 0 });
     const generationPayload = buildGenerationProviderPayload({
       maxTokens: modelRoute.maxOutputTokens,
       model: modelRoute.selectedModel,
@@ -1510,8 +1500,8 @@ export async function POST(request: Request) {
       temperature: 0.2,
     });
     if (generationBoundary) assertPrivacyGenerationPayload(generationPayload, generationBoundary);
-    const claudeResponse = await anthropic.messages.create(generationPayload);
-    const draftAnswer = getAssistantText(claudeResponse) || NO_CONTEXT_ANSWER;
+    const generationResponse = await answerProvider.generate(generationPayload);
+    const draftAnswer = generationResponse.text || NO_CONTEXT_ANSWER;
     if (generationBoundary) assertOnlyAllowedPseudonyms(draftAnswer, generationBoundary.allowedPseudonyms);
     let answer = draftAnswer;
     let citationValidation = validateCitations(answer, citationChunks);
@@ -1530,8 +1520,8 @@ export async function POST(request: Request) {
           system: CITATION_CORRECTION_SYSTEM_PROMPT,
         });
         if (generationBoundary) assertPrivacyGenerationPayload(correctionPayload, generationBoundary);
-        const correctionResponse = await anthropic.messages.create(correctionPayload);
-        const correctedAnswer = getAssistantText(correctionResponse);
+        const correctionResponse = await answerProvider.generate(correctionPayload);
+        const correctedAnswer = correctionResponse.text;
         if (generationBoundary) assertOnlyAllowedPseudonyms(correctedAnswer, generationBoundary.allowedPseudonyms);
         const correctedValidation = validateCitations(correctedAnswer, citationChunks);
 
@@ -1657,9 +1647,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
   } catch (error) {
-    logChatError("anthropic request failed", error, {
+    logChatError("answer provider request failed", error, {
       collectionId,
       model: modelRoute.selectedModel,
+      provider: answerProvider.name,
       retrievedChunkCount: promptChunks.length,
       userId: user.id,
     });
@@ -1669,7 +1660,7 @@ export async function POST(request: Request) {
       inputTokens: budget.inputTokens,
       model: modelRoute.selectedModel,
       outputTokens: budget.outputTokens,
-      reason: "anthropic_request_failed",
+      reason: "answer_provider_request_failed",
       status: "failed",
       supabase,
       userId: user.id,
