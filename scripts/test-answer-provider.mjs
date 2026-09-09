@@ -36,7 +36,7 @@ function request(model = OPENROUTER_DEFAULT_MODEL) {
 function openRouterResponse(content, options = {}) {
   return new Response(
     JSON.stringify({
-      choices: [{ finish_reason: "stop", index: 0, message: { content, role: "assistant" } }],
+      choices: [{ finish_reason: options.finishReason ?? "stop", index: 0, message: { content, role: "assistant" } }],
       id: "synthetic-completion",
       model: OPENROUTER_DEFAULT_MODEL,
       object: "chat.completion",
@@ -47,7 +47,7 @@ function openRouterResponse(content, options = {}) {
         total_tokens: 50,
       },
     }),
-    { status: options.status ?? 200 }
+    { headers: options.headers, status: options.status ?? 200 }
   );
 }
 
@@ -89,6 +89,17 @@ assert.deepEqual(supported.usage, {
   totalTokens: 50,
 });
 assert.equal(validateCitations(supported.text, [source]).rejectedAnswer, false, "supported citations must pass Pliny validation");
+const unsupportedClaimWithValidCitation = "Cedar Laboratory was founded in 1984 [[s.1]].";
+assert.equal(
+  validateCitations(unsupportedClaimWithValidCitation, [source]).rejectedAnswer,
+  false,
+  "runtime citation validation is intentionally identifier-based; claim support is an evaluation concern"
+);
+assert.equal(
+  source.content.includes("founded in 1984"),
+  false,
+  "the semantic-support evaluation fixture must remain demonstrably unsupported"
+);
 const capturedBody = JSON.parse(String(capturedInit.body));
 assert.deepEqual(capturedBody, {
   max_tokens: 120,
@@ -118,11 +129,51 @@ const refusalProvider = createAnswerProvider({
 assert.equal(refusalProvider.name, "openrouter", "OpenRouter must be the default runtime answer provider");
 assert.equal((await refusalProvider.generate(request())).text, "INSUFFICIENT_EVIDENCE");
 
+for (const content of [
+  "```json\n{\"answer\":\"11 analysts\"}\n```",
+  '{"answer":"11 analysts"',
+  "Cedar Laboratory has 11 analysts [[s.1",
+]) {
+  const textualMalformedAnswerProvider = createAnswerProvider({
+    env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
+    fetchImpl: async () => openRouterResponse(content),
+  });
+  const result = await textualMalformedAnswerProvider.generate(request());
+  assert.equal(result.text, content.trim(), "the adapter must preserve textual model output for Pliny's validators");
+  assert.equal(validateCitations(result.text, [source]).rejectedAnswer, true, "invalid textual answers must fail Pliny validation");
+}
+
 const malformedProvider = createAnswerProvider({
   env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
   fetchImpl: async () => new Response(JSON.stringify({ choices: [] }), { status: 200 }),
 });
 await expectProviderError(malformedProvider.generate(request()), "malformed_response");
+
+for (const content of ["", [], [{ text: "unexpected array content" }]]) {
+  const invalidContentProvider = createAnswerProvider({
+    env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
+    fetchImpl: async () => openRouterResponse(content),
+  });
+  await expectProviderError(invalidContentProvider.generate(request()), "malformed_response");
+}
+
+const invalidJsonProvider = createAnswerProvider({
+  env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
+  fetchImpl: async () => new Response("{not-json", { status: 200 }),
+});
+await expectProviderError(invalidJsonProvider.generate(request()), "malformed_response");
+
+const truncatedProvider = createAnswerProvider({
+  env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
+  fetchImpl: async () => openRouterResponse("Cedar Laboratory has 11 analysts [[s.1]].", { finishReason: "length" }),
+});
+await expectProviderError(truncatedProvider.generate(request()), "malformed_response");
+
+const oversizedProvider = createAnswerProvider({
+  env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
+  fetchImpl: async () => openRouterResponse("x".repeat(50_000)),
+});
+await expectProviderError(oversizedProvider.generate(request()), "malformed_response");
 
 const missingCredentialProvider = createAnswerProvider({
   env: { ANSWER_PROVIDER: "openrouter" },
@@ -143,17 +194,100 @@ const timeoutProvider = createAnswerProvider({
 });
 await expectProviderError(timeoutProvider.generate(request()), "timeout");
 
-for (const [status, code] of [
-  [429, "rate_limited"],
-  [500, "upstream_error"],
-  [503, "upstream_error"],
-]) {
+for (const status of [401, 402]) {
+  let calls = 0;
+  const nonRetryingProvider = createAnswerProvider({
+    env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
+    fetchImpl: async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ error: { message: "provider-secret-echo" } }), { status });
+    },
+    sleepImpl: async () => {
+      throw new Error("non-retryable responses must not sleep");
+    },
+  });
+  await expectProviderError(nonRetryingProvider.generate(request()), "provider_request_failed", status);
+  assert.equal(calls, 1, `HTTP ${status} must not retry`);
+}
+
+let rateLimitCalls = 0;
+const rateLimitDelays = [];
+const rateLimitProvider = createAnswerProvider({
+  env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
+  fetchImpl: async () => {
+    rateLimitCalls += 1;
+    return rateLimitCalls < 3
+      ? new Response(JSON.stringify({ error: { message: "provider-secret-echo" } }), {
+          headers: { "Retry-After": "999" },
+          status: 429,
+        })
+      : openRouterResponse("Cedar Laboratory has 11 analysts [[s.1]].");
+  },
+  sleepImpl: async (delayMs) => {
+    rateLimitDelays.push(delayMs);
+  },
+});
+assert.equal((await rateLimitProvider.generate(request())).text.includes("11 analysts"), true);
+assert.equal(rateLimitCalls, 3, "HTTP 429 retries must have a strict two-retry cap");
+assert.deepEqual(rateLimitDelays, [2_000, 2_000], "Retry-After must be honored subject to the strict delay cap");
+
+let exhaustedRateLimitCalls = 0;
+const exhaustedRateLimitProvider = createAnswerProvider({
+  env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
+  fetchImpl: async () => {
+    exhaustedRateLimitCalls += 1;
+    return new Response(null, { headers: { "Retry-After": "0" }, status: 429 });
+  },
+  sleepImpl: async () => {},
+});
+await expectProviderError(exhaustedRateLimitProvider.generate(request()), "rate_limited", 429);
+assert.equal(exhaustedRateLimitCalls, 3, "exhausted HTTP 429 responses must stop after two retries");
+
+for (const status of [500, 502, 503, 504]) {
+  let calls = 0;
+  const delays = [];
   const failingProvider = createAnswerProvider({
     env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
-    fetchImpl: async () => new Response(JSON.stringify({ error: { message: "provider-secret-echo" } }), { status }),
+    fetchImpl: async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ error: { message: "provider-secret-echo" } }), { status });
+    },
+    sleepImpl: async (delayMs) => {
+      delays.push(delayMs);
+    },
   });
-  await expectProviderError(failingProvider.generate(request()), code, status);
+  await expectProviderError(failingProvider.generate(request()), "upstream_error", status);
+  assert.equal(calls, 3, `HTTP ${status} must stop after two retries`);
+  assert.deepEqual(delays, [250, 500], `HTTP ${status} must use bounded backoff`);
 }
+
+const cancellationController = new AbortController();
+let cancellationCalls = 0;
+const cancellationProvider = createAnswerProvider({
+  env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
+  fetchImpl: async (_url, init) => {
+    cancellationCalls += 1;
+    return new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+    });
+  },
+});
+const cancellation = cancellationProvider.generate(request(), { signal: cancellationController.signal });
+cancellationController.abort();
+await expectProviderError(cancellation, "cancelled");
+assert.equal(cancellationCalls, 1, "caller cancellation must not retry");
+
+let concurrentCalls = 0;
+const concurrentProvider = createAnswerProvider({
+  env: { ANSWER_PROVIDER: "openrouter", OPENROUTER_API_KEY: "mock-openrouter-key" },
+  fetchImpl: async () => {
+    concurrentCalls += 1;
+    return openRouterResponse("Cedar Laboratory has 11 analysts [[s.1]].");
+  },
+});
+const concurrentResults = await Promise.all(Array.from({ length: 20 }, () => concurrentProvider.generate(request())));
+assert.equal(concurrentCalls, 20);
+assert.equal(concurrentResults.every((result) => !validateCitations(result.text, [source]).rejectedAnswer), true);
 
 let anthropicCalls = 0;
 const anthropicProvider = createAnswerProvider({
@@ -179,6 +313,32 @@ const anthropic = await anthropicProvider.generate(request("claude-test-model"))
 assert.equal(anthropicProvider.name, "anthropic");
 assert.equal(anthropic.text, "Anthropic remains manually selectable [[s.1]].");
 assert.equal(anthropicCalls, 1, "manual Anthropic selection must not invoke any fallback");
+
+let fallbackAnthropicCalls = 0;
+let failedOpenRouterCalls = 0;
+const noFallbackProvider = createAnswerProvider({
+  anthropicClientFactory: () => ({
+    messages: {
+      create: async () => {
+        fallbackAnthropicCalls += 1;
+        return { content: [{ text: "must never be used", type: "text" }] };
+      },
+    },
+  }),
+  env: {
+    ANSWER_PROVIDER: "openrouter",
+    ANTHROPIC_API_KEY: "mock-anthropic-key",
+    OPENROUTER_API_KEY: "mock-openrouter-key",
+  },
+  fetchImpl: async () => {
+    failedOpenRouterCalls += 1;
+    return new Response(null, { status: 503 });
+  },
+  sleepImpl: async () => {},
+});
+await expectProviderError(noFallbackProvider.generate(request()), "upstream_error", 503);
+assert.equal(failedOpenRouterCalls, 3);
+assert.equal(fallbackAnthropicCalls, 0, "OpenRouter failures must never trigger Anthropic fallback");
 
 const emptyAnthropicProvider = createAnswerProvider({
   anthropicClientFactory: () => ({

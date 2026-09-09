@@ -5,6 +5,9 @@ export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const OPENROUTER_DEFAULT_MODEL = "z-ai/glm-5.3-flash";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_RETRIES = 2;
+const MAX_RETRY_DELAY_MS = 2_000;
+const MAX_RESPONSE_CHARACTERS = 48_000;
 
 export type AnswerProviderName = "anthropic" | "openrouter";
 
@@ -23,14 +26,19 @@ export type AnswerProviderResult = {
 
 export type AnswerProvider = {
   configured: boolean;
-  generate(payload: GenerationProviderPayload): Promise<AnswerProviderResult>;
+  generate(payload: GenerationProviderPayload, options?: AnswerProviderRequestOptions): Promise<AnswerProviderResult>;
   name: AnswerProviderName;
+};
+
+export type AnswerProviderRequestOptions = {
+  signal?: AbortSignal;
 };
 
 export type AnswerProviderErrorCode =
   | "invalid_configuration"
   | "malformed_response"
   | "missing_credentials"
+  | "cancelled"
   | "provider_request_failed"
   | "rate_limited"
   | "timeout"
@@ -72,7 +80,7 @@ type AnthropicResponse = {
 
 type AnthropicClient = {
   messages: {
-    create(payload: GenerationProviderPayload): Promise<AnthropicResponse>;
+    create(payload: GenerationProviderPayload, options?: { signal?: AbortSignal }): Promise<AnthropicResponse>;
   };
 };
 
@@ -80,11 +88,14 @@ type CreateAnswerProviderOptions = {
   anthropicClientFactory?: (apiKey: string, timeoutMs: number) => AnthropicClient;
   env?: Environment;
   fetchImpl?: FetchImplementation;
+  maxRetries?: number;
+  sleepImpl?: (delayMs: number, signal: AbortSignal) => Promise<void>;
   timeoutMs?: number;
 };
 
 type OpenRouterResponse = {
   choices?: Array<{
+    finish_reason?: unknown;
     message?: {
       content?: unknown;
     };
@@ -102,6 +113,8 @@ function getSafeProviderErrorMessage(code: AnswerProviderErrorCode) {
   switch (code) {
     case "missing_credentials":
       return "The selected answer provider is not configured.";
+    case "cancelled":
+      return "The answer provider request was cancelled.";
     case "timeout":
       return "The answer provider request timed out.";
     case "rate_limited":
@@ -152,19 +165,62 @@ function isAbortError(error: unknown) {
   return error instanceof Error && error.name === "AbortError";
 }
 
+function waitForRetry(delayMs: number, signal: AbortSignal) {
+  if (signal.aborted) return Promise.reject(new DOMException("aborted", "AbortError"));
+
+  return new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, delayMs);
+    const onAbort = () => {
+      clearTimeout(timeout);
+      reject(new DOMException("aborted", "AbortError"));
+    };
+
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function getRetryDelayMs(response: Response, retryIndex: number) {
+  const retryAfter = response.headers.get("retry-after")?.trim();
+
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return Math.min(Math.round(seconds * 1_000), MAX_RETRY_DELAY_MS);
+    }
+
+    const timestamp = Date.parse(retryAfter);
+    if (Number.isFinite(timestamp)) {
+      return Math.min(Math.max(timestamp - Date.now(), 0), MAX_RETRY_DELAY_MS);
+    }
+  }
+
+  return Math.min(250 * 2 ** retryIndex, MAX_RETRY_DELAY_MS);
+}
+
+function isRetryableStatus(status: number) {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
 function createOpenRouterProvider({
   apiKey,
   fetchImpl,
+  maxRetries,
+  sleepImpl,
   timeoutMs,
 }: {
   apiKey?: string;
   fetchImpl: FetchImplementation;
+  maxRetries: number;
+  sleepImpl: (delayMs: number, signal: AbortSignal) => Promise<void>;
   timeoutMs: number;
 }): AnswerProvider {
   return {
     configured: Boolean(apiKey),
     name: "openrouter",
-    async generate(payload) {
+    async generate(payload, options = {}) {
       if (!apiKey) {
         throw new AnswerProviderError({ code: "missing_credentials", provider: "openrouter" });
       }
@@ -174,67 +230,105 @@ function createOpenRouterProvider({
       }
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
-      let response: Response;
+      let timedOut = false;
+      const onCallerAbort = () => controller.abort();
+      if (options.signal?.aborted) controller.abort();
+      else options.signal?.addEventListener("abort", onCallerAbort, { once: true });
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeoutMs);
 
       try {
-        response = await fetchImpl(`${OPENROUTER_BASE_URL}/chat/completions`, {
-          body: JSON.stringify({
-            max_tokens: payload.max_tokens,
-            messages: [
-              { content: payload.system, role: "system" },
-              ...payload.messages,
-            ],
-            model: payload.model,
-            temperature: payload.temperature,
-          }),
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
-          method: "POST",
-          signal: controller.signal,
-        });
-      } catch (error) {
-        const timedOut = controller.signal.aborted || isAbortError(error);
-        throw new AnswerProviderError({
-          code: timedOut ? "timeout" : "provider_request_failed",
-          provider: "openrouter",
-        });
+        for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+          let response: Response;
+
+          try {
+            response = await fetchImpl(`${OPENROUTER_BASE_URL}/chat/completions`, {
+              body: JSON.stringify({
+                max_tokens: payload.max_tokens,
+                messages: [
+                  { content: payload.system, role: "system" },
+                  ...payload.messages,
+                ],
+                model: payload.model,
+                temperature: payload.temperature,
+              }),
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+              method: "POST",
+              signal: controller.signal,
+            });
+          } catch (error) {
+            if (controller.signal.aborted || isAbortError(error)) {
+              throw new AnswerProviderError({
+                code: options.signal?.aborted ? "cancelled" : timedOut ? "timeout" : "provider_request_failed",
+                provider: "openrouter",
+              });
+            }
+            throw new AnswerProviderError({ code: "provider_request_failed", provider: "openrouter" });
+          }
+
+          if (!response.ok) {
+            if (isRetryableStatus(response.status) && attempt < maxRetries) {
+              try {
+                await sleepImpl(getRetryDelayMs(response, attempt), controller.signal);
+              } catch (error) {
+                if (controller.signal.aborted || isAbortError(error)) {
+                  throw new AnswerProviderError({
+                    code: options.signal?.aborted ? "cancelled" : timedOut ? "timeout" : "provider_request_failed",
+                    provider: "openrouter",
+                  });
+                }
+                throw new AnswerProviderError({ code: "provider_request_failed", provider: "openrouter" });
+              }
+              continue;
+            }
+
+            throw new AnswerProviderError({
+              code: getErrorCodeForStatus(response.status),
+              provider: "openrouter",
+              status: response.status,
+            });
+          }
+
+          let body: OpenRouterResponse;
+          try {
+            body = (await response.json()) as OpenRouterResponse;
+          } catch {
+            throw new AnswerProviderError({ code: "malformed_response", provider: "openrouter" });
+          }
+
+          const choice = body.choices?.[0];
+          const text = choice?.message?.content;
+          if (
+            typeof text !== "string" ||
+            text.trim().length === 0 ||
+            text.length > MAX_RESPONSE_CHARACTERS ||
+            choice?.finish_reason === "length"
+          ) {
+            throw new AnswerProviderError({ code: "malformed_response", provider: "openrouter" });
+          }
+
+          return {
+            model: typeof body.model === "string" && body.model.trim().length > 0 ? body.model : payload.model,
+            text: text.trim(),
+            usage: {
+              costUsd: getFiniteNumber(body.usage?.cost),
+              inputTokens: getTokenCount(body.usage?.prompt_tokens),
+              outputTokens: getTokenCount(body.usage?.completion_tokens),
+              totalTokens: getTokenCount(body.usage?.total_tokens),
+            },
+          };
+        }
+
+        throw new AnswerProviderError({ code: "provider_request_failed", provider: "openrouter" });
       } finally {
         clearTimeout(timeout);
+        options.signal?.removeEventListener("abort", onCallerAbort);
       }
-
-      if (!response.ok) {
-        throw new AnswerProviderError({
-          code: getErrorCodeForStatus(response.status),
-          provider: "openrouter",
-          status: response.status,
-        });
-      }
-
-      let body: OpenRouterResponse;
-      try {
-        body = (await response.json()) as OpenRouterResponse;
-      } catch {
-        throw new AnswerProviderError({ code: "malformed_response", provider: "openrouter" });
-      }
-
-      const text = body.choices?.[0]?.message?.content;
-      if (typeof text !== "string" || text.trim().length === 0) {
-        throw new AnswerProviderError({ code: "malformed_response", provider: "openrouter" });
-      }
-
-      return {
-        model: typeof body.model === "string" && body.model.trim().length > 0 ? body.model : payload.model,
-        text: text.trim(),
-        usage: {
-          costUsd: getFiniteNumber(body.usage?.cost),
-          inputTokens: getTokenCount(body.usage?.prompt_tokens),
-          outputTokens: getTokenCount(body.usage?.completion_tokens),
-          totalTokens: getTokenCount(body.usage?.total_tokens),
-        },
-      };
     },
   };
 }
@@ -251,18 +345,24 @@ function createAnthropicProvider({
   return {
     configured: Boolean(apiKey),
     name: "anthropic",
-    async generate(payload) {
+    async generate(payload, options = {}) {
       if (!apiKey) {
         throw new AnswerProviderError({ code: "missing_credentials", provider: "anthropic" });
       }
 
       let response: AnthropicResponse;
       try {
-        response = await clientFactory(apiKey, timeoutMs).messages.create(payload);
+        response = await clientFactory(apiKey, timeoutMs).messages.create(payload, { signal: options.signal });
       } catch (error) {
         const status = getStatusCode(error);
         throw new AnswerProviderError({
-          code: isAbortError(error) ? "timeout" : status === undefined ? "provider_request_failed" : getErrorCodeForStatus(status),
+          code: isAbortError(error)
+            ? options.signal?.aborted
+              ? "cancelled"
+              : "timeout"
+            : status === undefined
+              ? "provider_request_failed"
+              : getErrorCodeForStatus(status),
           provider: "anthropic",
           status,
         });
@@ -293,6 +393,7 @@ export function createAnswerProvider(options: CreateAnswerProviderOptions = {}):
   const env = options.env ?? process.env;
   const provider = getProviderName(env);
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const maxRetries = Math.min(Math.max(options.maxRetries ?? DEFAULT_MAX_RETRIES, 0), DEFAULT_MAX_RETRIES);
 
   if (provider === "anthropic") {
     return createAnthropicProvider({
@@ -308,6 +409,8 @@ export function createAnswerProvider(options: CreateAnswerProviderOptions = {}):
   return createOpenRouterProvider({
     apiKey: env.OPENROUTER_API_KEY?.trim(),
     fetchImpl: options.fetchImpl ?? fetch,
+    maxRetries,
+    sleepImpl: options.sleepImpl ?? waitForRetry,
     timeoutMs,
   });
 }

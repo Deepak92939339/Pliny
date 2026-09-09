@@ -1,4 +1,5 @@
 import { PDFParse } from "pdf-parse";
+import { getData as getPdfWorkerData } from "pdf-parse/worker";
 import type { PageText } from "../../chunker.ts";
 import { extractPdfWithOcr } from "../../ocr/extractPdfWithOcr.ts";
 import { MAX_PDF_PAGES } from "../limits.ts";
@@ -10,6 +11,8 @@ import {
   type DocumentProcessorPlugin,
   type ExtractedDocument,
 } from "../types.ts";
+
+PDFParse.setWorker(getPdfWorkerData());
 
 const MIN_EXTRACTED_WORDS = 20;
 const MIN_EXTRACTED_CHARACTERS = 80;

@@ -38,3 +38,23 @@
 - If a release regression appears, route traffic back to the last stable deployment using the approved hosting workflow; do not delete user data or attempt destructive database rollback.
 - Preserve forward-only database migrations. Investigate and ship a corrective migration only after reproducing the issue in staging.
 - Record the release identifier, observed failure, rollback timestamp, and affected synthetic test case in `PROJECT_STATE.md` before retrying.
+
+## Preview assurance result — 2026-09-09
+
+- [x] Created and verified one isolated non-Production Supabase Preview project; Production `vector` remained untouched.
+- [x] Applied the six migrations through normal `supabase db push`; `--include-all` was not used.
+- [x] Configured all application variables as Vercel Preview-only and deployed the release candidate to a `READY` Preview.
+- [x] Passed the provider-free deterministic gate, frozen 36-case evaluation, lint, typecheck, Vercel production build and browser-bundle secret scan.
+- [x] Passed local pgTAP `59/59`, database-backed E2E, 50-way retrieval concurrency, metadata edges and the ten-minute 20-client provider-mocked soak.
+- [x] Passed real-browser synthetic PDF/DOCX/TXT ingestion, grounded answers, refusals, contradictions, prompt injection, citations, Source Inspector, privacy mode, tenant isolation, persistence, export, mobile layout and bounded three-client live concurrency.
+- [x] Retained genuine screenshots, sanitized results, a self-contained HTML dossier, provenance, evidence index, hash manifest and ZIP outside the repository.
+- [ ] Reproduce successful hosted public signup using an approved disposable mailbox; reserved synthetic addresses were rejected or throttled.
+- [ ] Resolve the mismatch between the Git origin and the Vercel-linked repository, then push this exact branch and observe the provider-free pull-request workflow.
+- [ ] Prove Production schema/grant equivalence read-only and independently review a safe migration-ledger repair or forward-only reconciliation. Never execute the foundational baseline against Production.
+- [ ] Obtain separate Production authorization only after the remaining gates close.
+
+### Recommendation
+
+**NOT READY for Production.** The evidence supports **release readiness within the tested scope**, but it does not close the signup, repository-linkage or Production migration-equivalence gates.
+
+After the authoritative GitHub repository is confirmed and the workflow passes on this exact commit, an owner must open **Repository Settings → Branches → Add branch protection rule**, target `main`, enable **Require status checks to pass before merging**, select **Preview quality gate / deterministic-quality**, and save the rule. Do not add provider secrets to ordinary or forked pull-request jobs; live-provider evaluation remains manual and bounded.

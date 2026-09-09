@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { chunkExtractedDocument } from "../src/lib/document-processing/chunkExtractedDocument.ts";
 import { csvProcessor } from "../src/lib/document-processing/plugins/csv.ts";
 import { docxProcessor } from "../src/lib/document-processing/plugins/docx.ts";
@@ -110,5 +111,15 @@ await assert.rejects(
   pdfProcessor.validate({ bytes: pdfBytes, filename: "synthetic-handbook.pdf", mimeType: "application/octet-stream" }),
   /application\/pdf MIME type/
 );
+
+const nextConfigSource = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+const serverExternalPackages = nextConfigSource.match(/serverExternalPackages:\s*\[([^\]]+)\]/)?.[1] ?? "";
+assert.match(serverExternalPackages, /["']pdf-parse["']/);
+assert.match(serverExternalPackages, /["']@napi-rs\/canvas["']/);
+assert.doesNotMatch(serverExternalPackages, /["']pdfjs-dist["']/);
+
+const vercelIgnore = readFileSync(new URL("../.vercelignore", import.meta.url), "utf8");
+assert.match(vercelIgnore, /^\.env\*$/m);
+assert.match(vercelIgnore, /^supabase\/\.temp\/$/m);
 
 console.log("Ingestion regression tests passed.");

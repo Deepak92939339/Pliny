@@ -3,7 +3,7 @@ import { getMissingRequiredCitationDocumentIds, isQualifyingRetrievalCandidate }
 import { contentMatchesKnownRoleConcept, getKnownRoleConcepts, type KnownRoleConcept } from "../search/queryEquivalents.ts";
 import type { EvidenceStatus, RetrievalReason, SearchChunkResult } from "../../types/index.ts";
 
-const MIN_MEANINGFUL_CONTENT_CHARS = 40;
+const MIN_MEANINGFUL_CONTENT_CHARS = 24;
 const MAX_EVIDENCE_SOURCES = 10;
 const MAX_EVIDENCE_CHARS_PER_SOURCE = 3_000;
 const MIN_SEMANTIC_SIMILARITY = 0.55;

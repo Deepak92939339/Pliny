@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createAnswerProvider, getConfiguredAnswerProviderName } from "@/lib/ai/answerProvider";
+import { AnswerProviderError, createAnswerProvider, getConfiguredAnswerProviderName } from "@/lib/ai/answerProvider";
 import { checkAiBudget, getAiConfig, type AiBudgetDecision } from "@/lib/ai/budgetGuard";
 import { selectPromptChunks } from "@/lib/ai/contextSelection";
 import { assessEvidenceSufficiency } from "@/lib/ai/evidenceSufficiency";
@@ -1500,7 +1500,7 @@ export async function POST(request: Request) {
       temperature: 0.2,
     });
     if (generationBoundary) assertPrivacyGenerationPayload(generationPayload, generationBoundary);
-    const generationResponse = await answerProvider.generate(generationPayload);
+    const generationResponse = await answerProvider.generate(generationPayload, { signal: request.signal });
     const draftAnswer = generationResponse.text || NO_CONTEXT_ANSWER;
     if (generationBoundary) assertOnlyAllowedPseudonyms(draftAnswer, generationBoundary.allowedPseudonyms);
     let answer = draftAnswer;
@@ -1520,7 +1520,7 @@ export async function POST(request: Request) {
           system: CITATION_CORRECTION_SYSTEM_PROMPT,
         });
         if (generationBoundary) assertPrivacyGenerationPayload(correctionPayload, generationBoundary);
-        const correctionResponse = await answerProvider.generate(correctionPayload);
+        const correctionResponse = await answerProvider.generate(correctionPayload, { signal: request.signal });
         const correctedAnswer = correctionResponse.text;
         if (generationBoundary) assertOnlyAllowedPseudonyms(correctedAnswer, generationBoundary.allowedPseudonyms);
         const correctedValidation = validateCitations(correctedAnswer, citationChunks);
@@ -1647,6 +1647,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
   } catch (error) {
+    if (error instanceof AnswerProviderError && error.code === "cancelled") {
+      return NextResponse.json({ error: "Request cancelled." }, { status: 499 });
+    }
+
     logChatError("answer provider request failed", error, {
       collectionId,
       model: modelRoute.selectedModel,

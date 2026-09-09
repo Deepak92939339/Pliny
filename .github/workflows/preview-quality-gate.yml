@@ -1,0 +1,56 @@
+name: Preview quality gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-quality-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterministic-quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out tested revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          cache: npm
+          node-version: 20
+
+      - name: Install from lockfile
+        run: npm ci --ignore-scripts
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Deterministic regression suite
+        run: npm run test:deterministic
+
+      - name: Deterministic release evaluation
+        run: npm run test:eval
+
+      - name: Publish quality summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Pliny Preview quality gate"
+            echo
+            echo "- Result: **${{ job.status }}**"
+            echo "- Revision: \`${GITHUB_SHA}\`"
+            echo "- Secret-free: no Voyage, OpenRouter, Anthropic, Supabase, or Vercel credentials are configured in this job."
+            echo "- Mandatory checks: lint, typecheck, deterministic regressions, and the frozen 36-case release evaluation."
+          } >> "$GITHUB_STEP_SUMMARY"

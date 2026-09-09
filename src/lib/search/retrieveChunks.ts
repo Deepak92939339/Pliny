@@ -73,7 +73,7 @@ const STOP_WORDS = new Set([
   "xlsx",
 ]);
 
-const MIN_MEANINGFUL_CONTENT_CHARS = 40;
+const MIN_MEANINGFUL_CONTENT_CHARS = 24;
 const MAX_RESULTS_PER_DOCUMENT_SOFT = 2;
 const MAX_CANDIDATES_PER_DOCUMENT = 10;
 const MIN_CANDIDATES_PER_DOCUMENT = 3;
@@ -476,6 +476,15 @@ function rankKeywordResults(rows: SearchChunkResult[], query: string, terms: str
       relevanceScore: score,
       retrievalMode: "keyword" as const,
     }));
+}
+
+/**
+ * Provider-free release evaluation entry point. This deliberately reuses the
+ * same deterministic lexical scoring and result cleaning used by runtime
+ * retrieval instead of maintaining a second evaluator-only ranker.
+ */
+export function rankKeywordResultsForEvaluation(rows: SearchChunkResult[], query: string, limit = 5) {
+  return cleanRetrievedResults(rankKeywordResults(rows, query, getSearchTerms(query), Math.max(limit * 3, limit)), limit).results;
 }
 
 function getCandidateLimitPerDocument(limit: number, documentCount: number) {

@@ -87,3 +87,25 @@ The rebuilt browser bundle contains neither the configured OpenRouter credential
 - The deterministic privacy detector still has the documented limitations of a bounded pseudonymizer and is not a general redaction system.
 
 Reproduce the focused verification with `npm run test:holdout`, `npm run test:retrieval`, `npm run test:context`, `npm run test:ingestion`, `npm run test:citations`, `npm run test:report`, `npm run test:history`, `npm run test:local-migrations`, `supabase test db --local supabase/tests/phase4b_acceptance.sql`, and `npm run test:local-e2e` with local-only environment variables.
+
+## Isolated Preview assurance — 2026-09-09
+
+The final assurance phase used a separately named Free-plan Supabase project and a Vercel Preview deployment. Production Supabase, Vercel Production, `main`, customer documents and personal data stayed outside the boundary. All six migrations were applied to the disposable database through the ordinary migration workflow. Every Preview variable was Preview-scoped.
+
+The provider boundary was extended with bounded retries for retryable OpenRouter failures, `Retry-After` delay capping, caller `AbortSignal` propagation, strict content-shape/size checks and deterministic rejection of truncated provider output. HTTP 401 and 402 do not retry; 429 and 500/502/503/504 stop after two retries. Cancellation does not retry and does not trigger Anthropic. These changes preserve the existing evidence, citation, refusal and privacy layers outside the adapter.
+
+A versioned 36-case invented corpus, including 12 frozen holdouts, ran through extraction, sanitization, chunking, deterministic ranking, evidence assessment and citation validation. Hit@5, Recall@5, refusal accuracy, citation identifier validity and supported-answer correctness were all `1.000`; MRR was `0.984`, nDCG@5 was `0.988`, Precision@5 was `0.515`, and unsupported answers remained `0`. This is release evidence for the checked synthetic distribution, not universal accuracy.
+
+Three defects were confirmed and repaired:
+
+- Short but valid TXT evidence could be displaced by longer passages. Retrieval and evidence selection now preserve query-relevant short passages; the frozen format-equivalence holdout passes.
+- Vercel's upload inventory included local Supabase link-state files. `.vercelignore` now excludes `.env*` and `supabase/.temp/`; the dry-run upload list contains neither boundary.
+- PDF parsing failed in Vercel with worker initialisation. Pliny now bundles and registers the `pdf-parse` worker explicitly while leaving the native canvas/parser packages server-external. Standard and parameterized-MIME PDFs reach `Ready` in Preview.
+
+The ten-minute provider-mocked soak used 20 authenticated clients and 1,200 requests. It recorded zero unexpected errors and zero database failures, p50/p95/p99 latency of 51.9/73.0/103.5 ms, 60 intentional aborts and no listener growth. Fifty parallel local retrievals returned zero cross-tenant rows and zero database errors. At 5,000 rolled-back synthetic rows, lexical sequential scans were fast enough that an index change was not justified; vector retrieval used the existing IVFFlat index.
+
+Real-browser Preview acceptance passed protected-route behavior, invalid login, confirmed synthetic-user login, workspace creation, PDF/DOCX/TXT and parameterized-PDF ingestion, grounded and unsupported questions, contradictions, prompt-injection resistance, citations, Source Inspector, report export, history reload, privacy-minimised processing, tenant isolation, mobile layout, keyboard basics, controlled cancellation, console review, bundle inspection and logout. A three-client live check returned three `200` answers, each with a valid citation and contract validation.
+
+Live application testing used 16 questions: 14 OpenRouter responses are confirmed complete, one provider-bound cancellation has unknown billing status, and one unsupported question refused before generation. Exact billed usage, retry attempts and total Voyage request count were not retained. The conservative OpenRouter cap-based cost estimate is approximately `$0.006`, not an invoice. Only synthetic evidence was sent.
+
+The resulting dossier is outside the application repository at `PLINY_RELEASE_ASSURANCE/`. Its recommendation is **NOT READY for Production** despite Preview readiness within the tested scope. Remaining gates are a reproducible hosted public-signup flow, resolution of the Git/Vercel repository identity mismatch so CI can be observed on the exact pushed candidate, and a read-only Production schema/grant equivalence review followed by an independently reviewed migration-ledger plan.
