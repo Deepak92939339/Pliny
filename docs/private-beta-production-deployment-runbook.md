@@ -41,7 +41,22 @@ Do not continue if the schema result differs, the target-name guard fails, the P
 
 ## Ordered Production procedure
 
-### 1. Disable public signup at the Auth service
+### 1. Verify and stage Production-only runtime configuration
+
+In the existing Vercel project, inspect variable **names and scopes only**. Before merge, ensure the following are present for **Production** and are not branch-bound Preview values:
+
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, both from the verified Production project named `vector`;
+- `OPENROUTER_API_KEY` as a server-only secret, `ANSWER_PROVIDER=openrouter`, and `OPENROUTER_MODEL=z-ai/glm-5.3-flash`;
+- `VOYAGE_API_KEY`, `EMBEDDINGS_ENABLED=true`, `EMBEDDINGS_PROVIDER=voyage`, and `EMBEDDING_MODEL=voyage-4`;
+- `PRIVACY_PSEUDONYM_KEY`;
+- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`;
+- `AI_ENABLED=true` and the approved existing `OCR_ENABLED` setting.
+
+Keep every credential server-side; only the two existing Supabase browser-client values use `NEXT_PUBLIC_`. `SUPABASE_SERVICE_ROLE_KEY` is not required by the application runtime and must not be added. Do not print values, copy Preview Supabase values, or change Preview/Development scopes while preparing Production. If any required value is absent, stop for secure owner entry and do not merge.
+
+After configuration, confirm name/scope inventory and the Production Supabase project-name mapping through a non-printing verifier. Do not deploy solely to test missing configuration; all required names must be present first.
+
+### 2. Disable public signup at the Auth service
 
 In the Supabase dashboard, select the project whose displayed name is exactly `vector`. In **Authentication → Settings**, turn off **Allow new users to sign up**. Do not change redirect URLs, email providers, existing users, or any other Auth setting.
 
@@ -55,7 +70,7 @@ Validate immediately through a protected test runner:
 
 If existing-user login fails, stop. Re-enabling signup is not a login repair and must not be used as one.
 
-### 2. Repair only the foundational migration-history row
+### 3. Repair only the foundational migration-history row
 
 Inspect the installed CLI help immediately before execution, re-resolve the project name, and use the process-only verified Production reference:
 
@@ -67,7 +82,7 @@ supabase migration list --project-ref "$PLINY_PRODUCTION_REF"
 
 Require `20260830000000 initial_schema_baseline` to appear exactly once as applied. Do not run the baseline SQL.
 
-### 3. Dry-run, then apply only the forward grant repair
+### 4. Dry-run, then apply only the forward grant repair
 
 ```sh
 supabase db push --help
@@ -90,7 +105,7 @@ PLINY_SCHEMA_EQUIVALENCE_OUTPUT=/private/tmp/pliny-production-equivalence-after.
 
 Require identical realized schema fingerprints, no migration differences, `anon` execute=false for `match_document_chunks`, and zero data-row inspection.
 
-### 4. Merge and deploy the approved application
+### 5. Merge and deploy the approved application
 
 Only after database and Auth validation passes:
 
@@ -99,7 +114,7 @@ Only after database and Auth validation passes:
 3. Wait for Vercel status `READY`; record the deployment identifier and commit SHA.
 4. Do not change Production domains or Production environment values during this step.
 
-### 5. Production validation
+### 6. Production validation
 
 Using invented content and a new administrator-created confirmed synthetic user, perform one bounded smoke:
 

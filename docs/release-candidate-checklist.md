@@ -88,6 +88,7 @@ The first pull-request run confirmed a CI configuration defect: Node 20 rejected
 - [x] Expanded the SELECT-only Production-equivalence harness to include Storage policy/bucket/grant state, schema privileges and routine privileges. The first expanded comparison found Preview inherited `PUBLIC` execute on `match_document_chunks`; Production was already restrictive.
 - [x] Added and applied only to Preview an idempotent forward migration that revokes `PUBLIC` and `anon` execute and grants execute to `authenticated`. Final comparison reports identical realized state across 14 sections and zero Production mutations.
 - [x] Independently reviewed migration-history repair. Marking `20260830000000` applied is safe only after the same clean equivalence precondition; the baseline SQL must never run against Production. The exact ordered procedure and rollback boundaries are in `docs/private-beta-production-deployment-runbook.md`.
+- [x] The runbook requires a Production-only Vercel name/scope preflight for the verified `vector` Supabase client values, OpenRouter GLM, Voyage, privacy, Upstash, AI and OCR settings before merge; no Preview value may be copied and no service-role key belongs in the application runtime.
 - [x] Affected local checks pass: private-beta auth regression, lint, typecheck, optimized build and browser-bundle privacy scan. The isolated Preview deployment reached `READY`; browser console issues and Preview 5xx responses were zero.
 - [ ] Merge PR #1 or execute any Production change. Both remain deliberately outside this phase.
 
