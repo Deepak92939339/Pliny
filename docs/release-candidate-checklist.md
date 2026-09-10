@@ -76,3 +76,5 @@ After the authoritative GitHub repository is confirmed and the workflow passes o
 ### Final gate recommendation
 
 **NO-GO for Production.** The candidate retains **release readiness within the tested scope**, and the realized Production schema matches Preview, but the public hosted signup and email-confirmation path has not passed. Do not merge, promote or deploy to Production in this phase.
+
+The first pull-request run confirmed a CI configuration defect: Node 20 rejected the `--experimental-strip-types` flag used by the repository's deterministic test commands. The workflow now uses Node 22, and `test:ci-config` prevents regression to an unsupported runtime or accidental provider-secret references. The full GitHub rerun is the authoritative CI result.

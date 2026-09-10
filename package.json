@@ -24,6 +24,7 @@
     "test:privacy": "node --experimental-strip-types scripts/test-privacy-foundation.mjs && node --experimental-strip-types scripts/test-privacy-phase4b.mjs",
     "test:privacy:bundle": "node scripts/test-browser-privacy-bundle.mjs",
     "test:answer-provider": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-answer-provider.mjs",
+    "test:ci-config": "node scripts/test-ci-config.mjs",
     "test:openrouter-live": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-openrouter-answer-live.mjs",
     "test:provider-smoke": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-provider-smoke.mjs",
     "test:retrieval": "node --experimental-strip-types scripts/test-retrieval.mjs && node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-chat-retrieval-integration.mjs",
@@ -32,7 +33,7 @@
     "test:storage-cleanup": "node --experimental-strip-types scripts/test-storage-cleanup.mjs",
     "test:trust": "node --experimental-strip-types scripts/test-trust-defects.mjs",
     "test:eval": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-release-eval.mjs",
-    "test:deterministic": "npm run test:answer-provider && npm run test:citations && npm run test:context && npm run test:embeddings && npm run test:evidence && npm run test:ingestion && npm run test:history && npm run test:holdout && npm run test:privacy && npm run test:retrieval && npm run test:sanitization && npm run test:report && npm run test:storage-cleanup && npm run test:trust",
+    "test:deterministic": "npm run test:ci-config && npm run test:answer-provider && npm run test:citations && npm run test:context && npm run test:embeddings && npm run test:evidence && npm run test:ingestion && npm run test:history && npm run test:holdout && npm run test:privacy && npm run test:retrieval && npm run test:sanitization && npm run test:report && npm run test:storage-cleanup && npm run test:trust",
     "storage:audit": "node scripts/storage-reconcile.mjs",
     "storage:cleanup": "node scripts/storage-cleanup.mjs",
     "eval": "node --experimental-strip-types scripts/run-evals.mjs"
