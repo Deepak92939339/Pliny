@@ -1,6 +1,6 @@
 import { WorkspaceView } from "@/components/workspace/WorkspaceView";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRecentChatMessages } from "@/lib/chat/queries";
+import { getRecentChatMessages, MAX_CHAT_HISTORY_MESSAGES } from "@/lib/chat/queries";
 import { collectionIdSchema } from "@/lib/collections/schema";
 import { getCollectionForUser, getCollectionsForUser } from "@/lib/collections/queries";
 import { getDocumentsForCollection } from "@/lib/documents/queries";
@@ -42,7 +42,7 @@ export default async function CollectionPage({ params }: CollectionPageProps) {
   const { documents, error: documentsError } = await getDocumentsForCollection(collection.id, user.id);
   const { collections } = await getCollectionsForUser(user.id);
   const supabase = await createClient();
-  const { error: chatError, messages } = await getRecentChatMessages({
+  const { error: chatError, messages, truncated } = await getRecentChatMessages({
     collectionId: collection.id,
     supabase,
     userId: user.id,
@@ -55,6 +55,7 @@ export default async function CollectionPage({ params }: CollectionPageProps) {
   return (
     <WorkspaceView
       chatError={chatError}
+      chatNotice={truncated ? `Showing the ${MAX_CHAT_HISTORY_MESSAGES} most recent messages.` : null}
       collection={collectionWithDocumentCount}
       collections={collections}
       documents={documents}

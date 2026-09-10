@@ -36,14 +36,14 @@ export function LandingView() {
               Pliny turns long documents into searchable evidence, then keeps the answer close to the passage that supports it.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link href="/signup" className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[6px] bg-[#0C1427] px-6 text-sm font-semibold text-[#FCFBF8] shadow-[0_14px_28px_rgba(12,20,39,0.14)] transition-colors hover:bg-[#17213A] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/30 sm:w-auto">
-                Start workspace <ArrowRight className="size-4" aria-hidden="true" />
+              <Link href="/login" className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[6px] bg-[#0C1427] px-6 text-sm font-semibold text-[#FCFBF8] shadow-[0_14px_28px_rgba(12,20,39,0.14)] transition-colors hover:bg-[#17213A] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/30 sm:w-auto">
+                Private beta sign in <ArrowRight className="size-4" aria-hidden="true" />
               </Link>
               <a href="#evidence" className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[6px] border border-[#D5D2C8] bg-[#FFFEFA] px-6 text-sm font-semibold text-[#0C1427] transition-colors hover:border-[#BA5C3D]/60 hover:bg-[#F5F0E8] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25 sm:w-auto">
                 See the workspace <ArrowUpRight className="size-4" aria-hidden="true" />
               </a>
             </div>
-            <p className="mt-5 text-[12px] font-medium tracking-[0.01em] text-[#6B665F]">Source-grounded answers · Visible citations · Private workspaces</p>
+            <p className="mt-5 text-[12px] font-medium tracking-[0.01em] text-[#6B665F]">Private beta · Source-grounded answers · Visible citations · Private workspaces</p>
           </div>
 
           <HeroEtchingIllustration />
@@ -91,8 +91,7 @@ function LandingNav() {
               {landingInfoPages.map((page) => <LandingInfoDialog key={page.key} page={page} triggerClassName="w-full px-3 py-2 hover:bg-[#F5F0E8]" />)}
             </nav>
           </details>
-          <Link href="/login" className="text-[13px] font-semibold text-[#394152] hover:text-[#8D3F28]">Sign in</Link>
-          <Link href="/signup" className="inline-flex h-10 items-center justify-center rounded-[5px] bg-[#BA5C3D] px-3 text-[13px] font-semibold text-white shadow-[0_10px_22px_rgba(186,92,61,0.15)] hover:bg-[#A8421F] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25 sm:px-5"><span className="sm:hidden">Start</span><span className="hidden sm:inline">Start workspace</span></Link>
+          <Link href="/login" className="inline-flex h-10 items-center justify-center rounded-[5px] bg-[#BA5C3D] px-3 text-[13px] font-semibold text-white shadow-[0_10px_22px_rgba(186,92,61,0.15)] hover:bg-[#A8421F] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25 sm:px-5"><span className="sm:hidden">Sign in</span><span className="hidden sm:inline">Private beta sign in</span></Link>
         </div>
       </div>
     </header>

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { chunkExtractedDocument } from "../src/lib/document-processing/chunkExtractedDocument.ts";
 import { csvProcessor } from "../src/lib/document-processing/plugins/csv.ts";
 import { docxProcessor } from "../src/lib/document-processing/plugins/docx.ts";
@@ -7,6 +7,8 @@ import { htmlProcessor } from "../src/lib/document-processing/plugins/html.ts";
 import { markdownProcessor } from "../src/lib/document-processing/plugins/markdown.ts";
 import { getPdfOcrPageNumbers, pdfProcessor } from "../src/lib/document-processing/plugins/pdf.ts";
 import { xlsxProcessor } from "../src/lib/document-processing/plugins/xlsx.ts";
+import { getDocumentProcessor, normalizeDocumentMimeType } from "../src/lib/document-processing/registry.ts";
+import { buildSyntheticDocxFixture, buildSyntheticPdfFixture } from "./fixtures/synthetic-files.mjs";
 
 const fixture = Buffer.from(
   "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",
@@ -20,6 +22,11 @@ const input = {
 };
 
 assert.equal(xlsxProcessor.canProcess(input), true);
+assert.equal(normalizeDocumentMimeType("text/plain; charset=utf-8"), "text/plain");
+assert.equal(
+  getDocumentProcessor({ bytes: Buffer.from("Cedar Operations employs 148 people."), filename: "cedar.txt", mimeType: "text/plain; charset=utf-8" })?.id,
+  "text"
+);
 assert.equal(xlsxProcessor.canProcess({ ...input, filename: "legacy.xls" }), false);
 assert.equal(xlsxProcessor.canProcess({ ...input, mimeType: "application/pdf" }), false);
 assert.throws(
@@ -44,9 +51,10 @@ const csv = await csvProcessor.extract({ bytes: Buffer.from("category,amount\nCl
 assert.equal(csv.kind, "csv");
 assert.equal(csv.units[0].blockType, "table_row");
 assert.equal(csv.units[0].sourceLocation, "rows:2-3");
-const docxFixture = await fs.readFile("/Users/sandman/Downloads/1_Escalation_Letter_ICICI_MOT17428943.docx");
+const docxFixture = buildSyntheticDocxFixture();
 const docx = await docxProcessor.extract({ bytes: docxFixture, filename: "fixture.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
 assert.equal(docx.kind, "docx");
+assert.match(docx.plainText, /Synthetic portability fixture/);
 assert.equal(docx.units.every((unit) => unit.blockType === "paragraph" && typeof unit.sourceLocation === "string"), true);
 
 const markdown = await markdownProcessor.extract({
@@ -88,11 +96,30 @@ assert.throws(
 );
 
 assert.deepEqual(getPdfOcrPageNumbers([{ pageNumber: 1, text: "searchable text ".repeat(30) }, { pageNumber: 2, text: "single sparse label" }]), [2]);
-const tenderPath = "/Users/sandman/Desktop/RAG intelligence/Tender — QA & DevOps Session Report (TDR-QA-2026-0830).pdf";
-const tenderBytes = await fs.readFile(tenderPath);
-const tender = await pdfProcessor.extract({ bytes: tenderBytes, filename: "Tender.pdf", mimeType: "application/pdf" });
-assert.equal(tender.extractionMethod, "pdf_native");
-assert.equal((tender.pageCount ?? 0) > 1, true);
-assert.equal(tender.units.every((unit, index) => unit.pageNumber === index + 1 && unit.sourceLocation === `page:${index + 1}`), true);
+const pdfBytes = buildSyntheticPdfFixture();
+await pdfProcessor.validate({ bytes: pdfBytes, filename: "synthetic-handbook.pdf", mimeType: "application/pdf" });
+const pdf = await pdfProcessor.extract({ bytes: pdfBytes, filename: "synthetic-handbook.pdf", mimeType: "application/pdf" });
+assert.equal(pdf.extractionMethod, "pdf_native");
+assert.equal(pdf.pageCount, 1);
+assert.match(pdf.plainText, /one hundred and eighty operating days/);
+assert.equal(pdf.units.every((unit, index) => unit.pageNumber === index + 1 && unit.sourceLocation === `page:${index + 1}`), true);
+await assert.rejects(
+  pdfProcessor.validate({ bytes: pdfBytes.subarray(0, Math.floor(pdfBytes.length / 2)), filename: "truncated.pdf", mimeType: "application/pdf" }),
+  /could not be parsed/
+);
+await assert.rejects(
+  pdfProcessor.validate({ bytes: pdfBytes, filename: "synthetic-handbook.pdf", mimeType: "application/octet-stream" }),
+  /application\/pdf MIME type/
+);
+
+const nextConfigSource = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+const serverExternalPackages = nextConfigSource.match(/serverExternalPackages:\s*\[([^\]]+)\]/)?.[1] ?? "";
+assert.match(serverExternalPackages, /["']pdf-parse["']/);
+assert.match(serverExternalPackages, /["']@napi-rs\/canvas["']/);
+assert.doesNotMatch(serverExternalPackages, /["']pdfjs-dist["']/);
+
+const vercelIgnore = readFileSync(new URL("../.vercelignore", import.meta.url), "utf8");
+assert.match(vercelIgnore, /^\.env\*$/m);
+assert.match(vercelIgnore, /^supabase\/\.temp\/$/m);
 
 console.log("Ingestion regression tests passed.");

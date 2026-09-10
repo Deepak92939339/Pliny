@@ -24,8 +24,8 @@ Each workspace supplies a default for new documents. The selected mode and priva
 
 | Mode | Embedding boundary | Answer boundary | Stored retrieval material |
 | --- | --- | --- | --- |
-| Standard | Voyage receives bounded original chunk text and the original/expanded query | Anthropic receives the original question plus bounded retrieved source envelopes, filenames and locations | Original chunks, provenance, lexical material and vectors |
-| Privacy-minimised | Voyage receives provider-safe masked chunks and a transformed query | Anthropic receives a masked question, masked source text, document aliases and generic locations | Original owner-visible chunks plus separate provider-safe content, metadata, lexical material and vectors |
+| Standard | Voyage receives bounded original chunk text and the original/expanded query | The configured answer provider receives the original question plus bounded retrieved source envelopes, filenames and locations | Original chunks, provenance, lexical material and vectors |
+| Privacy-minimised | Voyage receives provider-safe masked chunks and a transformed query | The configured answer provider receives a masked question, masked source text, document aliases and generic locations | Original owner-visible chunks plus separate provider-safe content, metadata, lexical material and vectors |
 
 Privacy-minimised processing detects a bounded set of deterministic patterns and replaces matches with document-scoped HMAC-derived pseudonyms. The raw key remains server-only and reversible token mappings are not persisted. Repeated identifiers within the same document scope remain linkable without exposing the detected original to the provider payload.
 
@@ -34,13 +34,13 @@ Detection can miss names, organisations, addresses and other sensitive values th
 ## Provider payload and prompt controls
 
 - Provider inputs are bounded by query length, source count, per-source character limits, embedding batch size and document chunk ceilings.
-- Privacy payload builders scan for detected original identifiers before Voyage or Anthropic calls and reject unsafe payloads.
+- Privacy payload builders scan for detected original identifiers before Voyage or answer-provider calls and reject unsafe payloads.
 - Retrieved document text is encoded as untrusted evidence. It cannot redefine system rules, choose tools or authorize disclosure.
 - When evidence is insufficient, Pliny returns a structured refusal without calling the answer provider.
 - Citation repair, when eligible, receives only the same bounded context and a draft answer. Privacy-minimised repair reuses masked context.
 - Provider request bodies and provider response bodies are not intentionally logged.
 
-Voyage account-level zero-retention or training opt-out has not been independently verified for this deployment. No zero-retention claim is made. Anthropic and Voyage remain external processors under their account and contractual terms.
+Voyage account-level zero-retention or training opt-out has not been independently verified for this deployment. No zero-retention claim is made. OpenRouter, its routed upstream provider, Anthropic when manually selected, and Voyage remain external processors under their account and contractual terms.
 
 ## Output and provenance controls
 
@@ -67,6 +67,6 @@ These mechanisms improve reviewability but do not guarantee that every answer is
 - Anonymous table access fails at the ACL layer with SQLSTATE `42501`; owner flows succeed and non-owner rows remain isolated.
 - Production protected APIs return unauthenticated errors before processing, uploading or provider work.
 - Deterministic tests cover provider-safe ingestion, query transformation, generation, citation repair, masked export and missing-projection refusal.
-- Production browser-bundle scans found no pseudonym key name or provider secret indicators.
+- Production browser-bundle scans found no pseudonym key name, configured OpenRouter credential, or OpenRouter server-only configuration names.
 
 See [Architecture](./architecture.md), [Evaluation](./evaluation.md) and [Limitations](./limitations.md) for the wider evidence and boundaries.

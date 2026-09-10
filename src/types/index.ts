@@ -167,6 +167,11 @@ type ChatResponseBase = {
     maxOutputTokens: number;
     model: string;
     modelReason: string;
+    providerCostUsd?: number;
+    providerInputTokens?: number;
+    providerOutputTokens?: number;
+    providerRequestCount?: number;
+    providerTotalTokens?: number;
     retrievalReason: RetrievalReason;
     citationValidation?: CitationValidationDebug;
     evidenceStatus?: EvidenceStatus;

@@ -22,6 +22,15 @@ assert.deepEqual(missing.validMarkers, []);
 assert.equal(missing.missingCitation, true);
 assert.equal(missing.rejectedAnswer, true);
 
+const truncatedMarker = validateCitations("Clause A is twelve months [[s.1 and clause B is thirty days [[s.2]].", sources);
+assert.deepEqual(truncatedMarker.invalidMarkers, ["[[s.1"]);
+assert.deepEqual(truncatedMarker.validMarkers, ["[[s.2]]"]);
+assert.equal(truncatedMarker.rejectedAnswer, true);
+
+const malformedMarker = validateCitations("The answer uses a malformed marker [[s.one]].", sources);
+assert.deepEqual(malformedMarker.invalidMarkers, ["[[s.one]]"]);
+assert.equal(malformedMarker.rejectedAnswer, true);
+
 const pageMarker = validateCitations("See page two [[p.2]].", sources);
 assert.deepEqual(pageMarker.validMarkers, ["[[p.2]]"]);
 assert.equal(pageMarker.rejectedAnswer, false);

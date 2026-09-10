@@ -18,6 +18,8 @@ export type PrivacyGenerationBoundary = {
   question: string;
 };
 
+export type GenerationProviderPayload = ReturnType<typeof buildGenerationProviderPayload>;
+
 function getScope(userId: string, documentId: string, scopeSecret: string): PseudonymScope {
   return { scopeId: getPrivacyScopeId(userId, documentId), scopeSecret };
 }

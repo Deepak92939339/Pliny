@@ -1,8 +1,8 @@
 # Pliny architecture
 
-Pliny is a private, source-grounded document intelligence workspace. This document describes the implemented system at release commit `8987e383c563a2b054507e50110317e32995f356`; planned components are marked explicitly.
+Pliny is a private, source-grounded document intelligence workspace. This document describes the implemented system on `feature/openrouter-glm-answer-model`, based on release-candidate commit `d215f1280a1416910fb81a83a879a534b6bb325b`.
 
-The provider integrations are replaceable boundaries. Voyage is the current embedding processor and Anthropic is the current answer processor. GLM is planned, not implemented.
+The provider integrations are replaceable boundaries. Voyage is the embedding processor. OpenRouter with `z-ai/glm-5.3-flash` is the default answer processor; Anthropic remains manually selectable by configuration without automatic fallback.
 
 ## View 1 — System topology
 
@@ -40,8 +40,7 @@ flowchart LR
   subgraph External["External processing boundaries"]
     Upstash["Upstash Redis<br/>rate-limit counters only"]
     Voyage["Voyage<br/>document/query embeddings"]
-    Anthropic["Anthropic<br/>bounded answer generation"]
-    GLM["GLM<br/>planned — not implemented"]
+    AnswerProvider["Answer provider<br/>OpenRouter GLM default · Anthropic manual"]
   end
 
   Reconcile["Storage reconciliation tooling<br/>two witnesses · signed manifest · exact-path cleanup"]
@@ -60,9 +59,9 @@ flowchart LR
   Retrieval --> DB
   Retrieval --> Voyage
   Routes --> Retrieval --> Evidence
-  Evidence -->|"sufficient"| Anthropic
+  Evidence -->|"sufficient"| AnswerProvider
   Evidence -->|"insufficient: no answer-provider call"| UI
-  Anthropic --> Citations --> Reports --> UI
+  AnswerProvider --> Citations --> Reports --> UI
   UI --> Inspector
   UI --> Export
   Routes -->|"upload/process rate checks"| Upstash
@@ -162,15 +161,14 @@ flowchart TB
   Refusal["20 · Structured refusal<br/>no answer-provider call; reason + closest matches"]
   Q21["21 · Bounded source envelope<br/>selected chunks clamped by count and characters"]
   Q22["22 · Privacy payload assertion<br/>detected originals forbidden when privacy-minimised"]
-  Q23["23 · Answer generation<br/>Anthropic today; replaceable provider boundary"]
+  Q23["23 · Answer generation<br/>OpenRouter GLM default; Anthropic manually selectable"]
   Q24["24 · Citation parsing<br/>[[s.X]] and page markers"]
   Q25["25 · Citation validation<br/>resolvable source IDs, chart refs and document coverage"]
-  Q26["26 · Bounded citation repair<br/>one additional Anthropic call only when eligible; same masked context in privacy mode"]
+  Q26["26 · Bounded citation repair<br/>one additional same-provider call only when eligible; same masked context in privacy mode"]
   Q27["27 · Persistence<br/>question, answer, citations and usage in PostgreSQL"]
   Q28["28 · Safe Markdown rendering<br/>tokenized React elements, no raw model HTML"]
   Q29["29 · Source Inspector<br/>citation → exact owner-visible filename, location and excerpt"]
   Q30["30 · Report/export<br/>grounded report, Markdown/print; masked default in privacy mode"]
-  GLM["GLM generation<br/>planned — not implemented"]
 
   Q1 --> Q2 --> Q4 --> Q5 --> Q6 --> Q7 --> Q8 --> Q9 --> Q10
   Q10 --> Q11 --> Q13
@@ -185,10 +183,9 @@ flowchart TB
   Q25 -->|"repair eligible"| Q26 --> Q25
   Q25 -->|"invalid after repair"| Refusal
   Q27 --> Q28 --> Q29 --> Q30
-  GLM -. "future provider option" .-> Q23
 ```
 
-The diagram preserves the implemented execution order even where a numbered requirement is checked later: answer-provider minute, daily and cost budgets are evaluated after evidence sufficiency so refused questions do not consume an Anthropic budget. The refusal branch does not call Anthropic. Query embeddings can still have occurred before evidence sufficiency is decided when semantic retrieval is enabled. Privacy-minimised requests transform both retrieval queries and generation context; a missing required masked projection fails closed.
+The diagram preserves the implemented execution order even where a numbered requirement is checked later: answer-provider minute, daily and cost budgets are evaluated after evidence sufficiency so refused questions do not consume an answer-provider budget. The refusal branch does not call the answer provider. Query embeddings can still have occurred before evidence sufficiency is decided when semantic retrieval is enabled. Privacy-minimised requests transform both retrieval queries and generation context; a missing required masked projection fails closed.
 
 ## View 4 — Privacy, security and failure boundaries
 
@@ -224,7 +221,7 @@ flowchart LR
 
   subgraph Providers["External boundaries"]
     V["Voyage<br/>original or masked text/query by mode"]
-    A["Anthropic<br/>bounded original or masked question/context by mode"]
+    A["Configured answer provider<br/>OpenRouter GLM default · Anthropic manual"]
     U["Upstash<br/>user-scoped rate-limit key and counters"]
   end
 
@@ -266,10 +263,10 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | Authentication/session state | Supabase Auth and secure session cookies | Supabase Auth | Session-dependent UI state | Auth checks, cookie handling, protected-route middleware |
 | Original files | Private Supabase `documents` bucket | Not sent as whole files to embedding or answer providers | Owner can access through authenticated flows | Private bucket, owner-prefixed Storage policies, exact paths |
-| Original chunks and provenance | Supabase PostgreSQL | Standard mode sends bounded chunk text to Voyage and selected source envelopes to Anthropic | Owner-visible through citations and Source Inspector | RLS, explicit grants, collection/document/user predicates |
-| Provider-safe projections | Supabase PostgreSQL beside original chunks | Privacy-minimised mode sends masked text/metadata to Voyage and Anthropic | Masked exports; original evidence remains owner-resolvable | Document-scoped HMAC tokens, separate generated lexical index, payload assertions |
+| Original chunks and provenance | Supabase PostgreSQL | Standard mode sends bounded chunk text to Voyage and selected source envelopes to the configured answer provider | Owner-visible through citations and Source Inspector | RLS, explicit grants, collection/document/user predicates |
+| Provider-safe projections | Supabase PostgreSQL beside original chunks | Privacy-minimised mode sends masked text/metadata to Voyage and the configured answer provider | Masked exports; original evidence remains owner-resolvable | Document-scoped HMAC tokens, separate generated lexical index, payload assertions |
 | Embedding vectors | PostgreSQL `vector(1024)` | Voyage returns vectors; query vectors are transient in the request path | Not directly exposed in product UI | Scoped RPCs, RLS ownership boundaries, bounded dimensions |
-| Questions and answers | Supabase PostgreSQL chat records | Standard mode may send original question; privacy mode sends transformed question. Anthropic returns generated text. | Owner-visible chat; masked fields drive privacy exports | RLS, mode-aware fields, safe rendering, citation validation |
+| Questions and answers | Supabase PostgreSQL chat records | Standard mode may send the original question; privacy mode sends a transformed question. The configured answer provider returns generated text. | Owner-visible chat; masked fields drive privacy exports | RLS, mode-aware fields, safe rendering, citation validation |
 | Citations and report material | Chat citation JSON and client-generated report structures | Citation repair may resend the same bounded context; masked in privacy mode | Owner-visible source resolution and exports | Resolvable chunk/document IDs, citation validation, bounded repair |
 | Rate-limit state | Upstash Redis | Authenticated user UUID as the upload/process rate-limit identifier, plus counter/window metadata | Not shown directly | Sliding windows; no document text or question content intentionally supplied |
 | Usage/cost records | Supabase PostgreSQL `ai_usage_events` | Not intentionally sent beyond data platform | Indirectly reflected in blocked/allowed responses | RLS, persistent per-user daily checks |
