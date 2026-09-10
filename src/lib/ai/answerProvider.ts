@@ -20,6 +20,7 @@ export type AnswerProviderUsage = {
 
 export type AnswerProviderResult = {
   model: string;
+  requestCount: number;
   text: string;
   usage: AnswerProviderUsage;
 };
@@ -314,6 +315,7 @@ function createOpenRouterProvider({
 
           return {
             model: typeof body.model === "string" && body.model.trim().length > 0 ? body.model : payload.model,
+            requestCount: attempt + 1,
             text: text.trim(),
             usage: {
               costUsd: getFiniteNumber(body.usage?.cost),
@@ -378,6 +380,7 @@ function createAnthropicProvider({
       const outputTokens = getTokenCount(response.usage?.output_tokens);
       return {
         model: typeof response.model === "string" && response.model.trim().length > 0 ? response.model : payload.model,
+        requestCount: 1,
         text,
         usage: {
           inputTokens,

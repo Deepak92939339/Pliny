@@ -82,6 +82,7 @@ assert.equal(successfulProvider.configured, true);
 assert.equal(capturedUrl, `${OPENROUTER_BASE_URL}/chat/completions`);
 assert.equal(supported.text, "Cedar Laboratory has 11 analysts [[s.1]].");
 assert.equal(supported.model, OPENROUTER_DEFAULT_MODEL);
+assert.equal(supported.requestCount, 1);
 assert.deepEqual(supported.usage, {
   costUsd: 0.000004,
   inputTokens: 41,
@@ -227,7 +228,9 @@ const rateLimitProvider = createAnswerProvider({
     rateLimitDelays.push(delayMs);
   },
 });
-assert.equal((await rateLimitProvider.generate(request())).text.includes("11 analysts"), true);
+const rateLimitResult = await rateLimitProvider.generate(request());
+assert.equal(rateLimitResult.text.includes("11 analysts"), true);
+assert.equal(rateLimitResult.requestCount, 3, "provider results must expose the exact HTTP-attempt count");
 assert.equal(rateLimitCalls, 3, "HTTP 429 retries must have a strict two-retry cap");
 assert.deepEqual(rateLimitDelays, [2_000, 2_000], "Retry-After must be honored subject to the strict delay cap");
 
@@ -312,6 +315,7 @@ const anthropicProvider = createAnswerProvider({
 const anthropic = await anthropicProvider.generate(request("claude-test-model"));
 assert.equal(anthropicProvider.name, "anthropic");
 assert.equal(anthropic.text, "Anthropic remains manually selectable [[s.1]].");
+assert.equal(anthropic.requestCount, 1);
 assert.equal(anthropicCalls, 1, "manual Anthropic selection must not invoke any fallback");
 
 let fallbackAnthropicCalls = 0;

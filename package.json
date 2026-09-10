@@ -17,6 +17,7 @@
     "test:local-e2e": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-local-e2e.mjs",
     "test:local-migrations": "node scripts/test-local-migrations.mjs",
     "test:database-assurance": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-database-assurance.mjs",
+    "test:production-schema-equivalence": "node scripts/test-production-schema-equivalence.mjs",
     "test:soak": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/run-provider-mocked-soak.mjs",
     "test:history": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-chat-history.mjs",
     "test:holdout": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-reliability-holdout.mjs",

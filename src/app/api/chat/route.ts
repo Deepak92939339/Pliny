@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { AnswerProviderError, createAnswerProvider, getConfiguredAnswerProviderName } from "@/lib/ai/answerProvider";
+import {
+  AnswerProviderError,
+  createAnswerProvider,
+  getConfiguredAnswerProviderName,
+  type AnswerProviderResult,
+} from "@/lib/ai/answerProvider";
 import { checkAiBudget, getAiConfig, type AiBudgetDecision } from "@/lib/ai/budgetGuard";
 import { selectPromptChunks } from "@/lib/ai/contextSelection";
 import { assessEvidenceSufficiency } from "@/lib/ai/evidenceSufficiency";
@@ -992,6 +997,7 @@ function buildResponseMetadata({
   evidenceStatus,
   maxOutputTokens,
   modelReason,
+  providerResults = [],
   retrievalReason,
   selectedModel,
 }: {
@@ -1000,15 +1006,28 @@ function buildResponseMetadata({
   evidenceStatus?: ChatResponse["metadata"]["evidenceStatus"];
   maxOutputTokens: number;
   modelReason: string;
+  providerResults?: AnswerProviderResult[];
   retrievalReason: RetrievalReason;
   selectedModel: string;
 }): ChatResponse["metadata"] {
+  const sumProviderUsage = (field: "costUsd" | "inputTokens" | "outputTokens" | "totalTokens") => {
+    const values = providerResults.map((result) => result.usage[field]);
+    return values.length > 0 && values.every((value) => value !== undefined)
+      ? values.reduce((sum, value) => sum + (value ?? 0), 0)
+      : undefined;
+  };
+
   return {
     estimatedCostUsd: budget?.estimatedCostUsd,
     inputTokens: budget?.inputTokens,
     maxOutputTokens,
     model: selectedModel,
     modelReason,
+    providerCostUsd: sumProviderUsage("costUsd"),
+    providerInputTokens: sumProviderUsage("inputTokens"),
+    providerOutputTokens: sumProviderUsage("outputTokens"),
+    providerRequestCount: providerResults.reduce((sum, result) => sum + result.requestCount, 0),
+    providerTotalTokens: sumProviderUsage("totalTokens"),
     retrievalReason,
     citationValidation,
     evidenceStatus,
@@ -1501,6 +1520,7 @@ export async function POST(request: Request) {
     });
     if (generationBoundary) assertPrivacyGenerationPayload(generationPayload, generationBoundary);
     const generationResponse = await answerProvider.generate(generationPayload, { signal: request.signal });
+    const providerResults = [generationResponse];
     const draftAnswer = generationResponse.text || NO_CONTEXT_ANSWER;
     if (generationBoundary) assertOnlyAllowedPseudonyms(draftAnswer, generationBoundary.allowedPseudonyms);
     let answer = draftAnswer;
@@ -1521,6 +1541,7 @@ export async function POST(request: Request) {
         });
         if (generationBoundary) assertPrivacyGenerationPayload(correctionPayload, generationBoundary);
         const correctionResponse = await answerProvider.generate(correctionPayload, { signal: request.signal });
+        providerResults.push(correctionResponse);
         const correctedAnswer = correctionResponse.text;
         if (generationBoundary) assertOnlyAllowedPseudonyms(correctedAnswer, generationBoundary.allowedPseudonyms);
         const correctedValidation = validateCitations(correctedAnswer, citationChunks);
@@ -1575,6 +1596,7 @@ export async function POST(request: Request) {
             citationValidation: toCitationValidationDebug(citationValidation),
             maxOutputTokens: modelRoute.maxOutputTokens,
             modelReason: modelRoute.reason,
+            providerResults,
             retrievalReason,
             selectedModel: modelRoute.selectedModel,
             evidenceStatus: finalEvidence.evidenceStatus,
@@ -1597,6 +1619,7 @@ export async function POST(request: Request) {
         citationValidation: toCitationValidationDebug(citationValidation),
         maxOutputTokens: modelRoute.maxOutputTokens,
         modelReason: modelRoute.reason,
+        providerResults,
         retrievalReason,
         selectedModel: modelRoute.selectedModel,
         evidenceStatus: finalEvidence.evidenceStatus,

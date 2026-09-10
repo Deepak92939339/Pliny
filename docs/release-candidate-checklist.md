@@ -58,3 +58,21 @@
 **NOT READY for Production.** The evidence supports **release readiness within the tested scope**, but it does not close the signup, repository-linkage or Production migration-equivalence gates.
 
 After the authoritative GitHub repository is confirmed and the workflow passes on this exact commit, an owner must open **Repository Settings → Branches → Add branch protection rule**, target `main`, enable **Require status checks to pass before merging**, select **Preview quality gate / deterministic-quality**, and save the rule. Do not add provider secrets to ordinary or forked pull-request jobs; live-provider evaluation remains manual and bounded.
+
+## Production release gate — 2026-09-10
+
+- [x] Confirmed the Git origin and authenticated Git identity both resolve to `Deepak92939339/Pliny`; repository ownership and history were unchanged.
+- [x] Pushed `release/preview-assurance-20260908` without force and opened pull request [#1](https://github.com/Deepak92939339/Pliny/pull/1) into `main`.
+- [x] Compared Production and isolated Preview metadata through SELECT-only queries in isolated temporary CLI configurations, with target-name verification before every query and zero Production mutations or user-data reads.
+- [x] Confirmed exact realized-schema equivalence across five tables, 59 columns, 36 constraints, 21 indexes, 120 functions, 17 policies, two triggers, 89 table grants and three extensions.
+- [x] Recorded the one migration-ledger difference: Preview alone records `20260830000000 initial_schema_baseline`. This does not block the current realized schema, but the baseline must never be executed against Production without a separately reviewed ledger/deployment plan.
+- [x] Completed one final synthetic Preview workflow: confirmed-user authentication, document upload and processing, Voyage retrieval, one grounded GLM answer with a valid citation, an unsupported refusal, Source Inspector, print report, reload persistence, logout and cleanup.
+- [x] Persisted exact provider telemetry for the retained final workflow: one OpenRouter request, 1,251 input tokens, 140 output tokens, 1,391 total tokens and `$0.00025765` reported cost; three logical Voyage operations, with upstream retry and billing data unavailable.
+- [x] Confirmed Chrome console cleanliness, zero Preview 5xx responses and no server-only configuration names in 17 inspected browser assets. Firefox and WebKit automation were unavailable and remain explicit limitations.
+- [ ] Complete a successful public signup, receive and follow the confirmation link, and verify the configured Preview redirect. The isolated Preview currently returns Supabase Auth email-send rate limit HTTP `429` before confirmation.
+- [ ] Require the provider-free `Preview quality gate / deterministic-quality` check on `main` after the pull-request run is green; branch protection remains an owner action.
+- [ ] Obtain separate Production authorization only after the public-signup gate is closed and the migration-ledger deployment plan is independently reviewed.
+
+### Final gate recommendation
+
+**NO-GO for Production.** The candidate retains **release readiness within the tested scope**, and the realized Production schema matches Preview, but the public hosted signup and email-confirmation path has not passed. Do not merge, promote or deploy to Production in this phase.
