@@ -110,6 +110,64 @@ select jsonb_build_object(
     where table_schema = 'public'
       and grantee in ('anon', 'authenticated', 'service_role')
   ), '[]'::jsonb),
+  'storage_policies', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'table', tablename,
+      'name', policyname,
+      'permissive', permissive,
+      'roles', roles,
+      'command', cmd,
+      'using', qual,
+      'check', with_check
+    ) order by tablename, policyname)
+    from pg_catalog.pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+  ), '[]'::jsonb),
+  'storage_bucket', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id', id,
+      'name', name,
+      'public', public,
+      'file_size_limit', file_size_limit,
+      'allowed_mime_types', allowed_mime_types
+    ) order by id)
+    from storage.buckets
+    where id = 'documents'
+  ), '[]'::jsonb),
+  'storage_table_grants', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'role', grantee,
+      'table', table_name,
+      'privilege', privilege_type,
+      'grantable', is_grantable
+    ) order by grantee, table_name, privilege_type)
+    from information_schema.role_table_grants
+    where table_schema = 'storage'
+      and table_name = 'objects'
+      and grantee in ('anon', 'authenticated', 'service_role')
+  ), '[]'::jsonb),
+  'schema_privileges', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'role', role_name,
+      'schema', schema_name,
+      'usage', pg_catalog.has_schema_privilege(role_name, schema_name, 'USAGE'),
+      'create', pg_catalog.has_schema_privilege(role_name, schema_name, 'CREATE')
+    ) order by role_name, schema_name)
+    from (values ('anon'), ('authenticated'), ('service_role')) roles(role_name)
+    cross join (values ('public'), ('storage')) schemas(schema_name)
+  ), '[]'::jsonb),
+  'routine_privileges', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'role', roles.role_name,
+      'name', p.proname,
+      'identity_arguments', pg_catalog.pg_get_function_identity_arguments(p.oid),
+      'execute', pg_catalog.has_function_privilege(roles.role_name, p.oid, 'EXECUTE')
+    ) order by roles.role_name, p.proname, pg_catalog.pg_get_function_identity_arguments(p.oid))
+    from pg_catalog.pg_proc p
+    join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+    cross join (values ('anon'), ('authenticated'), ('service_role')) roles(role_name)
+    where n.nspname = 'public' and p.prokind in ('f', 'p')
+  ), '[]'::jsonb),
   'extensions', coalesce((
     select jsonb_agg(jsonb_build_object(
       'name', e.extname,
@@ -234,13 +292,21 @@ function itemKey(section, item) {
     case "constraints":
     case "indexes":
     case "policies":
+    case "storage_policies":
       return `${item.table}.${item.name}`;
     case "functions":
       return `${item.name}(${item.identity_arguments})`;
     case "triggers":
       return `${item.table}.${item.name}.${item.events}`;
     case "table_grants":
+    case "storage_table_grants":
       return `${item.role}.${item.table}.${item.privilege}`;
+    case "schema_privileges":
+      return `${item.role}.${item.schema}`;
+    case "routine_privileges":
+      return `${item.role}.${item.name}(${item.identity_arguments})`;
+    case "storage_bucket":
+      return item.id;
     default:
       return item.name;
   }
@@ -254,6 +320,15 @@ function compareSection(section, production, preview) {
     if (!left.has(key)) return [{ section, object: key, difference: "preview_only" }];
     if (!right.has(key)) return [{ section, object: key, difference: "production_only" }];
     if (fingerprint(left.get(key)) !== fingerprint(right.get(key))) {
+      if (section === "routine_privileges") {
+        return [{
+          section,
+          object: key,
+          difference: "definition_mismatch",
+          productionExecute: left.get(key).execute,
+          previewExecute: right.get(key).execute,
+        }];
+      }
       return [{ section, object: key, difference: "definition_mismatch" }];
     }
     return [];
@@ -268,7 +343,22 @@ const productionMigrations = queryVerifiedProject(PRODUCTION_PROJECT, MIGRATIONS
 
 if (!previewInventory || !productionInventory) throw new Error("schema_inventory_missing");
 
-const sections = ["tables", "columns", "constraints", "indexes", "functions", "policies", "triggers", "table_grants", "extensions"];
+const sections = [
+  "tables",
+  "columns",
+  "constraints",
+  "indexes",
+  "functions",
+  "policies",
+  "triggers",
+  "table_grants",
+  "storage_policies",
+  "storage_bucket",
+  "storage_table_grants",
+  "schema_privileges",
+  "routine_privileges",
+  "extensions",
+];
 const schemaDifferences = sections.flatMap((section) =>
   compareSection(section, productionInventory[section] ?? [], previewInventory[section] ?? []),
 );
@@ -288,7 +378,7 @@ const migrationDifferences = [
 ];
 
 const result = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   evidenceType: "Production migration and schema equivalence (strictly read-only)",
   startedAt,
   completedAt: new Date().toISOString(),

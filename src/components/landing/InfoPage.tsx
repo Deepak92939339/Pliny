@@ -39,7 +39,7 @@ export function InfoPage({ page }: { page: LandingInfoPage }) {
           </div>
         )}
         <div className="mt-10 flex flex-wrap items-center gap-5">
-          <Link href="/signup" className="inline-flex h-11 items-center gap-2 rounded-[5px] bg-[#BA5C3D] px-5 text-[13px] font-semibold text-white hover:bg-[#A8421F] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25">Start workspace <ArrowRight className="size-4" aria-hidden="true" /></Link>
+          <Link href="/login" className="inline-flex h-11 items-center gap-2 rounded-[5px] bg-[#BA5C3D] px-5 text-[13px] font-semibold text-white hover:bg-[#A8421F] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25">Private beta sign in <ArrowRight className="size-4" aria-hidden="true" /></Link>
           <a href="https://github.com/Deepak92939339/Pliny" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#0C1427] hover:text-[#8D3F28]">View the project <GitBranch className="size-4" aria-hidden="true" /></a>
         </div>
       </article>

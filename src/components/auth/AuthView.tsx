@@ -9,12 +9,8 @@ import { useForm } from "react-hook-form";
 import { ArrowRight, CheckCircle2, FileText, LockKeyhole, Mail, SearchCheck, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/label";
-import { loginWithPassword, signupWithPassword } from "@/lib/auth/actions";
+import { loginWithPassword } from "@/lib/auth/actions";
 import { authFormSchema, type AuthFormValues } from "@/lib/auth/schema";
-
-type AuthViewProps = {
-  mode: "login" | "signup";
-};
 
 const previewSources = [
   {
@@ -40,16 +36,13 @@ const previewTakeaways = [
   "Citations remain visible before you rely on the answer.",
 ];
 
-export function AuthView({ mode }: AuthViewProps) {
-  const isSignup = mode === "signup";
+export function AuthView() {
   const router = useRouter();
   const [authError, setAuthError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const {
     register,
     handleSubmit,
-    reset,
     formState: { errors },
   } = useForm<AuthFormValues>({
     resolver: zodResolver(authFormSchema),
@@ -62,24 +55,13 @@ export function AuthView({ mode }: AuthViewProps) {
 
   async function onSubmit(values: AuthFormValues) {
     setAuthError(null);
-    setSuccessMessage(null);
     setIsSubmitting(true);
 
     try {
-      const result = isSignup ? await signupWithPassword(values) : await loginWithPassword(values);
+      const result = await loginWithPassword(values);
 
       if (result.status === "error") {
         setAuthError(result.message);
-        return;
-      }
-
-      if (isSignup) {
-        reset({
-          name: "",
-          email: "",
-          password: "",
-        });
-        setSuccessMessage(result.message ?? "Check your email");
         return;
       }
 
@@ -98,42 +80,19 @@ export function AuthView({ mode }: AuthViewProps) {
             <Link href="/" aria-label="Pliny home" className="text-[#17202A] transition-colors hover:text-[#BA5C3D]">
               <AuthLogo />
             </Link>
-            <Link href={isSignup ? "/login" : "/signup"} className="text-[13px] font-medium tracking-[-0.01em] text-[#5F6875] transition-colors hover:text-[#BA5C3D]">
-              {isSignup ? "Sign in" : "Create account"}
-            </Link>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8D3F28]">Private beta</span>
           </header>
 
           <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col justify-center py-10">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#BA5C3D]">{isSignup ? "Start your workspace" : "Secure access"}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#BA5C3D]">Secure access</p>
               <h1 className="dm-editorial-display mt-4 text-[42px] font-semibold leading-[1.02] tracking-[-0.04em] text-[#17202A] sm:text-[48px]">
-                {isSignup ? "Create your workspace" : "Sign in to your workspace"}
+                Sign in to your workspace
               </h1>
-              <p className="mt-4 text-[15px] leading-7 text-[#5F6875]">
-                {isSignup
-                  ? "Create a private workspace for documents, spreadsheets, and source-cited answers."
-                  : "Access your documents and their answers. Every response is backed by source passages."}
-              </p>
+              <p className="mt-4 text-[15px] leading-7 text-[#5F6875]">Access your documents and their answers. Every response is backed by source passages.</p>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="mt-9 space-y-5">
-              {isSignup ? (
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-[13px] font-semibold text-[#17202A]">
-                    Name
-                  </Label>
-                  <Input
-                    id="name"
-                    placeholder="Avery Stone"
-                    type="text"
-                    autoComplete="name"
-                    className="h-11 rounded-[7px] border-[#D9CBBB] bg-white text-[#17202A] shadow-sm shadow-[rgba(72,48,31,0.04)] placeholder:text-[#8A7D70] focus-visible:border-[#BA5C3D] focus-visible:ring-[#BA5C3D]/20"
-                    {...register("name")}
-                  />
-                  {errors.name ? <p className="text-sm text-[#A13F2A]">{errors.name.message}</p> : null}
-                </div>
-              ) : null}
-
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-[13px] font-semibold text-[#17202A]">
                   Email
@@ -163,7 +122,7 @@ export function AuthView({ mode }: AuthViewProps) {
                     id="password"
                     placeholder="Enter your password"
                     type="password"
-                    autoComplete={isSignup ? "new-password" : "current-password"}
+                    autoComplete="current-password"
                     className="h-11 rounded-[7px] border-[#D9CBBB] bg-white pl-10 text-[#17202A] shadow-sm shadow-[rgba(72,48,31,0.04)] placeholder:text-[#8A7D70] focus-visible:border-[#BA5C3D] focus-visible:ring-[#BA5C3D]/20"
                     aria-invalid={errors.password ? "true" : "false"}
                     {...register("password")}
@@ -178,29 +137,18 @@ export function AuthView({ mode }: AuthViewProps) {
                 </div>
               ) : null}
 
-              {successMessage ? (
-                <div className="rounded-[7px] border border-[#BA5C3D]/25 bg-[#BA5C3D]/10 px-3 py-2 text-sm text-[#8D3F28]" role="status">
-                  {successMessage}
-                </div>
-              ) : null}
-
               <button
                 className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[7px] bg-[#BA5C3D] px-4 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(186,92,61,0.16)] outline-none transition-[background-color,transform] hover:bg-[#A8421F] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-55 focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25"
                 type="submit"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Please wait" : isSignup ? "Create account" : "Sign in"}
+                {isSubmitting ? "Please wait" : "Sign in"}
                 <ArrowRight className="size-4" aria-hidden="true" />
               </button>
             </form>
 
             <div className="mt-8 border-t border-[#E8E2D9] pt-6">
-              <p className="text-center text-sm text-[#6B7280]">
-                {isSignup ? "Already have an account?" : "Don’t have an account?"}{" "}
-                <Link href={isSignup ? "/login" : "/signup"} className="font-semibold text-[#BA5C3D] underline-offset-4 hover:underline">
-                  {isSignup ? "Sign in" : "Create one"}
-                </Link>
-              </p>
+              <p className="text-center text-sm leading-6 text-[#6B7280]">Pliny is a private beta. Accounts are created and confirmed by an administrator.</p>
               <div className="mt-6 flex items-start gap-3 text-[#6B7280]">
                 <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[#BA5C3D]" aria-hidden="true" />
                 <p className="text-xs leading-5">Your documents stay private. Every answer shows exactly where it came from.</p>

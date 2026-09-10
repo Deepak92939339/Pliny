@@ -78,3 +78,19 @@ After the authoritative GitHub repository is confirmed and the workflow passes o
 **NO-GO for Production.** The candidate retains **release readiness within the tested scope**, and the realized Production schema matches Preview, but the public hosted signup and email-confirmation path has not passed. Do not merge, promote or deploy to Production in this phase.
 
 The first pull-request run confirmed a CI configuration defect: Node 20 rejected the `--experimental-strip-types` flag used by the repository's deterministic test commands. The workflow now uses Node 22, and `test:ci-config` prevents regression to an unsupported runtime or accidental provider-secret references. The exact-commit GitHub rerun passed lockfile install, lint, typecheck, the deterministic regression suite and the frozen release evaluation without provider credentials.
+
+## Release blocker closure — private beta, 2026-09-10
+
+- [x] Removed public self-signup from the landing, information, login and `/signup` interfaces. The former signup route now explains that Pliny is an invitation-only private beta and links only to login.
+- [x] Replaced the server signup action with a deterministic private-beta rejection that does not call Supabase Auth.
+- [x] Disabled anonymous signup in the isolated Supabase Preview. A direct invented signup attempt returned HTTP `422`, created no user and required no cleanup.
+- [x] Preserved administrator-created confirmed-user login, invalid-login handling, session persistence, logout and protected-route redirects in a focused nine-assertion Chrome Preview smoke. The disposable synthetic account was removed.
+- [x] Expanded the SELECT-only Production-equivalence harness to include Storage policy/bucket/grant state, schema privileges and routine privileges. The first expanded comparison found Preview inherited `PUBLIC` execute on `match_document_chunks`; Production was already restrictive.
+- [x] Added and applied only to Preview an idempotent forward migration that revokes `PUBLIC` and `anon` execute and grants execute to `authenticated`. Final comparison reports identical realized state across 14 sections and zero Production mutations.
+- [x] Independently reviewed migration-history repair. Marking `20260830000000` applied is safe only after the same clean equivalence precondition; the baseline SQL must never run against Production. The exact ordered procedure and rollback boundaries are in `docs/private-beta-production-deployment-runbook.md`.
+- [x] Affected local checks pass: private-beta auth regression, lint, typecheck, optimized build and browser-bundle privacy scan. The isolated Preview deployment reached `READY`; browser console issues and Preview 5xx responses were zero.
+- [ ] Merge PR #1 or execute any Production change. Both remain deliberately outside this phase.
+
+### Private-beta recommendation
+
+**GO to execute the reviewed Production runbook for the private-beta scope after explicit Production-change approval and a green exact-head PR check.** This is not authorization to merge or deploy. Public account creation is intentionally unavailable; administrator provisioning is an accepted product limitation. If the pre-deployment equivalence result changes or the dry run lists any migration other than `20260910120000`, stop.
