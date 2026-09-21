@@ -59,9 +59,14 @@ assert.equal(PROCESSING_BOUNDARY_PARAGRAPHS[1], "Privacy-minimised does not mean
 assert.equal(PROCESSING_BOUNDARY_PARAGRAPHS[0].includes("Provider zero-retention is not verified"), true);
 const privacyContentSource = readFileSync("src/components/landing/infoContent.ts", "utf8");
 assert.equal(privacyContentSource.includes("paragraphs: PROCESSING_BOUNDARY_PARAGRAPHS"), true, "the Data Privacy detail page must reuse the exact disclosure copy");
-const workspaceHeaderSource = readFileSync("src/components/workspace/WorkspaceHeader.tsx", "utf8");
-assert.equal(workspaceHeaderSource.includes("Processing boundary"), true, "the workspace toolbar must expose the processing boundary control");
-assert.equal(workspaceHeaderSource.includes("PROCESSING_BOUNDARY_PARAGRAPHS[0]"), true, "the toolbar must reuse the exact disclosure copy");
+const workspaceSource = readFileSync("src/components/workspace/WorkspaceView.tsx", "utf8");
+assert.equal(workspaceSource.includes("Processing boundary"), true, "the workspace toolbar must expose the processing boundary control");
+assert.equal(workspaceSource.includes("PROCESSING_BOUNDARY_PARAGRAPHS[0]"), true, "the toolbar must reuse the exact disclosure copy");
+assert.match(
+  workspaceSource,
+  /function scrollToComposer\(\)[\s\S]*ask-surface-composer[\s\S]*setIsDocumentPanelOpen\(false\)/,
+  "the Ask navigation action must leave the Documents surface and focus the composer",
+);
 
 assert.equal(expandKnownRoleTerms("Who is the CTO?").includes("chief technology officer"), true);
 assert.deepEqual(getKnownRoleConcepts("Who serves as Chief Technology Officer?"), ["chief_technology_officer"]);

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, JetBrains_Mono, Newsreader } from "next/font/google";
+import { Inter, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
-const newsreader = Newsreader({
+// Variable names --font-newsreader / --font-ibm-plex are historical and intentionally preserved (other files reference them directly).
+const newsreader = Source_Serif_4({
   subsets: ["latin"],
   variable: "--font-newsreader",
   style: ["normal", "italic"],
@@ -10,7 +11,7 @@ const newsreader = Newsreader({
   display: "swap",
 });
 
-const ibmPlexSans = IBM_Plex_Sans({
+const ibmPlexSans = Inter({
   subsets: ["latin"],
   variable: "--font-ibm-plex",
   weight: ["400", "500", "600"],
@@ -50,10 +51,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${newsreader.variable} ${ibmPlexSans.variable} ${jetBrainsMono.variable} theme-soft-fade font-sans antialiased`}>
-        {children}
-      </body>
+    <html lang="en" className={`${newsreader.variable} ${ibmPlexSans.variable} ${jetBrainsMono.variable} theme-soft-fade font-sans antialiased`}>
+      <body>{children}</body>
     </html>
   );
 }

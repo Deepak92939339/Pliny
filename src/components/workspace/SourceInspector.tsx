@@ -249,7 +249,7 @@ export function SourceInspector({
   const selectedLocation = getSourceLocationLabel(selectedSource);
 
   return (
-    <aside className="hidden h-full min-h-0 w-[360px] shrink-0 flex-col border-l border-black/[0.08] bg-[#F7F7F5] text-[color:var(--editorial-ink)] lg:flex xl:w-[420px]">
+    <aside className="hidden h-full min-h-0 w-[360px] shrink-0 flex-col border-l border-black/[0.08] bg-[#F7F7F5] text-[color:var(--editorial-ink)] min-[900px]:flex xl:w-[420px]">
       <header className="shrink-0 border-b border-black/[0.08] px-4 py-3">
         <div className="flex items-center gap-3">
           <h2 className="text-[13px] font-medium text-[color:var(--editorial-ink)]">Source</h2>
@@ -312,7 +312,7 @@ export function SourceSheet({ onOpenChange, open, retrievalReason, selectedSourc
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[86vh] gap-0 rounded-t-xl border-black/[0.08] bg-[#F7F7F5] p-0 text-[color:var(--editorial-ink)] shadow-2xl shadow-black/10 lg:hidden"
+        className="max-h-[86vh] gap-0 rounded-t-xl border-black/[0.08] bg-[#F7F7F5] p-0 text-[color:var(--editorial-ink)] shadow-2xl shadow-black/10 min-[900px]:hidden"
       >
         <SheetHeader className="border-b border-black/[0.08] p-4 pr-12 text-left">
           <SheetTitle className="text-[13px] font-medium text-[color:var(--editorial-ink)]">Source</SheetTitle>

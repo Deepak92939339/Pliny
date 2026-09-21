@@ -1,15 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { AnalysisRecord } from "@/components/workspace/AnalysisRecord";
-import { DocumentManagementPanel, DocumentSidebar, type WorkspaceSidebarRecent } from "@/components/workspace/DocumentSidebar";
-import { QueryComposer } from "@/components/workspace/QueryComposer";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { ChevronDown, ChevronLeft, FileText, Menu, PanelLeft } from "lucide-react";
+import { AskSurface } from "@/components/workspace/AskSurface";
+import { DocumentsSurface } from "@/components/workspace/DocumentsSurface";
 import { SourceInspector, SourceSheet } from "@/components/workspace/SourceInspector";
-import { WorkspaceHeader } from "@/components/workspace/WorkspaceHeader";
 import { downloadMarkdownFile } from "@/lib/export/browserReportExport";
 import { buildChatTranscriptMarkdown, getTranscriptMarkdownFilename } from "@/lib/export/reportExport";
-import { ChevronLeft } from "lucide-react";
-import type { ChatResponse, CollectionListItem, DocumentListItem, RetrievalReason, SearchChunkResult, WorkspaceSearchResult } from "@/types";
+import { logout } from "@/lib/auth/actions";
+import { PROCESSING_BOUNDARY_PARAGRAPHS, PROCESSING_BOUNDARY_TITLE } from "@/lib/privacy/disclosure";
+import type {
+  ChatResponse,
+  CollectionListItem,
+  DocumentListItem,
+  RetrievalReason,
+  SearchChunkResult,
+  WorkspaceSearchResult,
+} from "@/types";
+import styles from "./WorkspaceView.module.css";
 
 type WorkspaceViewProps = {
   chatError?: string | null;
@@ -33,6 +42,16 @@ type ActiveSourceContext = {
   selectedSourceIndex: number;
   sources: SearchChunkResult[];
 };
+
+// B8: type moved here when the dormant DocumentSidebar.tsx (panel + sidebar) was removed.
+type WorkspaceSidebarRecent = {
+  collectionId: string;
+  collectionName: string;
+  createdAt: string;
+  message: string;
+};
+
+type MenuKey = "account-header" | "account-side" | "switcher" | "mode";
 
 async function readChatResponse(response: Response): Promise<ChatResponse & SearchErrorResponse> {
   try {
@@ -59,19 +78,15 @@ function getFriendlyChatError(error?: string) {
   if (!error) {
     return "Unable to answer from this workspace right now.";
   }
-
   if (error.includes("AI is disabled")) {
     return "AI is disabled for this environment. Turn it on locally before asking Claude.";
   }
-
   if (error.includes("local test request limit")) {
     return "You have reached the local test request limit. Wait a minute, then try again.";
   }
-
   if (error.includes("cost limit")) {
     return "This question is too large for the current cost limit. Try a shorter question.";
   }
-
   return error;
 }
 
@@ -81,12 +96,10 @@ function toWorkspaceCopy(message: string) {
 
 function getUniqueSources(sources: SearchChunkResult[]) {
   const seen = new Set<string>();
-
   return sources.filter((source) => {
     if (seen.has(source.id)) {
       return false;
     }
-
     seen.add(source.id);
     return true;
   });
@@ -99,7 +112,6 @@ function getActiveSourceContext(results: WorkspaceSearchResult[], selectedSource
       sources: [],
     };
   }
-
   const owningResult = [...results]
     .reverse()
     .find(
@@ -107,26 +119,65 @@ function getActiveSourceContext(results: WorkspaceSearchResult[], selectedSource
         result.sources.some((source) => source.id === selectedSource.id) ||
         result.citations.some((citation) => citation.source.id === selectedSource.id)
     );
-
   if (!owningResult) {
     return {
       selectedSourceIndex: 0,
       sources: [selectedSource],
     };
   }
-
   const citedSources = getUniqueSources(owningResult.citations.map((citation) => citation.source).filter(Boolean));
   const sources = citedSources.length > 0 ? citedSources : getUniqueSources(owningResult.sources);
   const selectedSourceIndex = Math.max(
     sources.findIndex((source) => source.id === selectedSource.id),
     0
   );
-
   return {
     retrievalReason: owningResult.retrievalReason,
     selectedSourceIndex,
     sources: sources.length > 0 ? sources : [selectedSource],
   };
+}
+
+function truncateText(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function getInitial(value?: string | null) {
+  return value?.trim().charAt(0).toUpperCase() || "U";
+}
+
+function getWorkspaceInitials(name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return "P";
+  }
+  return trimmed.slice(0, 2).toUpperCase();
+}
+
+function formatRecentStamp(value: string) {
+  const time = (date: Date) =>
+    new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
+  if (value === "Just now") {
+    return `Today · ${time(new Date())}`;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value || "Today";
+  }
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDifference = Math.round((startOfToday.getTime() - startOfDate.getTime()) / 86_400_000);
+  const day =
+    dayDifference === 0
+      ? "Today"
+      : dayDifference === 1
+        ? "Yesterday"
+        : new Intl.DateTimeFormat("en", { day: "numeric", month: "short" }).format(date);
+  return `${day} · ${time(date)}`;
 }
 
 export function WorkspaceView({
@@ -147,7 +198,71 @@ export function WorkspaceView({
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
-  const [isDocumentPanelOpen, setIsDocumentPanelOpen] = useState(true);
+  const [isDocumentPanelOpen, setIsDocumentPanelOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
+
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
+  const canvasScrollRef = useRef<HTMLDivElement>(null);
+  const menuTriggers = useRef<Record<string, HTMLButtonElement | null>>({});
+  const menuWraps = useRef<Record<string, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 899px)");
+    function handleChange(event: MediaQueryListEvent) {
+      setIsMobile(event.matches);
+      if (!event.matches) {
+        setIsDrawerOpen(false);
+      }
+    }
+    setIsMobile(query.matches);
+    query.addEventListener("change", handleChange);
+    return () => query.removeEventListener("change", handleChange);
+  }, []);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (openMenu) {
+        const key = openMenu;
+        setOpenMenu(null);
+        menuTriggers.current[key]?.focus();
+        return;
+      }
+      if (isDrawerOpen) {
+        setIsDrawerOpen(false);
+        hamburgerRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openMenu, isDrawerOpen]);
+
+  useEffect(() => {
+    if (!openMenu) return;
+    const activeMenu: MenuKey = openMenu;
+    function onDown(event: MouseEvent) {
+      const wrap = menuWraps.current[activeMenu];
+      if (wrap && !wrap.contains(event.target as Node)) {
+        setOpenMenu(null);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [openMenu]);
+
+  useEffect(() => {
+    if (!isDrawerOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    asideRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isDrawerOpen]);
 
   if (errorMessage) {
     return (
@@ -176,12 +291,60 @@ export function WorkspaceView({
       ]
     : [];
   const activeSourceContext = getActiveSourceContext(searchResults, selectedSource);
+  const visibleCollections = collections.length > 0 ? collections : [collection];
+  const isPrivacyMinimised = collection.defaultProcessingMode === "privacy_minimised";
+  const modeLabelShort = isPrivacyMinimised ? "Privacy-minimised" : "Standard";
+  const statusChip = `${documents.length} DOCUMENTS · ${isPrivacyMinimised ? "PRIVACY-MINIMISED" : "STANDARD"}`;
+  const accountInitial = getInitial(userEmail);
+  const workspaceInitials = getWorkspaceInitials(collection.name);
+  const collapsedEffective = isCollapsed && !isMobile;
+
+  function toggleMenu(key: MenuKey) {
+    setOpenMenu((current) => (current === key ? null : key));
+  }
+
+  function closeDrawerWithFocus() {
+    setIsDrawerOpen(false);
+    hamburgerRef.current?.focus();
+  }
+
+  function openDocumentsFromSide() {
+    setIsDocumentPanelOpen(true);
+    if (isMobile) {
+      closeDrawerWithFocus();
+    }
+  }
+
+  function closeDocuments() {
+    setIsDocumentPanelOpen(false);
+  }
+
+  function scrollToComposer() {
+    const revealComposer = () => {
+      const node = canvasScrollRef.current;
+      if (node) {
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        node.scrollTo({ top: node.scrollHeight, behavior: reduce ? "auto" : "smooth" });
+      }
+      document.getElementById("ask-surface-composer")?.focus({ preventScroll: true });
+    };
+
+    if (isDocumentPanelOpen) {
+      setIsDocumentPanelOpen(false);
+      window.requestAnimationFrame(() => window.requestAnimationFrame(revealComposer));
+    } else {
+      revealComposer();
+    }
+    if (isMobile) {
+      closeDrawerWithFocus();
+    }
+  }
 
   function handleSelectSource(source: SearchChunkResult) {
     setSelectedSource(source);
     setIsSourceInspectorOpen(true);
-
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+    // B8 (D11): collapse retuned 1024 → 900 to match the approved shell breakpoint.
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 899px)").matches) {
       setIsSourceSheetOpen(true);
     }
   }
@@ -198,14 +361,12 @@ export function WorkspaceView({
       results: searchResults,
       workspaceName: collection?.name,
     });
-
     downloadMarkdownFile(getTranscriptMarkdownFilename(collection?.name, generatedAt), markdown);
   }
 
   function handleSourceSheetOpenChange(open: boolean) {
     setIsSourceSheetOpen(open);
-
-    if (!open && typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+    if (!open && typeof window !== "undefined" && window.matchMedia("(max-width: 899px)").matches) {
       setIsSourceInspectorOpen(false);
     }
   }
@@ -214,14 +375,12 @@ export function WorkspaceView({
     if (!collection) {
       return;
     }
-
     setIsSearching(true);
     setSearchError(null);
     setSelectedSource(null);
     setIsSourceInspectorOpen(false);
     setIsSourceSheetOpen(false);
     setPendingQuestion(query);
-
     try {
       const response = await fetch("/api/chat", {
         body: JSON.stringify({
@@ -234,12 +393,10 @@ export function WorkspaceView({
         method: "POST",
       });
       const result = await readChatResponse(response);
-
       if (!response.ok) {
         setSearchError(getFriendlyChatError(result.error));
         return;
       }
-
       const resultIdentity = {
         answer: result.answer,
         citations: result.citations ?? [],
@@ -264,7 +421,6 @@ export function WorkspaceView({
               ...resultIdentity,
               status: "answered",
             };
-
       setSearchResults((currentResults) => [...currentResults, nextSearchResult]);
     } catch {
       setSearchError("Unable to answer from this workspace right now. Check the server logs if this keeps happening.");
@@ -274,73 +430,280 @@ export function WorkspaceView({
     }
   }
 
-  return (
-    <main className="dm-page flex h-screen w-screen overflow-hidden text-[color:var(--editorial-ink)]">
-      <DocumentSidebar
-        collection={collection}
-        collections={collections.length > 0 ? collections : [collection]}
-        recents={sidebarRecents}
-        userEmail={userEmail}
-      />
-      <section className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
-        <WorkspaceHeader
-          canExportTranscript={searchResults.length > 0}
-          documentCount={documents.length}
-          userEmail={userEmail}
-          workspaceName={collection.name}
-          onExportTranscript={handleExportTranscript}
-        />
-        <div className="relative flex min-h-0 flex-1 overflow-hidden">
-          <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[var(--editorial-page)] lg:min-w-[400px]">
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8">
-              <div className="mx-auto flex min-h-full max-w-[820px] flex-col">
-                {chatError || documentsError || searchError ? (
-                  <div className="mb-6 rounded-xl border border-[#BA5C3D]/20 bg-[#BA5C3D]/10 px-4 py-3 text-sm leading-6 text-[color:var(--editorial-rust-strong)]">
-                    {searchError ?? chatError ?? documentsError}
-                  </div>
-                ) : null}
-                {chatNotice ? (
-                  <div className="mb-6 rounded-xl border border-black/10 bg-white/45 px-4 py-3 text-sm leading-6 text-[color:var(--editorial-muted)]">
-                    {chatNotice}
-                  </div>
-                ) : null}
+  function renderAccountMenu() {
+    return (
+      <div role="menu" aria-label="Account" className={styles.accountMenu}>
+        <p className={styles.menuEmail} title={userEmail ?? undefined}>{userEmail ?? "Signed in"}</p>
+        <Link href="/dashboard" role="menuitem" className={styles.menuItem} onClick={() => setOpenMenu(null)}>
+          All workspaces
+        </Link>
+        <form action={logout} className={styles.menuForm}>
+          <button type="submit" role="menuitem" className={styles.menuItem}>
+            Sign out
+          </button>
+        </form>
+      </div>
+    );
+  }
 
-                {searchResults.length === 0 && !pendingQuestion ? (
-                  <div className="flex flex-1 items-center justify-center px-4 text-center">
-                    <div>
-                      <p className="text-sm font-medium text-[color:var(--editorial-ink-soft)]">Ask a question about your documents</p>
-                      <p className="mt-2 max-w-sm text-sm leading-6 text-[color:var(--editorial-muted)]">
-                        Upload files, then ask for summaries, clauses, comparisons, or citations.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-10 py-4">
-                    {searchResults.map((result, index) => (
-                      <AnalysisRecord
-                        key={`${result.id}-${result.createdAt}-${index}`}
-                        result={result}
-                        selectedSourceId={selectedSource?.id}
-                        workspaceName={collection.name}
-                        onSelectSource={handleSelectSource}
-                      />
-                    ))}
-                    {pendingQuestion ? (
-                      <div className="space-y-6">
-                        <div className="flex justify-end">
-                          <div className="max-w-[70%] rounded-2xl border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-panel)] px-4 py-3 text-[15px] leading-6 text-[color:var(--editorial-ink)] shadow-[0_8px_22px_rgba(72,48,31,0.05)]">
-                            {pendingQuestion}
-                          </div>
-                        </div>
-                        <TypingIndicator />
-                      </div>
-                    ) : null}
-                  </div>
-                )}
+  return (
+    <main className={styles.shell}>
+      <header className={styles.appHeader}>
+        <div className={styles.headerLeft}>
+          <button
+            ref={hamburgerRef}
+            type="button"
+            className={styles.hamburger}
+            aria-expanded={isDrawerOpen}
+            aria-controls="workspace-sidebar"
+            aria-label={isDrawerOpen ? "Close workspace navigation" : "Open workspace navigation"}
+            onClick={() => setIsDrawerOpen((open) => !open)}
+          >
+            <Menu className={styles.icon} aria-hidden="true" />
+          </button>
+          <Link href="/dashboard" className={styles.brand}>
+            Pliny
+          </Link>
+          <nav className={styles.crumb} aria-label="Breadcrumb">
+            <Link href="/dashboard" className={styles.crumbLink}>
+              All workspaces
+            </Link>
+            <span className={styles.crumbSep} aria-hidden="true">/</span>
+            <span className={styles.crumbCurrent} aria-current="page" title={collection.name}>
+              {truncateText(collection.name, 28)}
+            </span>
+          </nav>
+        </div>
+        <div className={styles.headerRight}>
+          <span className={styles.statusChip}>{statusChip}</span>
+          <button
+            type="button"
+            className={styles.ghostBtn}
+            disabled={searchResults.length === 0}
+            onClick={handleExportTranscript}
+          >
+            Export transcript
+          </button>
+          <div className={styles.menuWrap} ref={(el) => { menuWraps.current.mode = el; }}>
+            <button
+              ref={(el) => { menuTriggers.current.mode = el; }}
+              type="button"
+              className={styles.modeBtn}
+              aria-haspopup="dialog"
+              aria-expanded={openMenu === "mode"}
+              aria-controls="processing-boundary-popover"
+              onClick={() => toggleMenu("mode")}
+            >
+              {modeLabelShort}
+              <ChevronDown className={styles.icon} aria-hidden="true" />
+            </button>
+            {openMenu === "mode" ? (
+              <div id="processing-boundary-popover" role="dialog" aria-label="Processing boundary" className={styles.popover}>
+                <h2 className={styles.popoverTitle}>{PROCESSING_BOUNDARY_TITLE}</h2>
+                <p className={styles.popoverBody}>{PROCESSING_BOUNDARY_PARAGRAPHS[0]}</p>
+                <p className={styles.popoverStrong}>{PROCESSING_BOUNDARY_PARAGRAPHS[1]}</p>
+                <Link href="/privacy" className={styles.popoverLink}>
+                  Data Privacy details
+                </Link>
+              </div>
+            ) : null}
+          </div>
+          <div className={styles.menuWrap} ref={(el) => { menuWraps.current["account-header"] = el; }}>
+            <button
+              ref={(el) => { menuTriggers.current["account-header"] = el; }}
+              type="button"
+              className={styles.accountBtn}
+              aria-haspopup="menu"
+              aria-expanded={openMenu === "account-header"}
+              aria-label="Open account menu"
+              onClick={() => toggleMenu("account-header")}
+            >
+              <span className={styles.avatar} aria-hidden="true">{accountInitial}</span>
+              <ChevronDown className={styles.icon} aria-hidden="true" />
+            </button>
+            {openMenu === "account-header" ? renderAccountMenu() : null}
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.shellBody}>
+        {isDrawerOpen ? (
+          <div className={styles.scrim} aria-hidden="true" onClick={closeDrawerWithFocus} />
+        ) : null}
+
+        <aside
+          id="workspace-sidebar"
+          ref={asideRef}
+          tabIndex={-1}
+          aria-label="Workspace sidebar"
+          className={`${styles.sidebar} ${collapsedEffective ? styles.sidebarCollapsed : ""} ${isDrawerOpen ? styles.sidebarOpen : ""}`}
+        >
+          {collapsedEffective ? (
+            <div className={styles.railCol}>
+              <button
+                type="button"
+                className={styles.railBtn}
+                aria-label="Expand sidebar"
+                onClick={() => setIsCollapsed(false)}
+              >
+                <PanelLeft className={`${styles.icon} ${styles.iconFlip}`} aria-hidden="true" />
+              </button>
+              <span className={styles.railChip} title={collection.name}>
+                {workspaceInitials}
+              </span>
+              <button
+                type="button"
+                className={styles.railBtn}
+                aria-label="Open documents panel"
+                onClick={() => setIsDocumentPanelOpen(true)}
+              >
+                <FileText className={styles.icon} aria-hidden="true" />
+              </button>
+              <div className={styles.railFoot} ref={(el) => { menuWraps.current["account-side"] = el; }}>
+                <button
+                  ref={(el) => { menuTriggers.current["account-side"] = el; }}
+                  type="button"
+                  className={styles.railAvatarBtn}
+                  aria-haspopup="menu"
+                  aria-expanded={openMenu === "account-side"}
+                  aria-label="Open account menu"
+                  onClick={() => toggleMenu("account-side")}
+                >
+                  <span className={styles.avatar} aria-hidden="true">{accountInitial}</span>
+                </button>
+                {openMenu === "account-side" ? renderAccountMenu() : null}
               </div>
             </div>
-            <QueryComposer isSearching={isSearching} onSubmit={handleSearch} />
-          </section>
+          ) : (
+            <div className={styles.sideExpanded}>
+              <div className={styles.sideTop}>
+                <button
+                  type="button"
+                  className={styles.collapseBtn}
+                  aria-label="Collapse sidebar"
+                  onClick={() => setIsCollapsed(true)}
+                >
+                  <PanelLeft className={styles.icon} aria-hidden="true" />
+                </button>
+              </div>
+              <div className={styles.switcherWrap} ref={(el) => { menuWraps.current.switcher = el; }}>
+                <button
+                  ref={(el) => { menuTriggers.current.switcher = el; }}
+                  type="button"
+                  className={styles.switcherBtn}
+                  aria-haspopup="menu"
+                  aria-expanded={openMenu === "switcher"}
+                  aria-controls="workspace-switcher-menu"
+                  onClick={() => toggleMenu("switcher")}
+                >
+                  <span className={styles.switcherName} title={collection.name}>
+                    {truncateText(collection.name, 24)}
+                  </span>
+                  <ChevronDown className={styles.icon} aria-hidden="true" />
+                </button>
+                {openMenu === "switcher" ? (
+                  <div id="workspace-switcher-menu" role="menu" aria-label="Workspaces" className={styles.switcherMenu}>
+                    {visibleCollections.map((workspace) => (
+                      <Link
+                        key={workspace.id}
+                        href={`/collection/${workspace.id}`}
+                        role="menuitem"
+                        aria-current={workspace.id === collection.id ? "page" : undefined}
+                        className={`${styles.switcherItem} ${workspace.id === collection.id ? styles.switcherItemActive : ""}`}
+                      >
+                        <span className={styles.switcherName} title={workspace.name}>
+                          {truncateText(workspace.name, 24)}
+                        </span>
+                        <span className={styles.switcherCount}>{workspace.documentCount} docs</span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <nav className={styles.sideNav} aria-label="Workspace">
+                <p className={styles.sideLabel}>Workspace</p>
+                <button
+                  type="button"
+                  className={`${styles.navRow} ${isDocumentPanelOpen ? styles.navRowActive : ""}`}
+                  aria-current={isDocumentPanelOpen ? "true" : undefined}
+                  onClick={openDocumentsFromSide}
+                >
+                  Documents
+                  <span className={styles.navRowChip}>{documents.length}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.navRow} ${isDocumentPanelOpen ? "" : styles.navRowActive}`}
+                  aria-current={isDocumentPanelOpen ? undefined : "true"}
+                  onClick={scrollToComposer}
+                >
+                  Ask a question
+                </button>
+                <p className={styles.sideLabel}>Recent questions</p>
+                {sidebarRecents.length > 0 ? (
+                  sidebarRecents.map((recent) => (
+                    <Link
+                      key={`${recent.collectionId}-${recent.createdAt}`}
+                      href={`/collection/${recent.collectionId}`}
+                      className={styles.recentLink}
+                      onClick={() => setIsDrawerOpen(false)}
+                    >
+                      <span className={styles.recentText} title={recent.message}>
+                        {truncateText(recent.message, 42)}
+                      </span>
+                      <span className={styles.recentStamp}>{formatRecentStamp(recent.createdAt)}</span>
+                    </Link>
+                  ))
+                ) : (
+                  <p className={styles.recentEmpty}>No questions yet</p>
+                )}
+              </nav>
+              <div className={styles.sideFoot}>
+                <span className={styles.avatar} aria-hidden="true">{accountInitial}</span>
+                <span className={styles.sideFootId}>
+                  <span className={styles.sideEmail} title={userEmail ?? undefined}>
+                    {userEmail ?? "Signed in"}
+                  </span>
+                  <form action={logout}>
+                    <button type="submit" className={styles.signOutLink}>
+                      Sign out
+                    </button>
+                  </form>
+                </span>
+              </div>
+            </div>
+          )}
+        </aside>
+
+        <div className={styles.workRow}>
+          {isDocumentPanelOpen ? (
+            <DocumentsSurface
+              collectionId={collection.id}
+              collectionName={collection.name}
+              defaultProcessingMode={collection.defaultProcessingMode}
+              documents={documents}
+              documentsError={documentsError}
+              onBack={closeDocuments}
+            />
+          ) : (
+            <>
+          <AskSurface
+            chatError={chatError}
+            chatNotice={chatNotice}
+            collectionId={collection.id}
+            collectionName={collection.name}
+            documents={documents}
+            documentsError={documentsError}
+            isSearching={isSearching}
+            pendingQuestion={pendingQuestion}
+            results={searchResults}
+            scrollRef={canvasScrollRef}
+            searchError={searchError}
+            selectedSourceId={selectedSource?.id}
+            onAsk={handleSearch}
+            onOpenDocuments={openDocumentsFromSide}
+            onSelectSource={handleSelectSource}
+          />
           {isSourceInspectorOpen ? (
             <SourceInspector
               retrievalReason={activeSourceContext.retrievalReason}
@@ -351,26 +714,21 @@ export function WorkspaceView({
               onClose={handleCloseSourceInspector}
               onSelectSource={handleSelectSource}
             />
-          ) : isDocumentPanelOpen ? (
-            <DocumentManagementPanel
-              collectionId={collection.id}
-              defaultProcessingMode={collection.defaultProcessingMode}
-              documents={documents}
-              documentsError={documentsError}
-              onCollapse={() => setIsDocumentPanelOpen(false)}
-            />
           ) : (
             <button
               type="button"
               aria-label="Show documents panel"
               onClick={() => setIsDocumentPanelOpen(true)}
-              className="absolute right-3 top-3 hidden size-8 items-center justify-center rounded-md border border-[color:var(--editorial-border-soft)] bg-[var(--editorial-card)] text-[color:var(--editorial-muted)] shadow-sm shadow-[rgba(72,48,31,0.05)] hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35 lg:flex"
+              className={styles.revealBtn}
             >
-              <ChevronLeft className="size-4" aria-hidden="true" />
+              <ChevronLeft className={styles.icon} aria-hidden="true" />
             </button>
           )}
+            </>
+          )}
         </div>
-      </section>
+      </div>
+
       <SourceSheet
         open={isSourceSheetOpen}
         retrievalReason={activeSourceContext.retrievalReason}
@@ -379,15 +737,5 @@ export function WorkspaceView({
         onOpenChange={handleSourceSheetOpenChange}
       />
     </main>
-  );
-}
-
-function TypingIndicator() {
-  return (
-    <div className="flex items-center gap-1.5 px-1 py-2" aria-label="Pliny is typing">
-      <span className="size-1.5 animate-pulse rounded-full bg-[color:var(--editorial-muted)]" />
-      <span className="size-1.5 animate-pulse rounded-full bg-[color:var(--editorial-muted)] [animation-delay:120ms]" />
-      <span className="size-1.5 animate-pulse rounded-full bg-[color:var(--editorial-muted)] [animation-delay:240ms]" />
-    </div>
   );
 }

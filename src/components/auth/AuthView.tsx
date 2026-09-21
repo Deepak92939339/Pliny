@@ -1,48 +1,88 @@
-"use client";
+'use client';
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { FormEvent as ReactFormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { ArrowRight, CheckCircle2, FileText, LockKeyhole, Mail, SearchCheck, ShieldCheck } from "lucide-react";
+import { CheckCircle2, FileText, LockKeyhole, Mail, SearchCheck, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/label";
 import { loginWithPassword } from "@/lib/auth/actions";
 import { authFormSchema, type AuthFormValues } from "@/lib/auth/schema";
+import styles from "./AuthView.module.css";
 
-const previewSources = [
-  {
-    excerpt: "Operating margin improved to 18.7%, driven by lower operating costs and productivity work.",
-    location: "p.7",
-    title: "Q2 Board Deck.pdf",
-  },
-  {
-    excerpt: "The P&L shows operating expenses decreased 6.3% QoQ.",
-    location: "Sheet: P&L",
-    title: "Financials.xlsx",
-  },
-  {
-    excerpt: "Productivity initiatives delivered $12.4M in annualized savings.",
-    location: "p.3",
-    title: "Management Memo.pdf",
-  },
+type View = "signin" | "recovery" | "beta";
+type BarState = "idle" | "pending" | "done";
+
+const ANSWER_CHUNKS = [
+  { cite: 1, text: "Operating margin improved to 18.7% on productivity gains and lower operating costs," },
+  { cite: 2, text: "while operating expenses decreased 6.3% QoQ," },
+  { cite: 3, text: "with productivity initiatives delivering $12.4M in annualized savings." },
 ];
 
-const previewTakeaways = [
+const CITE_ARIA = [
+  "Citation 1: Q2 Board Deck.pdf, page 7. Select to highlight its evidence.",
+  "Citation 2: Financials.xlsx, sheet P&L. Select to highlight its evidence.",
+  "Citation 3: Management Memo.pdf, page 3. Select to highlight its evidence.",
+];
+
+const DEMO_SOURCES = [
+  { id: 1, title: "Q2 Board Deck.pdf", location: "p.7", snippet: "Operating margin improved to 18.7%, driven by lower operating costs…" },
+  { id: 2, title: "Financials.xlsx", location: "Sheet: P&L", snippet: "The P&L shows operating expenses decreased 6.3% QoQ…" },
+  { id: 3, title: "Management Memo.pdf", location: "p.3", snippet: "Productivity initiatives delivered $12.4M in annualized savings…" },
+];
+
+const CHECKS = [
   "Every answer is tied to a source passage.",
   "Spreadsheet rows and documents stay in one private workspace.",
   "Citations remain visible before you rely on the answer.",
+];
+
+const CHART_POINTS = [
+  { x: 60, y: 81.8, label: "12.4", cites: "2" },
+  { x: 170, y: 67, label: "15.1", cites: "2" },
+  { x: 280, y: 74.1, label: "13.8", cites: "2" },
+  { x: 390, y: 77.4, label: "13.2", cites: "2" },
+  { x: 500, y: 47.2, label: "18.7", cites: "1 2" },
+];
+
+const CHART_QUARTERS = [
+  "Q2 FY24",
+  "Q3 FY24",
+  "Q4 FY24",
+  "Q1 FY25",
+  "Q2 FY25",
 ];
 
 export function AuthView() {
   const router = useRouter();
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bar, setBar] = useState<BarState>("idle");
+  const [view, setView] = useState<View>("signin");
+  const [announce, setAnnounce] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
+  const [selCite, setSelCite] = useState<number | null>(null);
+  const [hoverCite, setHoverCite] = useState<number | null>(null);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryBar, setRecoveryBar] = useState<BarState>("idle");
+  const [recoverySent, setRecoverySent] = useState(false);
+  const [betaBar, setBetaBar] = useState<BarState>("idle");
+  const [betaSent, setBetaSent] = useState(false);
+
+  const forgotRef = useRef<HTMLButtonElement>(null);
+  const requestRef = useRef<HTMLButtonElement>(null);
+  const pendingFocusRef = useRef<"forgot" | "request" | null>(null);
+  const timersRef = useRef<number[]>([]);
+
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<AuthFormValues>({
     resolver: zodResolver(authFormSchema),
@@ -53,232 +93,449 @@ export function AuthView() {
     },
   });
 
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+
+  useEffect(() => {
+    if (!pendingFocusRef.current) return;
+    const target = pendingFocusRef.current === "forgot" ? forgotRef.current : requestRef.current;
+    pendingFocusRef.current = null;
+    target?.focus();
+  });
+
+  const emailRegistration = register("email", {
+    onBlur: () => {
+      const value = getValues("email");
+      if (!value.trim()) setFieldErrors((prev) => ({ ...prev, email: "Enter your email." }));
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) setFieldErrors((prev) => ({ ...prev, email: "Enter a valid work email address." }));
+      else setFieldErrors((prev) => ({ ...prev, email: undefined }));
+    },
+    onChange: () => setFieldErrors((prev) => (prev.email ? { ...prev, email: undefined } : prev)),
+  });
+
+  const passwordRegistration = register("password", {
+    onBlur: () => {
+      const value = getValues("password");
+      setFieldErrors((prev) => ({ ...prev, password: value ? undefined : "Enter your password." }));
+      setCapsLock(false);
+    },
+    onChange: () => setFieldErrors((prev) => (prev.password ? { ...prev, password: undefined } : prev)),
+  });
+
+  const emailError = errors.email?.message ?? fieldErrors.email;
+  const passwordError = errors.password?.message ?? fieldErrors.password;
+
   async function onSubmit(values: AuthFormValues) {
     setAuthError(null);
     setIsSubmitting(true);
-
+    setBar("pending");
     try {
       const result = await loginWithPassword(values);
-
       if (result.status === "error") {
         setAuthError(result.message);
+        setAnnounce(result.message);
         return;
       }
-
       router.push("/dashboard");
       router.refresh();
     } finally {
       setIsSubmitting(false);
+      setBar("done");
+      timersRef.current.push(window.setTimeout(() => setBar("idle"), 480));
     }
   }
 
+  function retry() {
+    document.getElementById("email")?.focus();
+    void handleSubmit(onSubmit)();
+  }
+
+  function onCapsCheck(event: ReactKeyboardEvent<HTMLInputElement>) {
+    setCapsLock(event.getModifierState("CapsLock"));
+  }
+
+  function openRecovery() {
+    setRecoveryEmail(getValues("email"));
+    setRecoverySent(false);
+    setRecoveryBar("idle");
+    setView("recovery");
+    setAnnounce("Account recovery view opened.");
+  }
+
+  function openBeta() {
+    setBetaSent(false);
+    setBetaBar("idle");
+    setView("beta");
+    setAnnounce("Request access view opened.");
+  }
+
+  function backToSignIn(from: "recovery" | "beta") {
+    pendingFocusRef.current = from === "recovery" ? "forgot" : "request";
+    setView("signin");
+    setAnnounce("Returned to sign in.");
+  }
+
+  function onRecoverySubmit(event: ReactFormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setRecoveryBar("pending");
+    timersRef.current.push(
+      window.setTimeout(() => {
+        setRecoveryBar("done");
+        setRecoverySent(true);
+        setAnnounce("Recovery confirmation shown. No email is sent in this release.");
+        timersRef.current.push(window.setTimeout(() => setRecoveryBar("idle"), 480));
+      }, 900),
+    );
+  }
+
+  function onBetaSubmit(event: ReactFormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBetaBar("pending");
+    timersRef.current.push(
+      window.setTimeout(() => {
+        setBetaBar("done");
+        setBetaSent(true);
+        setAnnounce("Request received confirmation shown. Requests are not collected online.");
+        timersRef.current.push(window.setTimeout(() => setBetaBar("idle"), 480));
+      }, 900),
+    );
+  }
+
+  function toggleCite(id: number) {
+    const next = selCite === id ? null : id;
+    setSelCite(next);
+    setAnnounce(next === null ? "Citation deselected." : `Citation ${next} selected; matching evidence highlighted.`);
+  }
+
+  function barClasses(state: BarState) {
+    return `${styles.bar} ${state === "pending" ? styles.barPending : ""} ${state === "done" ? styles.barDone : ""}`;
+  }
+
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#FAF7F2] text-[#17202A]">
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[minmax(380px,44%)_minmax(0,56%)] xl:grid-cols-[minmax(420px,42%)_minmax(0,58%)]">
-        <section className="flex min-h-screen flex-col px-6 py-6 sm:px-8 lg:px-12 xl:px-16">
-          <header className="flex h-12 items-center justify-between">
-            <Link href="/" aria-label="Pliny home" className="text-[#17202A] transition-colors hover:text-[#BA5C3D]">
-              <AuthLogo />
-            </Link>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8D3F28]">Private beta</span>
-          </header>
+    <main className={styles.shell}>
+      <a className={styles.skip} href="#signin-form">Skip to sign-in form</a>
 
-          <div className="mx-auto flex w-full max-w-[440px] flex-1 flex-col justify-center py-10">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#BA5C3D]">Secure access</p>
-              <h1 className="dm-editorial-display mt-4 text-[42px] font-semibold leading-[1.02] tracking-[-0.04em] text-[#17202A] sm:text-[48px]">
-                Sign in to your workspace
-              </h1>
-              <p className="mt-4 text-[15px] leading-7 text-[#5F6875]">Access your documents and their answers. Every response is backed by source passages.</p>
-            </div>
+      <section className={styles.paneForm} aria-label="Sign in">
+        <header className={styles.brandRow}>
+          <Link href="/" className={styles.brand} aria-label="Pliny home">Pliny</Link>
+          <span className={styles.betaTag}>PRIVATE BETA</span>
+        </header>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="mt-9 space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-[13px] font-semibold text-[#17202A]">
-                  Email
-                </Label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#8A7D70]" aria-hidden="true" />
-                  <Input
-                    id="email"
-                    placeholder="name@company.com"
-                    type="email"
-                    autoComplete="email"
-                    className="h-11 rounded-[7px] border-[#D9CBBB] bg-white pl-10 text-[#17202A] shadow-sm shadow-[rgba(72,48,31,0.04)] placeholder:text-[#8A7D70] focus-visible:border-[#BA5C3D] focus-visible:ring-[#BA5C3D]/20"
-                    aria-invalid={errors.email ? "true" : "false"}
-                    {...register("email")}
-                  />
-                </div>
-                {errors.email ? <p className="text-sm text-[#A13F2A]">{errors.email.message}</p> : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-[13px] font-semibold text-[#17202A]">
-                  Password
-                </Label>
-                <div className="relative">
-                  <LockKeyhole className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#8A7D70]" aria-hidden="true" />
-                  <Input
-                    id="password"
-                    placeholder="Enter your password"
-                    type="password"
-                    autoComplete="current-password"
-                    className="h-11 rounded-[7px] border-[#D9CBBB] bg-white pl-10 text-[#17202A] shadow-sm shadow-[rgba(72,48,31,0.04)] placeholder:text-[#8A7D70] focus-visible:border-[#BA5C3D] focus-visible:ring-[#BA5C3D]/20"
-                    aria-invalid={errors.password ? "true" : "false"}
-                    {...register("password")}
-                  />
-                </div>
-                {errors.password ? <p className="text-sm text-[#A13F2A]">{errors.password.message}</p> : null}
-              </div>
-
-              {authError ? (
-                <div className="rounded-[7px] border border-[#BA5C3D]/25 bg-[#BA5C3D]/10 px-3 py-2 text-sm text-[#A13F2A]" role="alert">
-                  {authError}
-                </div>
-              ) : null}
-
-              <button
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[7px] bg-[#BA5C3D] px-4 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(186,92,61,0.16)] outline-none transition-[background-color,transform] hover:bg-[#A8421F] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-55 focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25"
-                type="submit"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Please wait" : "Sign in"}
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </button>
-            </form>
-
-            <div className="mt-8 border-t border-[#E8E2D9] pt-6">
-              <p className="text-center text-sm leading-6 text-[#6B7280]">Pliny is a private beta. Accounts are created and confirmed by an administrator.</p>
-              <div className="mt-6 flex items-start gap-3 text-[#6B7280]">
-                <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[#BA5C3D]" aria-hidden="true" />
-                <p className="text-xs leading-5">Your documents stay private. Every answer shows exactly where it came from.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <AuthPreviewPanel />
-      </div>
-    </main>
-  );
-}
-
-function AuthLogo() {
-  return (
-      <span className="flex h-9 items-center gap-[7px]">
-      <Image src="/brand/pliny-mark-transparent.png" alt="" aria-hidden="true" width={809} height={776} className="size-8 shrink-0 object-contain" />
-      <span className="dm-editorial-display text-[24px] font-semibold leading-none tracking-[-0.02em] text-[#17202A]">Pliny</span>
-    </span>
-  );
-}
-
-function AuthPreviewPanel() {
-  return (
-    <aside className="relative hidden min-h-screen overflow-hidden border-l border-[#E8E2D9] bg-[#F3EDE4] lg:block">
-      <Image
-        src="/images/pliny-hero-etching.png"
-        alt=""
-        aria-hidden="true"
-        width={1448}
-        height={1086}
-        className="pointer-events-none absolute right-[-140px] top-[-60px] w-[520px] object-contain opacity-[0.10] mix-blend-multiply"
-      />
-      <div className="relative flex min-h-screen items-center justify-center px-10 py-14">
-        <div className="w-full max-w-[620px]">
-          <div className="mb-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#BA5C3D]">Source-backed answers</p>
-            <h2 className="dm-editorial-display mt-3 text-[34px] font-semibold leading-tight tracking-[-0.035em] text-[#17202A]">
-              Review documents with the source beside you.
-            </h2>
-          </div>
-
-          <div className="rounded-[20px] border border-[#E1D8CB] bg-white p-4 shadow-[0_24px_60px_rgba(72,48,31,0.10)]">
-            <div className="rounded-[16px] border border-[#E8E2D9] bg-[#FFFEFB]">
-              <header className="flex items-center justify-between border-b border-[#E8E2D9] px-5 py-4">
-                <div>
-                  <h3 className="text-[15px] font-semibold text-[#17202A]">Q2 Board Pack</h3>
-                  <p className="mt-0.5 text-[12px] text-[#6B7280]">12 documents</p>
-                </div>
-                <span className="rounded-full border border-[#D9CBBB] bg-[#F3EDE4] px-3 py-1 text-[11px] font-semibold text-[#8A7D70]">3 citations</span>
-              </header>
-
-              <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_230px]">
-                <div className="p-5">
-                  <div className="inline-flex rounded-[9px] border border-[#D9CBBB] bg-[#EFE5D8] px-4 py-3 text-[12px] font-medium text-[#17202A] shadow-[0_14px_34px_rgba(72,48,31,0.08)]">
-                    What changed operating margin in Q2?
+        <div className={styles.formCol}>
+          {view === "signin" ? (
+            <div className={styles.view}>
+              <div className={styles.statusSlot}>
+                {authError ? (
+                  <div className={styles.notice} role="alert">
+                    <span>{authError}</span>
+                    <button type="button" className={styles.noticeRetry} onClick={retry}>Retry</button>
                   </div>
+                ) : null}
+              </div>
+              <p className={styles.eyebrow}>SECURE ACCESS</p>
+              <h1 className={styles.title}>Sign in to your workspace</h1>
+              <p className={styles.lede}>Access your documents and their answers. Every response is backed by source passages.</p>
 
-                  <div className="mt-6">
-                    <div className="flex items-center gap-2">
-                      <FileText className="size-4 text-[#BA5C3D]" aria-hidden="true" />
-                      <h4 className="text-sm font-semibold text-[#17202A]">Answer</h4>
-                    </div>
-                    <p className="mt-3 text-[13px] leading-6 text-[#4B5563]">
-                      Operating margin improved to 18.7%, driven by productivity gains and lower operating costs, partially offset by SG&A growth.
-                    </p>
+              <form id="signin-form" className={styles.form} onSubmit={handleSubmit(onSubmit)} noValidate>
+                <div className={styles.field}>
+                  <Label htmlFor="email" className={styles.label}>Email</Label>
+                  <span className={styles.control}>
+                    <Mail className={styles.leadIcon} aria-hidden="true" />
+                    <Input
+                      id="email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="name@company.com"
+                      className={`${styles.input} ${emailError ? styles.bad : ""}`}
+                      aria-invalid={emailError ? "true" : "false"}
+                      aria-describedby="email-msg"
+                      {...emailRegistration}
+                    />
+                  </span>
+                  <p id="email-msg" className={styles.msg} aria-live="polite">{emailError ?? ""}</p>
+                </div>
+
+                <div className={styles.field}>
+                  <span className={styles.labelRow}>
+                    <Label htmlFor="password" className={styles.label}>Password</Label>
+                    <button ref={forgotRef} type="button" className={styles.flink} onClick={openRecovery}>Forgot password?</button>
+                  </span>
+                  <span className={`${styles.control} ${showPassword ? styles.show : ""}`}>
+                    <LockKeyhole className={styles.leadIcon} aria-hidden="true" />
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      placeholder="Enter your password"
+                      className={`${styles.input} ${passwordError ? styles.bad : ""}`}
+                      aria-invalid={passwordError ? "true" : "false"}
+                      aria-describedby="password-msg"
+                      onKeyDown={onCapsCheck}
+                      onKeyUp={onCapsCheck}
+                      {...passwordRegistration}
+                    />
+                    <button
+                      type="button"
+                      className={styles.peek}
+                      aria-pressed={showPassword}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      onClick={() => {
+                        setShowPassword((visible) => !visible);
+                        setAnnounce(showPassword ? "Password hidden." : "Password visible.");
+                      }}
+                    >
+                      {showPassword ? "HIDE" : "SHOW"}
+                    </button>
+                  </span>
+                  <p id="password-msg" className={styles.msg} aria-live="polite">{passwordError ?? ""}</p>
+                  <p className={`${styles.caps} ${capsLock ? styles.capsOn : ""}`} aria-live="polite">{capsLock ? "CAPS LOCK IS ON" : ""}</p>
+                </div>
+
+                <button type="submit" className={styles.btn} disabled={isSubmitting}>
+                  {isSubmitting ? "Please wait" : "Sign in"}
+                </button>
+                <span className={barClasses(bar)} aria-hidden="true"><span className={styles.barFill} /></span>
+              </form>
+
+              <div className={styles.foot}>
+                <p className={styles.betaNote}>Pliny is a private beta. Accounts are created and confirmed by an administrator.</p>
+                <button ref={requestRef} type="button" className={styles.flinkCenter} onClick={openBeta}>Request access</button>
+                <p className={styles.privacy}>
+                  <ShieldCheck className={styles.privacyIcon} aria-hidden="true" />
+                  Your documents stay private. Every answer shows exactly where it came from.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {view === "recovery" ? (
+            <div className={styles.view}>
+              <button type="button" className={styles.backLink} onClick={() => backToSignIn("recovery")}>← Back to sign in</button>
+              <p className={styles.eyebrow}>ACCOUNT RECOVERY</p>
+              <h1 className={styles.title}>Reset your password</h1>
+              <p className={styles.lede}>Enter the email you use for Pliny and we&apos;ll explain the next step.</p>
+              {recoverySent ? (
+                <div className={styles.confirm} role="status">
+                  <h2 className={styles.confirmTitle}>Check your inbox</h2>
+                  <p className={styles.confirmBody}>If an account exists for this email, recovery instructions will be sent. The link expires 30 minutes after issue.</p>
+                  <p className={styles.monoNote}>INTERFACE SPECIFICATION · RECOVERY DELIVERY IS NOT WIRED IN THIS RELEASE · NO EMAIL IS SENT</p>
+                </div>
+              ) : (
+                <form className={styles.form} onSubmit={onRecoverySubmit} noValidate>
+                  <div className={styles.field}>
+                    <Label htmlFor="recovery-email" className={styles.label}>Email</Label>
+                    <span className={styles.control}>
+                      <Mail className={styles.leadIcon} aria-hidden="true" />
+                      <Input
+                        id="recovery-email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        placeholder="name@company.com"
+                        className={styles.input}
+                        value={recoveryEmail}
+                        onChange={(event) => setRecoveryEmail(event.target.value)}
+                      />
+                    </span>
                   </div>
+                  <button type="submit" className={styles.btn} disabled={recoveryBar === "pending"}>Send recovery instructions</button>
+                  <span className={barClasses(recoveryBar)} aria-hidden="true"><span className={styles.barFill} /></span>
+                </form>
+              )}
+              <button type="button" className={styles.ghost} onClick={() => backToSignIn("recovery")}>Back to sign in</button>
+            </div>
+          ) : null}
 
-                  <div className="mt-5 rounded-[12px] border border-[#E8E2D9] bg-white p-4">
-                    <div className="flex items-end justify-between">
-                      <div>
-                        <p className="text-[12px] font-semibold text-[#17202A]">Operating Margin</p>
-                        <p className="mt-1 text-[11px] text-[#6B7280]">Quarterly trend</p>
-                      </div>
-                      <span className="text-sm font-semibold text-[#BA5C3D]">18.7%</span>
+          {view === "beta" ? (
+            <div className={styles.view}>
+              <button type="button" className={styles.backLink} onClick={() => backToSignIn("beta")}>← Back to sign in</button>
+              <p className={styles.eyebrow}>PRIVATE BETA</p>
+              <h1 className={styles.title}>Request access</h1>
+              <p className={styles.lede}>Pliny workspaces are currently created and approved by an administrator. Share only what is needed to review your request.</p>
+              {betaSent ? (
+                <div className={styles.confirm} role="status">
+                  <h2 className={styles.confirmTitle}>Request received</h2>
+                  <p className={styles.confirmBody}>An administrator reviews private-beta requests periodically. If a workspace is created for you, confirmation will be sent to this email.</p>
+                  <p className={styles.monoNote}>REQUESTS ARE NOT COLLECTED ONLINE DURING THE PRIVATE BETA · PROVISIONING IS MANUAL BY YOUR ADMINISTRATOR</p>
+                </div>
+              ) : (
+                <form className={styles.form} onSubmit={onBetaSubmit} noValidate>
+                  <div className={styles.field}>
+                    <Label htmlFor="beta-name" className={styles.label}>Name</Label>
+                    <span className={styles.control}>
+                      <Input id="beta-name" type="text" autoComplete="name" required placeholder="Your name" className={styles.input} />
+                    </span>
+                  </div>
+                  <div className={styles.field}>
+                    <Label htmlFor="beta-email" className={styles.label}>Work email</Label>
+                    <span className={styles.control}>
+                      <Mail className={styles.leadIcon} aria-hidden="true" />
+                      <Input id="beta-email" type="email" autoComplete="email" required placeholder="name@company.com" className={styles.input} />
+                    </span>
+                  </div>
+                  <div className={styles.field}>
+                    <Label htmlFor="beta-use" className={styles.label}>Intended use (optional)</Label>
+                    <textarea id="beta-use" className={styles.textarea} maxLength={200} placeholder="What would you review with Pliny?" />
+                    <p className={styles.helpLine}>Kept short on purpose — this is not a sales form.</p>
+                  </div>
+                  <button type="submit" className={styles.btn} disabled={betaBar === "pending"}>Request access</button>
+                  <span className={barClasses(betaBar)} aria-hidden="true"><span className={styles.barFill} /></span>
+                </form>
+              )}
+              <button type="button" className={styles.ghost} onClick={() => backToSignIn("beta")}>Back to sign in</button>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className={styles.paneDemo} aria-label="Source-backed answers demonstration">
+        <div className={styles.demoWrap}>
+          <p className={styles.eyebrow}>SOURCE-BACKED ANSWERS</p>
+          <h2 className={styles.demoTitle}>Review documents with the source beside you.</h2>
+          <div className={styles.card}>
+            <header className={styles.cardHead}>
+              <div>
+                <p className={styles.cardTitle}>Q2 Board Pack</p>
+                <p className={styles.cardSub}>12 documents</p>
+              </div>
+              <span className={styles.pills}>
+                <span className={styles.pill}><span className={styles.pillDot} aria-hidden="true" />PRIVACY-MINIMISED</span>
+                <span className={styles.pill}>3 citations</span>
+              </span>
+            </header>
+            <div className={styles.cardGrid}>
+              <div className={styles.cardBody}>
+                <p className={styles.qbubble}>What changed operating margin in Q2?</p>
+                <p className={styles.ansHead}><FileText className={styles.ansIcon} aria-hidden="true" />Answer</p>
+                <p className={styles.answer}>
+                  {ANSWER_CHUNKS.map((chunk) => (
+                    <span
+                      key={chunk.cite}
+                      className={`${styles.chunk} ${selCite === chunk.cite ? styles.sel : ""} ${hoverCite === chunk.cite ? styles.hi : ""}`}
+                    >
+                      {chunk.text}
+                      <button
+                        type="button"
+                        className={`${styles.cite} ${selCite === chunk.cite ? styles.sel : ""}`}
+                        aria-label={CITE_ARIA[chunk.cite - 1]}
+                        aria-pressed={selCite === chunk.cite}
+                        onClick={() => toggleCite(chunk.cite)}
+                        onMouseEnter={() => setHoverCite(chunk.cite)}
+                        onMouseLeave={() => setHoverCite(null)}
+                        onFocus={() => setHoverCite(chunk.cite)}
+                        onBlur={() => setHoverCite(null)}
+                      >
+                        {chunk.cite}
+                      </button>
+                    </span>
+                  ))}
+                </p>
+                <div className={styles.kpi}>
+                  <div className={styles.kpiHead}>
+                    <div>
+                      <p className={styles.kpiTitle}>Operating Margin</p>
+                      <p className={styles.kpiSub}>Quarterly trend · units % of revenue</p>
                     </div>
-                    <svg className="mt-3 h-20 w-full" viewBox="0 0 260 86" fill="none" aria-hidden="true">
-                      <path d="M8 68H252M8 46H252M8 24H252" stroke="#E8E2D9" strokeWidth="1" />
-                      <path d="M12 58L70 42L128 49L186 48L244 34" stroke="#BA5C3D" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                      {[12, 70, 128, 186, 244].map((cx) => (
-                        <circle key={cx} cx={cx} cy={cx === 244 ? 34 : cx === 70 ? 42 : cx === 12 ? 58 : cx === 128 ? 49 : 48} r="3" fill="#BA5C3D" stroke="#FFFFFF" strokeWidth="2" />
+                    <span className={styles.kpiVal}>18.7%</span>
+                  </div>
+                  <svg className={styles.chart} viewBox="0 0 560 150" fill="none" role="img" aria-label="Operating margin quarterly trend chart, units percent of revenue.">
+                    <g stroke="#EAEAEA" strokeWidth="1">
+                      <path d="M44 18H540" />
+                      <path d="M44 40H540" />
+                      <path d="M44 62H540" />
+                      <path d="M44 84H540" />
+                      <path d="M44 106H540" />
+                    </g>
+                    <g fill="#6E6E73" fontSize="10" fontFamily="var(--font-jetbrains-mono), monospace" textAnchor="end">
+                      <text x="36" y="21">24%</text>
+                      <text x="36" y="43">20%</text>
+                      <text x="36" y="65">16%</text>
+                      <text x="36" y="87">12%</text>
+                      <text x="36" y="109">8%</text>
+                    </g>
+                    <path d="M60 81.8L170 67L280 74.1L390 77.4L500 47.2" stroke="#AE4E24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    {CHART_POINTS.map((point, index) => (
+                      <g key={point.label} className={`${styles.pt} ${selCite !== null && point.cites.split(" ").includes(String(selCite)) ? styles.sel : ""}`} data-cite={point.cites}>
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          r="3.2"
+                          fill={index === CHART_POINTS.length - 1 ? "#AE4E24" : "#FFFFFF"}
+                          stroke="#AE4E24"
+                          strokeWidth="1.6"
+                        />
+                        <text x={point.x} y={point.y - 8} textAnchor="middle" fontSize="10" fill="#5F5F64" fontFamily="var(--font-jetbrains-mono), monospace">
+                          {point.label}
+                        </text>
+                      </g>
+                    ))}
+                    <g fill="#6E6E73" fontSize="10" fontFamily="var(--font-jetbrains-mono), monospace" textAnchor="middle">
+                      {CHART_QUARTERS.map((quarter, index) => (
+                        <text key={quarter} x={CHART_POINTS[index].x} y="134">{quarter}</text>
                       ))}
-                    </svg>
-                  </div>
-
-                  <ul className="mt-5 space-y-2">
-                    {previewTakeaways.map((takeaway) => (
-                      <li key={takeaway} className="flex items-start gap-2 text-[12px] leading-5 text-[#4B5563]">
-                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#BA5C3D]" aria-hidden="true" />
-                        <span>{takeaway}</span>
-                      </li>
-                    ))}
-                  </ul>
+                    </g>
+                  </svg>
                 </div>
-
-                <div className="border-t border-[#E8E2D9] bg-[#FBF8F3] p-4 xl:border-l xl:border-t-0">
-                  <div className="mb-4 flex items-center gap-2">
-                    <SearchCheck className="size-4 text-[#BA5C3D]" aria-hidden="true" />
-                    <h4 className="text-sm font-semibold text-[#17202A]">Sources</h4>
-                  </div>
-                  <div className="space-y-3">
-                    {previewSources.map((source, index) => (
-                      <MiniSourceCard key={source.title} index={index + 1} source={source} />
-                    ))}
-                  </div>
-                </div>
+                <ul className={styles.checks}>
+                  {CHECKS.map((check) => (
+                    <li key={check} className={styles.check}>
+                      <CheckCircle2 className={styles.checkIcon} aria-hidden="true" />
+                      <span>{check}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className={styles.sources}>
+                <p className={styles.sourcesHead}><SearchCheck className={styles.ansIcon} aria-hidden="true" />Sources</p>
+                {DEMO_SOURCES.map((source) => (
+                  <button
+                    key={source.id}
+                    type="button"
+                    className={`${styles.srcCard} ${selCite === source.id ? styles.sel : ""}`}
+                    aria-pressed={selCite === source.id}
+                    onClick={() => toggleCite(source.id)}
+                    onMouseEnter={() => setHoverCite(source.id)}
+                    onMouseLeave={() => setHoverCite(null)}
+                  >
+                    <FileText className={styles.srcIcon} aria-hidden="true" />
+                    <span className={styles.srcBody}>
+                      <span className={styles.srcTitleRow}>
+                        <span className={styles.srcTitle}>{source.title}</span>
+                        <span className={styles.srcNum}>{source.id}</span>
+                      </span>
+                      <span className={styles.srcLoc}>{source.location}</span>
+                      <span className={styles.srcSnippet}>{source.snippet}</span>
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
+          <p className={styles.paneNote}>INTERACTIVE DEMONSTRATION · SYNTHETIC DOCUMENTS</p>
         </div>
-      </div>
-    </aside>
-  );
-}
+      </section>
 
-function MiniSourceCard({ index, source }: { index: number; source: (typeof previewSources)[number] }) {
-  return (
-    <article className="rounded-[10px] border border-[#E8E2D9] bg-white p-3">
-      <div className="flex items-start gap-2">
-        <FileText className="mt-0.5 size-4 shrink-0 text-[#BA5C3D]" aria-hidden="true" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-[12px] font-semibold text-[#17202A]">{source.title}</p>
-            <span className="ml-auto shrink-0 rounded border border-[#BA5C3D]/25 bg-[#BA5C3D]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#BA5C3D]">{index}</span>
+      <div className={styles.brief}>
+        <p className={styles.briefText}>Every response is backed by source passages. Citations resolve to the exact page, sheet, or row that produced them.</p>
+        <details className={styles.disc}>
+          <summary className={styles.discSummary}>See how source-backed answers work</summary>
+          <div className={styles.discBody}>
+            <p className={styles.answer}>
+              Operating margin improved to <mark className={styles.mark}>18.7% on productivity gains and lower operating costs</mark>, while operating expenses decreased 6.3% QoQ, with productivity initiatives delivering $12.4M in annualized savings.
+            </p>
+            <ul className={styles.miniList}>
+              <li><span className={styles.srcNum}>1</span>Q2 Board Deck.pdf · p.7</li>
+              <li><span className={styles.srcNum}>2</span>Financials.xlsx · Sheet P&L</li>
+              <li><span className={styles.srcNum}>3</span>Management Memo.pdf · p.3</li>
+            </ul>
+            <p className={styles.monoNote}>INTERACTIVE DEMONSTRATION · SYNTHETIC DOCUMENTS</p>
           </div>
-          <p className="mt-0.5 text-[11px] text-[#6B7280]">{source.location}</p>
-          <p className="mt-2 line-clamp-2 text-[11px] leading-5 text-[#5F6875]">{source.excerpt}</p>
-        </div>
+        </details>
       </div>
-    </article>
+
+      <p className={styles.srOnly} role="status">{announce}</p>
+    </main>
   );
 }

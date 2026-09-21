@@ -11,7 +11,10 @@ export default function DashboardLoading() {
         </header>
 
         <section className="mt-10 flex flex-wrap items-end justify-between gap-5">
-          <div>
+          {/* B9 (FIX-B9-1): min-w-0 lets this auto-width flex item shrink below the
+              w-96 child's fixed width — max-w-full alone is indefinite during
+              intrinsic sizing, which overflowed the 390px viewport. */}
+          <div className="min-w-0 max-w-full">
             <div className="h-3 w-48 animate-pulse rounded bg-[#BA5C3D]/20" />
             <div className="mt-5 h-10 w-72 animate-pulse rounded bg-[#E7DDD0]" />
             <div className="mt-4 h-4 w-96 max-w-full animate-pulse rounded bg-[#E7DDD0]" />
@@ -19,20 +22,20 @@ export default function DashboardLoading() {
         </section>
 
         <section className="mt-10 overflow-hidden rounded-[18px] border border-[#E8E2D9] bg-white shadow-[0_24px_70px_rgba(72,48,31,0.08)]">
-          <div className="grid grid-cols-[minmax(0,1fr)_72px] gap-3 border-b border-[#E8E2D9] bg-[#FBF8F3] px-5 py-3 lg:grid-cols-[minmax(0,1fr)_120px_140px_92px]">
+          <div className="grid grid-cols-[minmax(0,1fr)_72px] gap-3 border-b border-[#E8E2D9] bg-[#FBF8F3] px-5 py-3 min-[900px]:grid-cols-[minmax(0,1fr)_120px_140px_92px]">
             <span className="h-3 w-24 animate-pulse rounded bg-[#E7DDD0]" />
-            <span className="hidden h-3 w-20 animate-pulse rounded bg-[#E7DDD0] lg:block" />
-            <span className="hidden h-3 w-20 animate-pulse rounded bg-[#E7DDD0] lg:block" />
+            <span className="hidden h-3 w-20 animate-pulse rounded bg-[#E7DDD0] min-[900px]:block" />
+            <span className="hidden h-3 w-20 animate-pulse rounded bg-[#E7DDD0] min-[900px]:block" />
             <span className="h-3 w-14 animate-pulse justify-self-end rounded bg-[#E7DDD0]" />
           </div>
           {[0, 1, 2, 3].map((item) => (
-            <div key={item} className="grid grid-cols-[minmax(0,1fr)_72px] items-center gap-3 border-b border-[#E8E2D9] px-5 py-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_120px_140px_92px]">
+            <div key={item} className="grid grid-cols-[minmax(0,1fr)_72px] items-center gap-3 border-b border-[#E8E2D9] px-5 py-4 last:border-b-0 min-[900px]:grid-cols-[minmax(0,1fr)_120px_140px_92px]">
               <div>
                 <div className="h-4 w-48 max-w-full animate-pulse rounded bg-[#E7DDD0]" />
                 <div className="mt-2 h-3 w-72 max-w-full animate-pulse rounded bg-[#F3EDE4]" />
               </div>
-              <span className="hidden h-3 w-20 animate-pulse rounded bg-[#F3EDE4] lg:block" />
-              <span className="hidden h-3 w-24 animate-pulse rounded bg-[#F3EDE4] lg:block" />
+              <span className="hidden h-3 w-20 animate-pulse rounded bg-[#F3EDE4] min-[900px]:block" />
+              <span className="hidden h-3 w-24 animate-pulse rounded bg-[#F3EDE4] min-[900px]:block" />
               <span className="h-8 w-16 animate-pulse justify-self-end rounded-[7px] bg-[#F3EDE4]" />
             </div>
           ))}

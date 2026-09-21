@@ -56,7 +56,7 @@ export default function CollectionLoading() {
             </div>
           </section>
 
-          <aside className="hidden h-full min-h-0 w-[280px] shrink-0 flex-col border-l border-black/[0.08] bg-[#F7F7F5]/70 lg:flex">
+          <aside className="hidden h-full min-h-0 w-[280px] shrink-0 flex-col border-l border-black/[0.08] bg-[#F7F7F5]/70 min-[900px]:flex">
             <div className="flex h-12 shrink-0 items-center gap-2 border-b border-black/[0.08] px-3">
               <SkeletonBlock className="h-4 w-24" />
               <SkeletonBlock className="ml-auto size-7 rounded-md" />
