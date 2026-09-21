@@ -68,6 +68,14 @@ assert.match(
   "the Ask navigation action must leave the Documents surface and focus the composer",
 );
 
+const rootLayoutSource = readFileSync("src/app/layout.tsx", "utf8");
+const webManifestSource = readFileSync("public/site.webmanifest", "utf8");
+const faviconSource = readFileSync("public/brand/pliny-monogram.svg", "utf8");
+assert.equal(rootLayoutSource.includes("/brand/pliny-monogram.svg?v=20260921"), true, "browser metadata must use the cache-busted editorial monogram");
+assert.equal(rootLayoutSource.includes("pliny-mark-16.png"), false, "browser metadata must not retain the legacy illustrated mark");
+assert.equal(webManifestSource.includes("/brand/pliny-monogram.svg?v=20260921"), true, "the install manifest must use the editorial monogram");
+assert.equal(faviconSource.includes("prefers-color-scheme: dark"), true, "the monochrome mark must remain legible in dark browser chrome");
+
 assert.equal(expandKnownRoleTerms("Who is the CTO?").includes("chief technology officer"), true);
 assert.deepEqual(getKnownRoleConcepts("Who serves as Chief Technology Officer?"), ["chief_technology_officer"]);
 assert.deepEqual(getKnownRoleConcepts("What happened in October?"), [], "unrelated embedded letters must remain a negative control");
