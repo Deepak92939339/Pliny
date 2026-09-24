@@ -3,17 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent as ReactFormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { CheckCircle2, FileText, LockKeyhole, Mail, SearchCheck, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/label";
-import { loginWithPassword } from "@/lib/auth/actions";
-import { authFormSchema, type AuthFormValues } from "@/lib/auth/schema";
+import { loginWithPassword, requestPasswordReset, signInWithGoogle, signupWithPassword } from "@/lib/auth/actions";
+import { authFormSchema, recoveryFormSchema, signupFormSchema, type AuthFormValues, type RecoveryFormValues } from "@/lib/auth/schema";
 import styles from "./AuthView.module.css";
 
-type View = "signin" | "recovery" | "beta";
+type AuthViewProps = {
+  mode?: "signin" | "signup";
+};
+
+type View = "main" | "recovery" | "recoverySent" | "signupSent";
 type BarState = "idle" | "pending" | "done";
 
 const ANSWER_CHUNKS = [
@@ -56,27 +60,27 @@ const CHART_QUARTERS = [
   "Q2 FY25",
 ];
 
-export function AuthView() {
+function barClasses(state: BarState) {
+  return `${styles.bar} ${state === "pending" ? styles.barPending : ""} ${state === "done" ? styles.barDone : ""}`;
+}
+
+export function AuthView({ mode = "signin" }: AuthViewProps) {
   const router = useRouter();
+  const isSignup = mode === "signup";
+  const [view, setView] = useState<View>("main");
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bar, setBar] = useState<BarState>("idle");
-  const [view, setView] = useState<View>("signin");
   const [announce, setAnnounce] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [showPassword, setShowPassword] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
   const [selCite, setSelCite] = useState<number | null>(null);
   const [hoverCite, setHoverCite] = useState<number | null>(null);
-  const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoveryBar, setRecoveryBar] = useState<BarState>("idle");
-  const [recoverySent, setRecoverySent] = useState(false);
-  const [betaBar, setBetaBar] = useState<BarState>("idle");
-  const [betaSent, setBetaSent] = useState(false);
-
+  const [signupEmail, setSignupEmail] = useState("");
   const forgotRef = useRef<HTMLButtonElement>(null);
-  const requestRef = useRef<HTMLButtonElement>(null);
-  const pendingFocusRef = useRef<"forgot" | "request" | null>(null);
+  const pendingFocusRef = useRef<string | null>(null);
   const timersRef = useRef<number[]>([]);
 
   const {
@@ -85,11 +89,18 @@ export function AuthView() {
     getValues,
     formState: { errors },
   } = useForm<AuthFormValues>({
-    resolver: zodResolver(authFormSchema),
+    resolver: zodResolver(isSignup ? signupFormSchema : authFormSchema),
     defaultValues: {
       name: "",
       email: "",
       password: "",
+    },
+  });
+
+  const recoveryForm = useForm<RecoveryFormValues>({
+    resolver: zodResolver(recoveryFormSchema),
+    defaultValues: {
+      email: "",
     },
   });
 
@@ -100,10 +111,20 @@ export function AuthView() {
 
   useEffect(() => {
     if (!pendingFocusRef.current) return;
-    const target = pendingFocusRef.current === "forgot" ? forgotRef.current : requestRef.current;
+    const target = document.getElementById(pendingFocusRef.current);
     pendingFocusRef.current = null;
     target?.focus();
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("auth");
+    if (code === "confirm-failed" || code === "confirm-invalid") {
+      setAuthError("That confirmation link is no longer valid. Sign in again or request a new link.");
+    } else if (code === "error") {
+      setAuthError("Unable to complete sign-in. Please try again.");
+    }
+  }, []);
 
   const emailRegistration = register("email", {
     onBlur: () => {
@@ -127,7 +148,12 @@ export function AuthView() {
   const emailError = errors.email?.message ?? fieldErrors.email;
   const passwordError = errors.password?.message ?? fieldErrors.password;
 
-  async function onSubmit(values: AuthFormValues) {
+  function finishBar(setter: (state: BarState) => void) {
+    setter("done");
+    timersRef.current.push(window.setTimeout(() => setter("idle"), 480));
+  }
+
+  async function onLoginSubmit(values: AuthFormValues) {
     setAuthError(null);
     setIsSubmitting(true);
     setBar("pending");
@@ -142,65 +168,81 @@ export function AuthView() {
       router.refresh();
     } finally {
       setIsSubmitting(false);
-      setBar("done");
-      timersRef.current.push(window.setTimeout(() => setBar("idle"), 480));
+      finishBar(setBar);
     }
   }
 
-  function retry() {
-    document.getElementById("email")?.focus();
-    void handleSubmit(onSubmit)();
+  async function onSignupSubmit(values: AuthFormValues) {
+    setAuthError(null);
+    setIsSubmitting(true);
+    setBar("pending");
+    try {
+      const result = await signupWithPassword(values);
+      if (result.status === "error") {
+        setAuthError(result.message);
+        setAnnounce(result.message);
+        return;
+      }
+      setSignupEmail(values.email);
+      setView("signupSent");
+      setAnnounce("Confirmation email requested.");
+    } finally {
+      setIsSubmitting(false);
+      finishBar(setBar);
+    }
+  }
+
+  async function onRecoverySubmit(values: RecoveryFormValues) {
+    setAuthError(null);
+    setRecoveryBar("pending");
+    try {
+      await requestPasswordReset(values);
+      setView("recoverySent");
+      setAnnounce("Recovery instructions requested.");
+    } finally {
+      setRecoveryBar("done");
+      timersRef.current.push(window.setTimeout(() => setRecoveryBar("idle"), 480));
+    }
+  }
+
+  async function handleGoogle() {
+    setAuthError(null);
+    setIsSubmitting(true);
+    setBar("pending");
+    try {
+      const result = await signInWithGoogle();
+      if (result.status === "error") {
+        setIsSubmitting(false);
+        finishBar(setBar);
+        setAuthError(result.message);
+        setAnnounce(result.message);
+        return;
+      }
+      window.location.assign(result.redirectUrl);
+    } catch {
+      setIsSubmitting(false);
+      finishBar(setBar);
+      const message = "Unable to start Google sign-in right now. Please try again.";
+      setAuthError(message);
+      setAnnounce(message);
+    }
+  }
+
+  function openRecovery() {
+    recoveryForm.setValue("email", getValues("email"));
+    setView("recovery");
+    pendingFocusRef.current = "recovery-email";
+    setAnnounce("Account recovery view opened.");
+  }
+
+  function backToMain(focusId: string) {
+    setView("main");
+    pendingFocusRef.current = focusId;
+    setAnnounce("Returned to the sign-in form.");
   }
 
   function onCapsCheck(event: ReactKeyboardEvent<HTMLInputElement>) {
     setCapsLock(event.getModifierState("CapsLock"));
-  }
-
-  function openRecovery() {
-    setRecoveryEmail(getValues("email"));
-    setRecoverySent(false);
-    setRecoveryBar("idle");
-    setView("recovery");
-    setAnnounce("Account recovery view opened.");
-  }
-
-  function openBeta() {
-    setBetaSent(false);
-    setBetaBar("idle");
-    setView("beta");
-    setAnnounce("Request access view opened.");
-  }
-
-  function backToSignIn(from: "recovery" | "beta") {
-    pendingFocusRef.current = from === "recovery" ? "forgot" : "request";
-    setView("signin");
-    setAnnounce("Returned to sign in.");
-  }
-
-  function onRecoverySubmit(event: ReactFormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setRecoveryBar("pending");
-    timersRef.current.push(
-      window.setTimeout(() => {
-        setRecoveryBar("done");
-        setRecoverySent(true);
-        setAnnounce("Recovery confirmation shown. No email is sent in this release.");
-        timersRef.current.push(window.setTimeout(() => setRecoveryBar("idle"), 480));
-      }, 900),
-    );
-  }
-
-  function onBetaSubmit(event: ReactFormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBetaBar("pending");
-    timersRef.current.push(
-      window.setTimeout(() => {
-        setBetaBar("done");
-        setBetaSent(true);
-        setAnnounce("Request received confirmation shown. Requests are not collected online.");
-        timersRef.current.push(window.setTimeout(() => setBetaBar("idle"), 480));
-      }, 900),
-    );
   }
 
   function toggleCite(id: number) {
@@ -209,36 +251,36 @@ export function AuthView() {
     setAnnounce(next === null ? "Citation deselected." : `Citation ${next} selected; matching evidence highlighted.`);
   }
 
-  function barClasses(state: BarState) {
-    return `${styles.bar} ${state === "pending" ? styles.barPending : ""} ${state === "done" ? styles.barDone : ""}`;
-  }
-
   return (
     <main className={styles.shell}>
-      <a className={styles.skip} href="#signin-form">Skip to sign-in form</a>
-
-      <section className={styles.paneForm} aria-label="Sign in">
+      <a className={styles.skip} href="#auth-form">Skip to the form</a>
+      <section className={styles.paneForm} aria-label={isSignup ? "Create account" : "Sign in"}>
         <header className={styles.brandRow}>
           <Link href="/" className={styles.brand} aria-label="Pliny home">Pliny</Link>
-          <span className={styles.betaTag}>PRIVATE BETA</span>
         </header>
-
         <div className={styles.formCol}>
-          {view === "signin" ? (
+          {view === "main" ? (
             <div className={styles.view}>
               <div className={styles.statusSlot}>
                 {authError ? (
                   <div className={styles.notice} role="alert">
                     <span>{authError}</span>
-                    <button type="button" className={styles.noticeRetry} onClick={retry}>Retry</button>
                   </div>
                 ) : null}
               </div>
-              <p className={styles.eyebrow}>SECURE ACCESS</p>
-              <h1 className={styles.title}>Sign in to your workspace</h1>
-              <p className={styles.lede}>Access your documents and their answers. Every response is backed by source passages.</p>
-
-              <form id="signin-form" className={styles.form} onSubmit={handleSubmit(onSubmit)} noValidate>
+              <p className={styles.eyebrow}>{isSignup ? "CREATE ACCOUNT" : "SECURE ACCESS"}</p>
+              <h1 className={styles.title}>{isSignup ? "Create your Pliny account" : "Sign in to your workspace"}</h1>
+              <p className={styles.lede}>
+                {isSignup
+                  ? "We email you a confirmation link before your account can sign in. No workspace is created until your email is verified."
+                  : "Access your documents and their answers. Every response is backed by source passages."}
+              </p>
+              <form
+                id="auth-form"
+                className={styles.form}
+                onSubmit={handleSubmit(isSignup ? onSignupSubmit : onLoginSubmit)}
+                noValidate
+              >
                 <div className={styles.field}>
                   <Label htmlFor="email" className={styles.label}>Email</Label>
                   <span className={styles.control}>
@@ -256,18 +298,19 @@ export function AuthView() {
                   </span>
                   <p id="email-msg" className={styles.msg} aria-live="polite">{emailError ?? ""}</p>
                 </div>
-
                 <div className={styles.field}>
                   <span className={styles.labelRow}>
                     <Label htmlFor="password" className={styles.label}>Password</Label>
-                    <button ref={forgotRef} type="button" className={styles.flink} onClick={openRecovery}>Forgot password?</button>
+                    {isSignup ? null : (
+                      <button ref={forgotRef} type="button" className={styles.flink} onClick={openRecovery}>Forgot password?</button>
+                    )}
                   </span>
                   <span className={`${styles.control} ${showPassword ? styles.show : ""}`}>
                     <LockKeyhole className={styles.leadIcon} aria-hidden="true" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      autoComplete="current-password"
+                      autoComplete={isSignup ? "new-password" : "current-password"}
                       placeholder="Enter your password"
                       className={`${styles.input} ${passwordError ? styles.bad : ""}`}
                       aria-invalid={passwordError ? "true" : "false"}
@@ -292,16 +335,25 @@ export function AuthView() {
                   <p id="password-msg" className={styles.msg} aria-live="polite">{passwordError ?? ""}</p>
                   <p className={`${styles.caps} ${capsLock ? styles.capsOn : ""}`} aria-live="polite">{capsLock ? "CAPS LOCK IS ON" : ""}</p>
                 </div>
-
                 <button type="submit" className={styles.btn} disabled={isSubmitting}>
-                  {isSubmitting ? "Please wait" : "Sign in"}
+                  {isSubmitting ? "Please wait" : isSignup ? "Create account" : "Sign in"}
+                </button>
+                <button type="button" className={styles.ghost} disabled={isSubmitting} onClick={handleGoogle}>
+                  Continue with Google
                 </button>
                 <span className={barClasses(bar)} aria-hidden="true"><span className={styles.barFill} /></span>
               </form>
-
               <div className={styles.foot}>
-                <p className={styles.betaNote}>Pliny is a private beta. Accounts are created and confirmed by an administrator.</p>
-                <button ref={requestRef} type="button" className={styles.flinkCenter} onClick={openBeta}>Request access</button>
+                <p className={styles.footNote}>
+                  {isSignup
+                    ? "Already have a confirmed account? Sign in with your email and password."
+                    : "New to Pliny? Create an account and confirm your email to get started."}
+                </p>
+                {isSignup ? (
+                  <Link href="/login" className={styles.flinkCenter}>Sign in</Link>
+                ) : (
+                  <Link href="/signup" className={styles.flinkCenter}>Create account</Link>
+                )}
                 <p className={styles.privacy}>
                   <ShieldCheck className={styles.privacyIcon} aria-hidden="true" />
                   Your documents stay private. Every answer shows exactly where it came from.
@@ -312,79 +364,56 @@ export function AuthView() {
 
           {view === "recovery" ? (
             <div className={styles.view}>
-              <button type="button" className={styles.backLink} onClick={() => backToSignIn("recovery")}>← Back to sign in</button>
+              <button type="button" className={styles.backLink} onClick={() => backToMain("email")}>← Back to sign in</button>
               <p className={styles.eyebrow}>ACCOUNT RECOVERY</p>
               <h1 className={styles.title}>Reset your password</h1>
               <p className={styles.lede}>Enter the email you use for Pliny and we&apos;ll explain the next step.</p>
-              {recoverySent ? (
-                <div className={styles.confirm} role="status">
-                  <h2 className={styles.confirmTitle}>Check your inbox</h2>
-                  <p className={styles.confirmBody}>If an account exists for this email, recovery instructions will be sent. The link expires 30 minutes after issue.</p>
-                  <p className={styles.monoNote}>INTERFACE SPECIFICATION · RECOVERY DELIVERY IS NOT WIRED IN THIS RELEASE · NO EMAIL IS SENT</p>
+              <form className={styles.form} onSubmit={recoveryForm.handleSubmit(onRecoverySubmit)} noValidate>
+                <div className={styles.field}>
+                  <Label htmlFor="recovery-email" className={styles.label}>Email</Label>
+                  <span className={styles.control}>
+                    <Mail className={styles.leadIcon} aria-hidden="true" />
+                    <Input
+                      id="recovery-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="name@company.com"
+                      className={styles.input}
+                      aria-invalid={recoveryForm.formState.errors.email ? "true" : "false"}
+                      aria-describedby="recovery-email-msg"
+                      {...recoveryForm.register("email")}
+                    />
+                  </span>
+                  <p id="recovery-email-msg" className={styles.msg} aria-live="polite">
+                    {recoveryForm.formState.errors.email?.message ?? ""}
+                  </p>
                 </div>
-              ) : (
-                <form className={styles.form} onSubmit={onRecoverySubmit} noValidate>
-                  <div className={styles.field}>
-                    <Label htmlFor="recovery-email" className={styles.label}>Email</Label>
-                    <span className={styles.control}>
-                      <Mail className={styles.leadIcon} aria-hidden="true" />
-                      <Input
-                        id="recovery-email"
-                        type="email"
-                        autoComplete="email"
-                        required
-                        placeholder="name@company.com"
-                        className={styles.input}
-                        value={recoveryEmail}
-                        onChange={(event) => setRecoveryEmail(event.target.value)}
-                      />
-                    </span>
-                  </div>
-                  <button type="submit" className={styles.btn} disabled={recoveryBar === "pending"}>Send recovery instructions</button>
-                  <span className={barClasses(recoveryBar)} aria-hidden="true"><span className={styles.barFill} /></span>
-                </form>
-              )}
-              <button type="button" className={styles.ghost} onClick={() => backToSignIn("recovery")}>Back to sign in</button>
+                <button type="submit" className={styles.btn} disabled={recoveryBar === "pending"}>Send recovery instructions</button>
+                <span className={barClasses(recoveryBar)} aria-hidden="true"><span className={styles.barFill} /></span>
+              </form>
+              <button type="button" className={styles.ghost} onClick={() => backToMain("email")}>Back to sign in</button>
             </div>
           ) : null}
 
-          {view === "beta" ? (
+          {view === "recoverySent" ? (
             <div className={styles.view}>
-              <button type="button" className={styles.backLink} onClick={() => backToSignIn("beta")}>← Back to sign in</button>
-              <p className={styles.eyebrow}>PRIVATE BETA</p>
-              <h1 className={styles.title}>Request access</h1>
-              <p className={styles.lede}>Pliny workspaces are currently created and approved by an administrator. Share only what is needed to review your request.</p>
-              {betaSent ? (
-                <div className={styles.confirm} role="status">
-                  <h2 className={styles.confirmTitle}>Request received</h2>
-                  <p className={styles.confirmBody}>An administrator reviews private-beta requests periodically. If a workspace is created for you, confirmation will be sent to this email.</p>
-                  <p className={styles.monoNote}>REQUESTS ARE NOT COLLECTED ONLINE DURING THE PRIVATE BETA · PROVISIONING IS MANUAL BY YOUR ADMINISTRATOR</p>
-                </div>
-              ) : (
-                <form className={styles.form} onSubmit={onBetaSubmit} noValidate>
-                  <div className={styles.field}>
-                    <Label htmlFor="beta-name" className={styles.label}>Name</Label>
-                    <span className={styles.control}>
-                      <Input id="beta-name" type="text" autoComplete="name" required placeholder="Your name" className={styles.input} />
-                    </span>
-                  </div>
-                  <div className={styles.field}>
-                    <Label htmlFor="beta-email" className={styles.label}>Work email</Label>
-                    <span className={styles.control}>
-                      <Mail className={styles.leadIcon} aria-hidden="true" />
-                      <Input id="beta-email" type="email" autoComplete="email" required placeholder="name@company.com" className={styles.input} />
-                    </span>
-                  </div>
-                  <div className={styles.field}>
-                    <Label htmlFor="beta-use" className={styles.label}>Intended use (optional)</Label>
-                    <textarea id="beta-use" className={styles.textarea} maxLength={200} placeholder="What would you review with Pliny?" />
-                    <p className={styles.helpLine}>Kept short on purpose — this is not a sales form.</p>
-                  </div>
-                  <button type="submit" className={styles.btn} disabled={betaBar === "pending"}>Request access</button>
-                  <span className={barClasses(betaBar)} aria-hidden="true"><span className={styles.barFill} /></span>
-                </form>
-              )}
-              <button type="button" className={styles.ghost} onClick={() => backToSignIn("beta")}>Back to sign in</button>
+              <div className={styles.confirm} role="status">
+                <h2 className={styles.confirmTitle}>Check your inbox</h2>
+                <p className={styles.confirmBody}>If an account exists for this email, recovery instructions will be sent. The link expires 30 minutes after issue.</p>
+              </div>
+              <button type="button" className={styles.ghost} onClick={() => backToMain("email")}>Back to sign in</button>
+            </div>
+          ) : null}
+
+          {view === "signupSent" ? (
+            <div className={styles.view}>
+              <div className={styles.confirm} role="status">
+                <h2 className={styles.confirmTitle}>Confirm your email</h2>
+                <p className={styles.confirmBody}>
+                  We sent a confirmation link to {signupEmail || "your email"}. Follow it to activate your account, then sign in.
+                </p>
+              </div>
+              <Link href="/login" className={styles.ghost}>Back to sign in</Link>
             </div>
           ) : null}
         </div>
@@ -530,7 +559,7 @@ export function AuthView() {
               <li><span className={styles.srcNum}>2</span>Financials.xlsx · Sheet P&L</li>
               <li><span className={styles.srcNum}>3</span>Management Memo.pdf · p.3</li>
             </ul>
-            <p className={styles.monoNote}>INTERACTIVE DEMONSTRATION · SYNTHETIC DOCUMENTS</p>
+            <p className={styles.paneNote}>INTERACTIVE DEMONSTRATION · SYNTHETIC DOCUMENTS</p>
           </div>
         </details>
       </div>

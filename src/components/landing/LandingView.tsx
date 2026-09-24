@@ -422,10 +422,10 @@ export function LandingView() {
               Sign in
             </Link>
             <Link
-              href="/access"
+              href="/signup"
               className="inline-flex h-10 shrink-0 items-center justify-center rounded-[7px] bg-[#0C1427] px-4 text-[13px] font-semibold text-[#FCFBF8] transition-colors hover:bg-[#17213A] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25"
             >
-              Request access
+              Create account
             </Link>
             <button
               ref={menuTriggerRef}
@@ -452,11 +452,11 @@ export function LandingView() {
                 Sign in
               </Link>
               <Link
-                href="/access"
+                href="/signup"
                 className="mx-1 mt-1 inline-flex h-10 items-center justify-center rounded-[7px] bg-[#0C1427] text-[13px] font-semibold text-[#FCFBF8] hover:bg-[#17213A]"
                 onClick={() => setMenuOpen(false)}
               >
-                Request access
+                Create account
               </Link>
             </div>
           ) : null}
@@ -472,10 +472,10 @@ export function LandingView() {
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/access"
+            href="/signup"
             className="inline-flex h-11 min-w-[200px] items-center justify-center rounded-[7px] bg-[#0C1427] px-6 text-[14px] font-semibold text-[#FCFBF8] transition-colors hover:bg-[#17213A] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25"
           >
-            Request access
+            Create account
           </Link>
           <a
             href="#stage"

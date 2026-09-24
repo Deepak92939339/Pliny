@@ -134,11 +134,18 @@ async function cleanup() {
 }
 
 try {
-  const { data, error } = await userClient.auth.signUp({ email, password });
-  assert.ifError(error);
-  assert.ok(data.user?.id, "The synthetic user must be created.");
-  assert.ok(data.session, "Local authentication must issue a synthetic session.");
-  userId = data.user.id;
+  const { data: createdUser, error: createUserError } = await adminClient.auth.admin.createUser({
+    email,
+    email_confirm: true,
+    password,
+  });
+  assert.ifError(createUserError);
+  assert.ok(createdUser.user?.id, "The confirmed synthetic user must be created.");
+  userId = createdUser.user.id;
+
+  const { data: signedIn, error: signInError } = await userClient.auth.signInWithPassword({ email, password });
+  assert.ifError(signInError);
+  assert.ok(signedIn.session, "Local authentication must issue a synthetic session.");
 
   const standardCollectionId = await createCollection(`Synthetic local E2E ${testSuffix}`);
   const textDocumentId = await uploadDocument(standardCollectionId, {
