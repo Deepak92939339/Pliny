@@ -108,10 +108,10 @@ assert.deepEqual(capturedBody, {
     { content: system, role: "system" },
     { content: prompt, role: "user" },
   ],
-  model: "z-ai/glm-5.3-flash",
+  model: OPENROUTER_DEFAULT_MODEL,
   temperature: 0.2,
 });
-assert.equal(capturedBody.model, "z-ai/glm-5.3-flash", "the API model identifier must not use an upstream endpoint label");
+assert.equal(capturedBody.model, OPENROUTER_DEFAULT_MODEL, "the API model identifier must not use an upstream endpoint label");
 assert.equal(JSON.stringify(capturedBody).includes("z-ai/fp8"), false);
 assert.throws(
   () => getConfiguredOpenRouterModel({ OPENROUTER_MODEL: "z-ai/fp8" }),
@@ -119,7 +119,7 @@ assert.throws(
 );
 assert.equal(
   routeModel({ answerProvider: "openrouter", maxOutputTokens: 120, question: "Compare every clause", retrievedChunkCount: 8 }).selectedModel,
-  "z-ai/glm-5.3-flash",
+  OPENROUTER_DEFAULT_MODEL,
   "OpenRouter must use its configured API model identifier without Anthropic hard-question routing"
 );
 

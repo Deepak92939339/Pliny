@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { GenerationProviderPayload } from "./providerBoundary.ts";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-export const OPENROUTER_DEFAULT_MODEL = "z-ai/glm-5.3-flash";
+export const OPENROUTER_DEFAULT_MODEL = "openai/gpt-6-luna";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_RETRIES = 2;

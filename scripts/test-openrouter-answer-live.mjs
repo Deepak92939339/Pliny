@@ -1,5 +1,5 @@
 import nextEnv from "@next/env";
-import { createAnswerProvider, getConfiguredOpenRouterModel } from "../src/lib/ai/answerProvider.ts";
+import { createAnswerProvider, getConfiguredOpenRouterModel, OPENROUTER_DEFAULT_MODEL } from "../src/lib/ai/answerProvider.ts";
 import { buildGenerationProviderPayload } from "../src/lib/ai/providerBoundary.ts";
 import { validateCitations } from "../src/lib/citations/validateCitations.ts";
 
@@ -37,7 +37,7 @@ const cases = [
   },
 ].filter((testCase) => selectedCase === "all" || selectedCase === testCase.id);
 
-if (provider.name !== "openrouter" || !provider.configured || model !== "z-ai/glm-5.3-flash" || cases.length === 0) {
+if (provider.name !== "openrouter" || !provider.configured || model !== OPENROUTER_DEFAULT_MODEL || cases.length === 0) {
   console.log(
     JSON.stringify({
       approximateCostUsd: null,

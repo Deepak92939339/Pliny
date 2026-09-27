@@ -92,6 +92,37 @@ function estimateTokenCount(characters: number) {
 }
 
 function getModelRates(model: string) {
+  const configuredRates = process.env.AI_MODEL_PRICING_JSON;
+  if (configuredRates) {
+    let pricing: unknown;
+    try {
+      pricing = JSON.parse(configuredRates);
+    } catch {
+      throw new Error("AI_MODEL_PRICING_JSON must be valid JSON.");
+    }
+    if (!pricing || typeof pricing !== "object" || Array.isArray(pricing)) {
+      throw new Error("AI_MODEL_PRICING_JSON must map model IDs to token rates.");
+    }
+    const entry = Object.hasOwn(pricing, model) ? (pricing as Record<string, unknown>)[model] : undefined;
+    if (entry !== undefined) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        throw new Error("AI_MODEL_PRICING_JSON contains invalid token rates.");
+      }
+      const { inputUsdPerMillion, outputUsdPerMillion } = entry as Record<string, unknown>;
+      if (
+        typeof inputUsdPerMillion !== "number" || !Number.isFinite(inputUsdPerMillion) || inputUsdPerMillion < 0 ||
+        typeof outputUsdPerMillion !== "number" || !Number.isFinite(outputUsdPerMillion) || outputUsdPerMillion < 0
+      ) {
+        throw new Error("AI_MODEL_PRICING_JSON contains invalid token rates.");
+      }
+      return { inputUsdPerMillion, outputUsdPerMillion };
+    }
+  }
+
+  if (model === "openai/gpt-6-luna") {
+    return { inputUsdPerMillion: 0.1, outputUsdPerMillion: 0.5 };
+  }
+
   if (model.toLowerCase().includes("sonnet")) {
     return {
       inputUsdPerMillion: 3,

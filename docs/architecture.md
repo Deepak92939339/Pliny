@@ -1,8 +1,8 @@
 # Pliny architecture
 
-Pliny is a private, source-grounded document intelligence workspace. This document describes the implemented system on `feature/openrouter-glm-answer-model`, based on release-candidate commit `d215f1280a1416910fb81a83a879a534b6bb325b`.
+Pliny is a private, source-grounded document intelligence workspace. This document describes the current application architecture; the release history is recorded in the case study and runbook.
 
-The provider integrations are replaceable boundaries. Voyage is the embedding processor. OpenRouter with `z-ai/glm-5.3-flash` is the default answer processor; Anthropic remains manually selectable by configuration without automatic fallback.
+The provider integrations are replaceable boundaries. Voyage 4 is the embedding model through direct Voyage or OpenRouter transport. OpenRouter with `openai/gpt-6-luna` is the default answer processor; Anthropic remains manually selectable by configuration without automatic fallback.
 
 ## View 1 — System topology
 
@@ -39,8 +39,8 @@ flowchart LR
 
   subgraph External["External processing boundaries"]
     Upstash["Upstash Redis<br/>rate-limit counters only"]
-    Voyage["Voyage<br/>document/query embeddings"]
-    AnswerProvider["Answer provider<br/>OpenRouter GLM default · Anthropic manual"]
+    Voyage["Voyage 4 via direct or OpenRouter transport<br/>document/query embeddings"]
+    AnswerProvider["Answer provider<br/>OpenRouter Luna default · Anthropic manual"]
   end
 
   Reconcile["Storage reconciliation tooling<br/>two witnesses · signed manifest · exact-path cleanup"]
@@ -101,7 +101,7 @@ flowchart TB
   end
 
   subgraph Index["Embedding and indexing"]
-    A18["18 · Batch embedding request<br/>Voyage HTTPS, bounded batches, complete-set requirement"]
+    A18["18 · Batch embedding request<br/>Voyage direct/OpenRouter HTTPS, bounded batches, complete-set requirement"]
     A19["19 · Vector persistence<br/>PostgreSQL vector(1024)"]
     A20["20 · Lexical materialization<br/>generated original/provider-safe tsvector + GIN indexes"]
     A21["21 · Ready transition<br/>complete chunk upsert, stale-chunk removal, document status update"]
@@ -149,7 +149,7 @@ flowchart TB
   Q8["8 · Stop-word treatment"]
   Q9["9 · Bounded acronym/title alternatives<br/>deterministic known-role mapping"]
   Q10["10 · Document-scoped privacy query transform<br/>HMAC pseudonyms when required"]
-  Q11["11 · Vector query embedding<br/>Voyage, transformed query in privacy mode"]
+  Q11["11 · Vector query embedding<br/>Voyage 4, transformed query in privacy mode"]
   Q12["12 · Mode-aware lexical RPC<br/>original or provider-safe generated tsvector"]
   Q13["13 · Semantic retrieval<br/>pgvector cosine RPC, collection/document/owner scoped"]
   Q14["14 · Lexical retrieval<br/>PostgreSQL websearch_to_tsquery + GIN"]
@@ -161,7 +161,7 @@ flowchart TB
   Refusal["20 · Structured refusal<br/>no answer-provider call; reason + closest matches"]
   Q21["21 · Bounded source envelope<br/>selected chunks clamped by count and characters"]
   Q22["22 · Privacy payload assertion<br/>detected originals forbidden when privacy-minimised"]
-  Q23["23 · Answer generation<br/>OpenRouter GLM default; Anthropic manually selectable"]
+  Q23["23 · Answer generation<br/>OpenRouter Luna default; Anthropic manually selectable"]
   Q24["24 · Citation parsing<br/>[[s.X]] and page markers"]
   Q25["25 · Citation validation<br/>resolvable source IDs, chart refs and document coverage"]
   Q26["26 · Bounded citation repair<br/>one additional same-provider call only when eligible; same masked context in privacy mode"]
@@ -220,8 +220,8 @@ flowchart LR
   end
 
   subgraph Providers["External boundaries"]
-    V["Voyage<br/>original or masked text/query by mode"]
-    A["Configured answer provider<br/>OpenRouter GLM default · Anthropic manual"]
+    V["Voyage 4 via direct/OpenRouter transport<br/>original or masked text/query by mode"]
+    A["Configured answer provider<br/>OpenRouter Luna default · Anthropic manual"]
     U["Upstash<br/>user-scoped rate-limit key and counters"]
   end
 

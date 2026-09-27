@@ -51,7 +51,7 @@ Pliny treats evidence as the product boundary. Retrieval happens before generati
 
 Pliny uses a React 19 interface and Next.js 15 App Router on Vercel. Supabase provides authentication, private object storage and PostgreSQL with pgvector, generated lexical indexes, row-level security and explicit role grants. Server-side ingestion selects a processor by file type, normalises provenance, creates bounded chunks and builds either original or provider-safe retrieval material.
 
-At query time, Pliny resolves document scope and the strictest participating privacy boundary, runs lexical and semantic retrieval, fuses and validates the evidence, and only then constructs a bounded generation envelope. Voyage currently supplies embeddings and Anthropic currently supplies answer generation; both sit behind replaceable server-side provider boundaries rather than defining the product architecture.
+At query time, Pliny resolves document scope and the strictest participating privacy boundary, runs lexical and semantic retrieval, fuses and validates the evidence, and only then constructs a bounded generation envelope. Voyage 4 supplies 1,024-dimensional embeddings through the configured direct or OpenRouter transport. OpenRouter's `openai/gpt-6-luna` supplies answers by default; Anthropic remains an explicitly selectable alternative, with no automatic fallback. All provider calls stay behind server-side boundaries.
 
 ```mermaid
 flowchart LR
@@ -71,7 +71,7 @@ flowchart LR
     Fusion["Hybrid rank fusion"]
     Gate{"Evidence-sufficiency gate"}
     Refusal["Refusal when insufficient"]
-    Generate["Bounded Anthropic generation<br/>when sufficient"]
+    Generate["Bounded OpenRouter Luna generation<br/>when sufficient"]
     Cite["Citation validation"]
     Persist["Persistence"]
     Inspector["Source Inspector"]
@@ -88,7 +88,7 @@ flowchart LR
 
   subgraph Controls["Control and provider boundaries"]
     Rate["Upstash rate limits"]
-    Providers["Provider boundaries<br/>Voyage · Anthropic"]
+    Providers["Provider boundaries<br/>Voyage direct/OpenRouter · OpenRouter Luna · Anthropic optional"]
   end
 
   Routes --> Auth
@@ -172,8 +172,14 @@ Legacy `.xls`, macro-enabled spreadsheets, presentations, notebooks and arbitrar
 - Provider account-level zero-retention remains unverified.
 - Poor scans may exceed the bounded OCR path.
 - Provider-backed quality evaluation is still limited relative to the deterministic suite.
-- GLM is planned but not implemented; Anthropic remains the current answer provider.
+- The answer and embedding providers are external processors. The daily answer budget is an estimate, not an account-level spending cap, and does not include embedding charges.
 - Team roles, SSO and billing are not implemented.
 - A moderate transitive `@xmldom/xmldom` advisory remains open.
 
 See [current limitations](./docs/limitations.md) for the precise boundaries.
+
+## Runtime configuration
+
+Keep credentials in Vercel's Production environment (and in ignored `.env.local` for local work), never in Git. This release uses `ANSWER_PROVIDER=openrouter`, `OPENROUTER_MODEL=openai/gpt-6-luna`, `EMBEDDINGS_PROVIDER=openrouter`, `EMBEDDING_MODEL=voyageai/voyage-4`, and `EMBEDDING_DIMENSIONS=1024`. `OPENROUTER_API_KEY` authorizes answers; a separate `OPENROUTER_EMBEDDINGS_API_KEY` authorizes embeddings. The direct Voyage path remains available with `EMBEDDINGS_PROVIDER=voyage`, `EMBEDDING_MODEL=voyage-4`, and `VOYAGE_API_KEY`.
+
+For the requested limits, set `AI_MODEL_PRICING_JSON={"openai/gpt-6-luna":{"inputUsdPerMillion":0.10,"outputUsdPerMillion":0.50}}`, `AI_DAILY_BUDGET_INR=100`, and `AI_MAX_REQUESTS_PER_DAY=600` in Production. These are server-side preflight estimates. At the current fixed `INR_PER_USD_ESTIMATE=85`, ₹100 corresponds to about $1.18—not a strict $1 ceiling. Embedding usage is not included in that budget.

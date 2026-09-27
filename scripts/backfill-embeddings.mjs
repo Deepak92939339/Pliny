@@ -52,8 +52,8 @@ if (process.env.EMBEDDINGS_ENABLED !== "true") {
   process.exit(1);
 }
 
-if ((process.env.EMBEDDINGS_PROVIDER || "voyage") !== "voyage") {
-  console.error("Embedding backfill skipped: only EMBEDDINGS_PROVIDER=voyage is supported.");
+if (!["voyage", "openrouter"].includes(process.env.EMBEDDINGS_PROVIDER || "voyage")) {
+  console.error("Embedding backfill skipped: unsupported EMBEDDINGS_PROVIDER.");
   process.exit(1);
 }
 

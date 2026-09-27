@@ -1,4 +1,5 @@
 const DEFAULT_EMBEDDING_MODEL = "voyage-4";
+const OPENROUTER_EMBEDDING_MODEL = "voyageai/voyage-4";
 const DEFAULT_EMBEDDING_DIMENSIONS = 1024;
 const DEFAULT_EMBEDDING_BATCH_SIZE = 10;
 const MAX_EMBEDDING_BATCH_SIZE = 25;
@@ -7,7 +8,7 @@ const DEFAULT_DOCUMENT_MAX_CHARS = 8000;
 const MAX_EMBEDDING_ATTEMPTS = 5;
 const MAX_RETRY_DELAY_MS = 30_000;
 
-type EmbeddingProvider = "voyage";
+type EmbeddingProvider = "voyage" | "openrouter";
 export type EmbeddingInputType = "document" | "query";
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -99,7 +100,7 @@ function getEmbeddingBatchSize() {
 
 export function getEmbeddingConfig(): EmbeddingConfig {
   const provider = process.env.EMBEDDINGS_PROVIDER ?? "voyage";
-  if (provider !== "voyage") throw new EmbeddingConfigError("Only the Voyage embedding provider is configured for this environment.");
+  if (provider !== "voyage" && provider !== "openrouter") throw new EmbeddingConfigError("Unsupported embedding provider.");
   const dimensions = getNumberEnv("EMBEDDING_DIMENSIONS", DEFAULT_EMBEDDING_DIMENSIONS, 256, 2048);
   if (dimensions !== DEFAULT_EMBEDDING_DIMENSIONS) {
     throw new EmbeddingConfigError("Embedding dimensions must remain 1024 for the configured Voyage contract.");
@@ -109,7 +110,7 @@ export function getEmbeddingConfig(): EmbeddingConfig {
     batchSize: getEmbeddingBatchSize(),
     dimensions,
     enabled: process.env.EMBEDDINGS_ENABLED === "true",
-    model: process.env.EMBEDDING_MODEL || DEFAULT_EMBEDDING_MODEL,
+    model: process.env.EMBEDDING_MODEL || (provider === "openrouter" ? OPENROUTER_EMBEDDING_MODEL : DEFAULT_EMBEDDING_MODEL),
     provider,
     queryMaxCharacters: getNumberEnv("EMBEDDING_QUERY_MAX_CHARS", DEFAULT_QUERY_MAX_CHARS, 128, DEFAULT_DOCUMENT_MAX_CHARS),
   };
@@ -145,8 +146,11 @@ function extractEmbeddingVectors(payload: unknown, expectedCount: number, dimens
 }
 
 async function requestEmbeddingBatch(inputs: string[], options: EmbedTextsOptions, config: EmbeddingConfig) {
-  const apiKey = process.env.VOYAGE_API_KEY;
-  if (!apiKey) throw new EmbeddingConfigError("Voyage embeddings are enabled, but VOYAGE_API_KEY is missing.");
+  const viaOpenRouter = config.provider === "openrouter";
+  const apiKey = viaOpenRouter ? process.env.OPENROUTER_EMBEDDINGS_API_KEY : process.env.VOYAGE_API_KEY;
+  if (!apiKey) throw new EmbeddingConfigError(viaOpenRouter
+    ? "OpenRouter embeddings are enabled, but OPENROUTER_EMBEDDINGS_API_KEY is missing."
+    : "Voyage embeddings are enabled, but VOYAGE_API_KEY is missing.");
   const fetchImpl = options.fetchImpl ?? fetch;
   const sleep = options.sleep ?? ((delayMs: number) => new Promise<void>((resolve) => setTimeout(resolve, delayMs)));
   const random = options.random ?? Math.random;
@@ -155,8 +159,10 @@ async function requestEmbeddingBatch(inputs: string[], options: EmbedTextsOption
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const response = await fetchImpl("https://api.voyageai.com/v1/embeddings", {
-        body: JSON.stringify({ input: inputs, input_type: options.inputType ?? "document", model: config.model, output_dimension: config.dimensions, output_dtype: "float", truncation: true }),
+      const response = await fetchImpl(viaOpenRouter ? "https://openrouter.ai/api/v1/embeddings" : "https://api.voyageai.com/v1/embeddings", {
+        body: JSON.stringify(viaOpenRouter
+          ? { input: inputs, input_type: options.inputType ?? "document", model: config.model, dimensions: config.dimensions }
+          : { input: inputs, input_type: options.inputType ?? "document", model: config.model, output_dimension: config.dimensions, output_dtype: "float", truncation: true }),
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         method: "POST",
       });
@@ -172,9 +178,9 @@ async function requestEmbeddingBatch(inputs: string[], options: EmbedTextsOption
       }
       const payload = await response.json();
       const vectors = extractEmbeddingVectors(payload, inputs.length, config.dimensions);
-      const typedPayload = payload as { model?: unknown; total_tokens?: unknown; usage?: { total_tokens?: unknown } };
+      const typedPayload = payload as { model?: unknown; total_tokens?: unknown; usage?: { prompt_tokens?: unknown; total_tokens?: unknown } };
       const model = typeof typedPayload.model === "string" ? typedPayload.model : config.model;
-      const totalTokens = typedPayload.usage?.total_tokens ?? typedPayload.total_tokens;
+      const totalTokens = typedPayload.usage?.total_tokens ?? typedPayload.usage?.prompt_tokens ?? typedPayload.total_tokens;
       return vectors.map((embedding, index) => ({
         dimensions: embedding.length,
         embedding,

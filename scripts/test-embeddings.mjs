@@ -154,4 +154,28 @@ assert.deepEqual(secondRows.map((row) => row.chunk_index), [0, 1]);
 assert.equal(new Set(secondRows.map((row) => row.chunk_index)).size, 2, "reprocessing must not duplicate chunks");
 assert.equal(rows.every((row) => !row.embedding), true, "failed or pending preparation must not partially mutate source rows");
 
+process.env.EMBEDDINGS_PROVIDER = "openrouter";
+process.env.EMBEDDING_MODEL = "voyageai/voyage-4";
+process.env.OPENROUTER_EMBEDDINGS_API_KEY = "synthetic-openrouter-key";
+assert.equal(getEmbeddingConfig().provider, "openrouter");
+const openRouterCalls = [];
+for (const inputType of ["document", "query"]) {
+  const embedded = await embedTexts([`synthetic ${inputType}`], {
+    inputType,
+    fetchImpl: async (url, init) => {
+      openRouterCalls.push({ url, body: JSON.parse(init.body), auth: init.headers.Authorization });
+      return response({ data: [{ index: 0, embedding: vector(1) }], model: "voyage-4", usage: { prompt_tokens: 5 } });
+    },
+    sleep: noWait,
+  });
+  assert.equal(embedded[0].dimensions, 1024);
+  assert.equal(embedded[0].estimatedTokens, 5);
+}
+assert.equal(openRouterCalls.every((call) => call.url === "https://openrouter.ai/api/v1/embeddings"), true);
+assert.deepEqual(openRouterCalls.map((call) => call.body.input_type), ["document", "query"]);
+assert.equal(openRouterCalls.every((call) => call.body.model === "voyageai/voyage-4" && call.body.dimensions === 1024), true);
+assert.equal(openRouterCalls.every((call) => call.auth === "Bearer synthetic-openrouter-key"), true);
+delete process.env.OPENROUTER_EMBEDDINGS_API_KEY;
+await assert.rejects(() => embedTexts(["missing key"]), /OPENROUTER_EMBEDDINGS_API_KEY is missing/);
+
 console.log("Embedding batching and retry tests passed.");

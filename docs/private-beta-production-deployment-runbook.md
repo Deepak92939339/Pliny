@@ -46,8 +46,9 @@ Do not continue if the schema result differs, the target-name guard fails, the P
 In the existing Vercel project, inspect variable **names and scopes only**. Before merge, ensure the following are present for **Production** and are not branch-bound Preview values:
 
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, both from the verified Production project named `vector`;
-- `OPENROUTER_API_KEY` as a server-only secret, `ANSWER_PROVIDER=openrouter`, and `OPENROUTER_MODEL=z-ai/glm-5.3-flash`;
-- `VOYAGE_API_KEY`, `EMBEDDINGS_ENABLED=true`, `EMBEDDINGS_PROVIDER=voyage`, and `EMBEDDING_MODEL=voyage-4`;
+- `OPENROUTER_API_KEY` as a server-only secret, `ANSWER_PROVIDER=openrouter`, and `OPENROUTER_MODEL=openai/gpt-6-luna`;
+- `OPENROUTER_EMBEDDINGS_API_KEY` as a separate server-only secret, `EMBEDDINGS_ENABLED=true`, `EMBEDDINGS_PROVIDER=openrouter`, `EMBEDDING_MODEL=voyageai/voyage-4`, and `EMBEDDING_DIMENSIONS=1024`;
+- `AI_MODEL_PRICING_JSON={"openai/gpt-6-luna":{"inputUsdPerMillion":0.10,"outputUsdPerMillion":0.50}}`, `AI_DAILY_BUDGET_INR=100`, and `AI_MAX_REQUESTS_PER_DAY=600` (answer preflight only; embeddings are not included);
 - `PRIVACY_PSEUDONYM_KEY`;
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`;
 - `AI_ENABLED=true` and the approved existing `OCR_ENABLED` setting.

@@ -7,7 +7,7 @@ Pliny is a production-deployed portfolio system with deliberately narrow guarant
 - Deterministic identifier detection can miss names, organisations, addresses and sensitive values outside its supported patterns.
 - Standard processing sends bounded original document text and questions to configured external processors.
 - Privacy-minimised processing sends masked content, not no content. A detector miss can therefore cross the external-processing boundary.
-- Voyage account-level zero-retention and training opt-out status remain unverified for this deployment.
+- Voyage and OpenRouter account-level zero-retention and training opt-out status remain unverified for this deployment.
 - Privacy-minimised processing is not local-only processing and is not a compliance certification.
 
 ## Extraction and retrieval
@@ -21,7 +21,8 @@ Pliny is a production-deployed portfolio system with deliberately narrow guarant
 
 ## Product scope
 
-- OpenRouter with `z-ai/glm-5.3-flash` is the default answer-generation provider; Anthropic remains manually selectable without automatic fallback. Voyage remains the embedding provider.
+- OpenRouter with `openai/gpt-6-luna` is the default answer-generation provider; Anthropic remains manually selectable without automatic fallback. Voyage 4 remains the embedding model, available through direct Voyage or OpenRouter transport.
+- The INR daily answer-cost guard estimates usage; it does not include embedding charges or impose a billing limit on either provider account.
 - Team roles, shared workspaces, enterprise SSO and billing are not implemented.
 - Presentations, legacy `.xls`, macro-enabled spreadsheets, notebooks and arbitrary code files are not supported.
 - Provider-backed answer-quality evaluation remains limited compared with the deterministic suite.
