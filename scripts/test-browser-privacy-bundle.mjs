@@ -24,6 +24,7 @@ for (const forbidden of [
   "scopeSecret",
   "originalValue",
   "OPENROUTER_API_KEY",
+  "OPENROUTER_EMBEDDINGS_API_KEY",
   "OPENROUTER_MODEL",
   "ANSWER_PROVIDER",
 ]) {

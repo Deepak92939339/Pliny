@@ -77,6 +77,32 @@ await embedTexts([multiDocumentQuery.text], {
 });
 assert.equal(JSON.stringify(voyagePayloads).includes(ORIGINAL_EMAIL), false, "original queries must never enter mocked Voyage payloads");
 
+process.env.EMBEDDINGS_PROVIDER = "openrouter";
+process.env.EMBEDDING_MODEL = "voyageai/voyage-4";
+process.env.OPENROUTER_EMBEDDINGS_API_KEY = "mock-key";
+const openRouterPayloads = [];
+const captureOpenRouterPayload = async (url, init) => {
+  assert.equal(url, "https://openrouter.ai/api/v1/embeddings");
+  openRouterPayloads.push(JSON.parse(String(init.body)));
+  return new Response(JSON.stringify({ data: [{ embedding: vector }], model: "voyage-4" }), { status: 200 });
+};
+await prepareChunkRowsWithEmbeddings(privacyRows, {
+  fetchImpl: captureOpenRouterPayload,
+  getEmbeddingText: (row) => row.provider_safe_content,
+  inputType: "document",
+});
+await embedTexts([multiDocumentQuery.text], {
+  fetchImpl: captureOpenRouterPayload,
+  inputType: "query",
+});
+assert.equal(openRouterPayloads.length, 2);
+assert.equal(JSON.stringify(openRouterPayloads).includes(ORIGINAL_EMAIL), false, "original PII must never enter mocked OpenRouter payloads");
+assert.equal(JSON.stringify(openRouterPayloads).includes(ORIGINAL_ACCOUNT), false);
+assert.deepEqual(openRouterPayloads.map((payload) => payload.input_type), ["document", "query"]);
+
+process.env.EMBEDDINGS_PROVIDER = "voyage";
+process.env.EMBEDDING_MODEL = "voyage-4";
+
 const standardPayloads = [];
 await prepareChunkRowsWithEmbeddings([{ content: "unchanged standard evidence" }], {
   fetchImpl: async (_url, init) => {
