@@ -9,13 +9,13 @@ import {
   type DocumentProcessingMetadata,
   type ExtractedUnit,
 } from "../types.ts";
+import { getTableRowsPerUnit } from "../limits.ts";
 
 const MAX_SPREADSHEET_SIZE_BYTES = 15 * 1024 * 1024;
 const MAX_SHEETS_PROCESSED = 20;
 const MAX_ROWS_PER_SHEET = 5000;
 const MAX_COLUMNS_PER_SHEET = 100;
 const MAX_CELL_CHARACTERS = 500;
-const SPREADSHEET_ROWS_PER_UNIT = 40;
 const SPREADSHEET_MIME_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/octet-stream",
@@ -181,8 +181,13 @@ function buildSpreadsheetUnits(sheets: SheetExtraction[]) {
   const units: ExtractedUnit[] = [];
 
   for (const sheet of sheets) {
-    for (let index = 0; index < sheet.dataRows.length; index += SPREADSHEET_ROWS_PER_UNIT) {
-      const slice = sheet.dataRows.slice(index, index + SPREADSHEET_ROWS_PER_UNIT);
+    // WP2 (audit-r1): row-faithful units — target 8 data rows per unit, never
+    // splitting a row, headers repeated at the top of every unit. The adaptive
+    // cap keeps the per-sheet unit count <= MAX_TABLE_UNITS so the document
+    // stays under MAX_DOCUMENT_CHUNKS (one chunk per table unit).
+    const rowsPerUnit = getTableRowsPerUnit(sheet.dataRows.length);
+    for (let index = 0; index < sheet.dataRows.length; index += rowsPerUnit) {
+      const slice = sheet.dataRows.slice(index, index + rowsPerUnit);
 
       if (slice.length === 0) {
         continue;

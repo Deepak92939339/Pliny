@@ -8,9 +8,9 @@ import {
   type DocumentProcessorPlugin,
   type ExtractedUnit,
 } from "../types.ts";
+import { getTableRowsPerUnit } from "../limits.ts";
 
 const MAX_CSV_SIZE_BYTES = 10 * 1024 * 1024;
-const CSV_ROWS_PER_UNIT = 50;
 const CSV_MIME_TYPES = new Set(["text/csv", "application/csv", "text/plain", "application/vnd.ms-excel"]);
 
 function stripBom(text: string) {
@@ -88,8 +88,15 @@ function buildCsvUnits(rows: string[][]): ExtractedUnit[] {
   const dataRows = rows.slice(1);
   const units: ExtractedUnit[] = [];
 
-  for (let index = 0; index < dataRows.length; index += CSV_ROWS_PER_UNIT) {
-    const slice = dataRows.slice(index, index + CSV_ROWS_PER_UNIT);
+  // WP2 (audit-r1): row-faithful units — target 8 data rows per unit, never
+  // splitting a row. The adaptive cap (getTableRowsPerUnit) grows rows-per-unit
+  // only when needed to keep the unit count <= MAX_TABLE_UNITS so the
+  // document-level MAX_DOCUMENT_CHUNKS ceiling still holds (one chunk per
+  // table unit).
+  const rowsPerUnit = getTableRowsPerUnit(dataRows.length);
+
+  for (let index = 0; index < dataRows.length; index += rowsPerUnit) {
+    const slice = dataRows.slice(index, index + rowsPerUnit);
 
     if (slice.length === 0) {
       continue;
