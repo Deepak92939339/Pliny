@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getFileExtension } from "@/lib/document-processing/fileKinds";
+import { getUnsupportedFileRejection, getFileExtension } from "@/lib/document-processing/fileKinds";
 import { getProcessorForFile, normalizeDocumentMimeType, supportedFileExtensions } from "@/lib/document-processing/registry";
 import { DUPLICATE_UPLOAD_MESSAGE, computeDocumentHash, shouldBlockDuplicateUpload } from "@/lib/documents/duplicateDetection";
 import { computeResetRetryAfterSeconds } from "@/lib/limits/retryAfter";
@@ -160,11 +160,12 @@ export async function POST(request: Request) {
   });
 
   if (!processor) {
-    if ([".xls", ".xlsm"].includes(getFileExtension(displayFilename))) {
-      return NextResponse.json(
-        { error: "Legacy and macro-enabled spreadsheets are not supported. Upload an .xlsx or CSV file instead." },
-        { status: 400 }
-      );
+    // WP7 (audit-r1): .xls now returns 415 with the client's message;
+    // .xlsm keeps its specific 400. Other unsupported files fall through.
+    const legacyRejection = getUnsupportedFileRejection(displayFilename);
+
+    if (legacyRejection) {
+      return NextResponse.json({ error: legacyRejection.error }, { status: legacyRejection.status });
     }
 
     return NextResponse.json(
