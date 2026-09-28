@@ -28,9 +28,17 @@ Pliny is a production-deployed portfolio system with deliberately narrow guarant
 - Provider-backed answer-quality evaluation remains limited compared with the deterministic suite.
 - Storage reconciliation is an operator-run guarded workflow, not automatic background deletion.
 
-## Dependency posture
+## Dependency posture (updated by audit-r1 WP4)
 
-The current Production dependency audit reports one moderate transitive `@xmldom/xmldom` advisory (`GHSA-6gmq-8vp8-gcm6`). It remains open pending separately scoped dependency remediation.
+`npm audit --omit=dev` now reports **0 vulnerabilities**. `@xmldom/xmldom` is forced via npm `overrides` to **0.8.15** — the first patched release that clears the HIGH advisory while staying compatible with `mammoth`'s DOMParser API (0.9.x rejects `mammoth` 1.12's mimeType-less `parseFromString` and breaks DOCX extraction, verified and rolled back). The `ai` package was updated 6.0.168 → 6.0.293 within its existing `^6.0.168` range to clear the remaining low-severity advisories. `npm run test:ingestion` proves DOCX extraction still works.
+
+## Known limits updated by audit-r1 (WP1–WP8)
+
+- Existing CSV/XLSX documents keep their pre-WP2 coarse chunks until they are re-uploaded or reprocessed; only then do they gain row-faithful 8-row units.
+- PostgreSQL `ts_rank_cd` is not BM25; if a real BM25 extension is installed in Supabase, a third retrieval lane can slot into `retrieveChunks.ts` (see the `TODO(audit-r1)` note there).
+- Supabase auth cookies are `Secure` + `SameSite=Lax` in production but deliberately not `HttpOnly`: the browser Supabase client must read the session. The enforced nonce-based CSP is the primary XSS mitigation (see security-and-privacy.md).
+- Upload/process rate limiting via Upstash still counts rejected attempts inside the current window (PLN-004); the UI now prevents accidental retry spam and every 429 carries `Retry-After`.
+- The answer-cost guard falls safe on unknown or misconfigured model pricing (most expensive known rate) instead of failing the request.
 
 See [Security & Privacy](./security-and-privacy.md) for implemented controls and [Evaluation](./evaluation.md) for the evidence behind current claims.
 

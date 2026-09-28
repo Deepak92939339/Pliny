@@ -1,13 +1,25 @@
-import type { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   computeDailyRetryAfterSeconds,
   computeMinuteRetryAfterSeconds,
   computeResetRetryAfterSeconds,
 } from "@/lib/limits/retryAfter";
+import { logSafeStageError } from "@/lib/privacy/safeLogging";
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const MAX_INPUT_TOKENS = 6_000;
 export const INR_PER_USD_ESTIMATE = 85;
+
+/**
+ * WP9 (audit-r1): model-cost honesty. Unknown models must never be charged at
+ * the cheapest rate — fail safe at the MOST EXPENSIVE KNOWN rate (Sonnet
+ * class), so the budget guard can only over-estimate, never under-estimate.
+ */
+const MAX_KNOWN_RATE = { inputUsdPerMillion: 3, outputUsdPerMillion: 15 } as const;
+
+const KNOWN_MODEL_RATES: Record<string, { inputUsdPerMillion: number; outputUsdPerMillion: number }> = {
+  "openai/gpt-6-luna": { inputUsdPerMillion: 0.1, outputUsdPerMillion: 0.5 },
+};
 
 type MinuteBucket = {
   count: number;
@@ -42,7 +54,7 @@ export type AiBudgetDecision = {
   status: "allowed" | "blocked";
 };
 
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+type SupabaseServerClient = SupabaseClient;
 
 type AiUsageEventForBudget = {
   created_at: string;
@@ -103,43 +115,48 @@ function getModelRates(model: string) {
     let pricing: unknown;
     try {
       pricing = JSON.parse(configuredRates);
-    } catch {
-      throw new Error("AI_MODEL_PRICING_JSON must be valid JSON.");
+    } catch (error) {
+      // WP9 (audit-r1): a broken pricing config must never take down chat —
+      // safe-log it and fail safe at the most expensive known rate.
+      logSafeStageError("ai-budget", "AI_MODEL_PRICING_JSON is not valid JSON; falling back to the most expensive known rate", error, {
+        model,
+      });
+      return { ...MAX_KNOWN_RATE };
     }
     if (!pricing || typeof pricing !== "object" || Array.isArray(pricing)) {
-      throw new Error("AI_MODEL_PRICING_JSON must map model IDs to token rates.");
+      logSafeStageError("ai-budget", "AI_MODEL_PRICING_JSON must map model IDs to token rates; falling back to the most expensive known rate", "invalid_shape", {
+        model,
+      });
+      return { ...MAX_KNOWN_RATE };
     }
     const entry = Object.hasOwn(pricing, model) ? (pricing as Record<string, unknown>)[model] : undefined;
     if (entry !== undefined) {
-      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-        throw new Error("AI_MODEL_PRICING_JSON contains invalid token rates.");
-      }
       const { inputUsdPerMillion, outputUsdPerMillion } = entry as Record<string, unknown>;
       if (
         typeof inputUsdPerMillion !== "number" || !Number.isFinite(inputUsdPerMillion) || inputUsdPerMillion < 0 ||
         typeof outputUsdPerMillion !== "number" || !Number.isFinite(outputUsdPerMillion) || outputUsdPerMillion < 0
       ) {
-        throw new Error("AI_MODEL_PRICING_JSON contains invalid token rates.");
+        logSafeStageError("ai-budget", "AI_MODEL_PRICING_JSON contains invalid token rates; falling back to the most expensive known rate", "invalid_entry", {
+          model,
+        });
+        return { ...MAX_KNOWN_RATE };
       }
       return { inputUsdPerMillion, outputUsdPerMillion };
     }
   }
 
-  if (model === "openai/gpt-6-luna") {
-    return { inputUsdPerMillion: 0.1, outputUsdPerMillion: 0.5 };
+  const knownRate = KNOWN_MODEL_RATES[model];
+  if (knownRate) {
+    return { ...knownRate };
   }
 
   if (model.toLowerCase().includes("sonnet")) {
-    return {
-      inputUsdPerMillion: 3,
-      outputUsdPerMillion: 15,
-    };
+    return { inputUsdPerMillion: 3, outputUsdPerMillion: 15 };
   }
 
-  return {
-    inputUsdPerMillion: 1,
-    outputUsdPerMillion: 5,
-  };
+  // WP9 (audit-r1): unknown model ids cost at the most expensive known rate —
+  // the guard over-estimates rather than under-estimates.
+  return { ...MAX_KNOWN_RATE };
 }
 
 export function getAiConfig(): AiConfig {
