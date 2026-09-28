@@ -1,22 +1,22 @@
 .canvas,
 .aside {
-  --ok: #3F6249;
-  --ok-bg: #F0F7F2;
-  --ok-line: #CBDCD0;
-  --ok-dot: #6F8F73;
-  --red: #B3261E;
-  --red-bg: #FBECEA;
-  --red-line: #E7C6C2;
-  --rust: #AE4E24;
-  --rust-bg: #FBF1EA;
-  --rust-line: #DCC3B4;
-  --line: #E4E1DA;
-  --line-soft: #E5E0D8;
-  --sheet: #FFFEFA;
-  --sheet-warm: #FAFAF8;
-  --ink: #0C1427;
-  --ink-soft: #394152;
-  --muted: #6B665F;
+  --ok: var(--ok-ink);
+  --ok-bg: var(--ok-soft);
+  --ok-line: var(--ok);
+  --ok-dot: var(--ok);
+  --red: var(--danger);
+  --red-bg: var(--accent-soft);
+  --red-line: var(--danger-soft);
+  --rust: var(--accent-ink);
+  --rust-bg: var(--accent-soft);
+  --rust-line: var(--rule-strong);
+  --line: var(--rule);
+  --line-soft: var(--rule);
+  --sheet: var(--paper-1);
+  --sheet-warm: var(--paper-2);
+  --ink: var(--ink-900);
+  --ink-soft: var(--ink-700);
+  --muted: var(--ink-500);
   --ease: cubic-bezier(.2, .8, .2, 1);
   --t: 180ms;
 }
@@ -114,7 +114,7 @@
   border: 1px solid var(--ink);
   border-radius: 7px;
   background: var(--ink);
-  color: #FCFBF8;
+  color: var(--paper-2);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -195,7 +195,7 @@
 }
 .filterBtnActive {
   background: var(--ink);
-  color: #FCFBF8;
+  color: var(--paper-2);
 }
 .filterBtnActive:hover {
   background: var(--ink);
@@ -253,7 +253,7 @@
 .skelSub {
   display: block;
   border-radius: 4px;
-  background: #E7E2D9;
+  background: var(--rule);
 }
 .skelBar {
   height: 12px;
@@ -403,7 +403,7 @@
   inset: 0;
   width: 40%;
   border-radius: 999px;
-  background: #8A7D70;
+  background: var(--ink-500);
   animation: shimmerSlide 1.6s var(--ease) infinite;
 }
 @keyframes shimmerSlide {

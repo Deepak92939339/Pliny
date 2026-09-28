@@ -5,7 +5,7 @@ function SkeletonBlock({ className = "" }: { className?: string }) {
 export default function CollectionLoading() {
   return (
     <main className="dm-page flex h-screen w-screen overflow-hidden text-[color:var(--editorial-ink)]">
-      <aside className="hidden h-full min-h-0 w-[260px] shrink-0 flex-col border-r border-black/[0.08] bg-[#F7F7F5] md:flex">
+      <aside className="hidden h-full min-h-0 w-[260px] shrink-0 flex-col border-r border-black/[0.08] bg-[var(--paper-2)] md:flex">
         <div className="shrink-0 px-4 py-4">
           <SkeletonBlock className="h-8 w-36" />
           <SkeletonBlock className="mt-4 h-9 w-full rounded-lg" />
@@ -26,7 +26,7 @@ export default function CollectionLoading() {
       </aside>
 
       <section className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-black/[0.08] bg-[#F7F7F5]/90 px-4">
+        <header className="flex h-12 shrink-0 items-center justify-between border-b border-black/[0.08] bg-[var(--paper-2)]/90 px-4">
           <div>
             <SkeletonBlock className="h-4 w-44" />
             <SkeletonBlock className="mt-1.5 h-3 w-20" />
@@ -56,7 +56,7 @@ export default function CollectionLoading() {
             </div>
           </section>
 
-          <aside className="hidden h-full min-h-0 w-[280px] shrink-0 flex-col border-l border-black/[0.08] bg-[#F7F7F5]/70 min-[900px]:flex">
+          <aside className="hidden h-full min-h-0 w-[280px] shrink-0 flex-col border-l border-black/[0.08] bg-[var(--paper-2)]/70 min-[900px]:flex">
             <div className="flex h-12 shrink-0 items-center gap-2 border-b border-black/[0.08] px-3">
               <SkeletonBlock className="h-4 w-24" />
               <SkeletonBlock className="ml-auto size-7 rounded-md" />

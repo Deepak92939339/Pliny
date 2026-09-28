@@ -23,7 +23,7 @@ export default function CollectionError({
         <button
           type="button"
           onClick={reset}
-          className="mt-5 text-[13px] font-medium text-[color:var(--editorial-ink)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35"
+          className="mt-5 text-[13px] font-medium text-[color:var(--editorial-ink)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
         >
           Try again
         </button>

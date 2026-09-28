@@ -249,7 +249,7 @@ export function SourceInspector({
   const selectedLocation = getSourceLocationLabel(selectedSource);
 
   return (
-    <aside className="hidden h-full min-h-0 w-[360px] shrink-0 flex-col border-l border-black/[0.08] bg-[#F7F7F5] text-[color:var(--editorial-ink)] min-[900px]:flex xl:w-[420px]">
+    <aside className="hidden h-full min-h-0 w-[360px] shrink-0 flex-col border-l border-black/[0.08] bg-[var(--paper-2)] text-[color:var(--editorial-ink)] min-[900px]:flex xl:w-[420px]">
       <header className="shrink-0 border-b border-black/[0.08] px-4 py-3">
         <div className="flex items-center gap-3">
           <h2 className="text-[13px] font-medium text-[color:var(--editorial-ink)]">Source</h2>
@@ -257,7 +257,7 @@ export function SourceInspector({
             type="button"
             aria-label="Close source inspector"
             onClick={onClose}
-            className="ml-auto flex size-8 items-center justify-center rounded-md text-[color:var(--editorial-muted)] hover:bg-black/[0.04] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#BA5C3D]/35"
+            className="ml-auto flex size-8 items-center justify-center rounded-md text-[color:var(--editorial-muted)] hover:bg-black/[0.04] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -279,7 +279,7 @@ export function SourceInspector({
           </div>
         ) : (
           <div className="flex min-h-full flex-col gap-5">
-            <section className="rounded-xl border border-black/[0.08] bg-[#FFFEFA]/85 p-4">
+            <section className="rounded-xl border border-black/[0.08] bg-[var(--paper-1)]/85 p-4">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-[color:var(--editorial-muted)]">
                 Retrieved passage
               </p>
@@ -312,7 +312,7 @@ export function SourceSheet({ onOpenChange, open, retrievalReason, selectedSourc
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[86vh] gap-0 rounded-t-xl border-black/[0.08] bg-[#F7F7F5] p-0 text-[color:var(--editorial-ink)] shadow-2xl shadow-black/10 min-[900px]:hidden"
+        className="max-h-[86vh] gap-0 rounded-t-xl border-black/[0.08] bg-[var(--paper-2)] p-0 text-[color:var(--editorial-ink)] shadow-2xl shadow-black/10 min-[900px]:hidden"
       >
         <SheetHeader className="border-b border-black/[0.08] p-4 pr-12 text-left">
           <SheetTitle className="text-[13px] font-medium text-[color:var(--editorial-ink)]">Source</SheetTitle>
@@ -328,7 +328,7 @@ export function SourceSheet({ onOpenChange, open, retrievalReason, selectedSourc
         <div className="min-h-0 overflow-y-auto p-4">
           {selectedSource ? (
             <div className="space-y-5">
-              <section className="rounded-xl border border-black/[0.08] bg-[#FFFEFA]/85 p-4">
+              <section className="rounded-xl border border-black/[0.08] bg-[var(--paper-1)]/85 p-4">
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-[color:var(--editorial-muted)]">
                   Retrieved passage
                 </p>

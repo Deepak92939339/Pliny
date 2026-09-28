@@ -5,12 +5,12 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "group/badge inline-flex h-6 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors focus-visible:border-[#BA5C3D]/50 focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/15 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 [&>svg]:pointer-events-none [&>svg]:size-3!",
+  "group/badge inline-flex h-6 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2.5 py-0.5 text-xs font-medium whitespace-nowrap transition-colors focus-visible:border-[var(--accent)]/50 focus-visible:ring-3 focus-visible:ring-[var(--accent)]/15 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 [&>svg]:pointer-events-none [&>svg]:size-3!",
   {
     variants: {
       variant: {
         default:
-          "border-[#BA5C3D]/25 bg-[var(--editorial-rust-soft)] text-[color:var(--editorial-rust-strong)] [a]:hover:bg-[var(--editorial-rust-soft)]",
+          "border-[var(--accent)]/25 bg-[var(--editorial-rust-soft)] text-[color:var(--editorial-rust-strong)] [a]:hover:bg-[var(--editorial-rust-soft)]",
         secondary:
           "border-[color:var(--editorial-border)] bg-[var(--editorial-panel)] text-[color:var(--editorial-ink-soft)] [a]:hover:bg-[var(--editorial-card)]",
         destructive:

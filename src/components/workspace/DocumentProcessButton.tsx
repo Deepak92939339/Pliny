@@ -59,11 +59,11 @@ export function DocumentProcessButton({ documentId, label = "Retry" }: DocumentP
         type="button"
         onClick={handleProcess}
         disabled={isProcessing}
-        className="rounded px-1 py-0.5 text-[11px] font-medium text-[#9A5A3E] underline-offset-2 hover:bg-[#BA5C3D]/10 hover:text-[color:var(--editorial-rust-strong)] hover:underline disabled:pointer-events-none disabled:opacity-50"
+        className="rounded px-1 py-0.5 text-[11px] font-medium text-[var(--accent-ink)] underline-offset-2 hover:bg-[var(--accent)]/10 hover:text-[color:var(--editorial-rust-strong)] hover:underline disabled:pointer-events-none disabled:opacity-50"
       >
         {isProcessing ? "Processing" : label}
       </button>
-      {errorMessage ? <p className="mt-1 text-[11px] leading-5 text-[#9A5A3E]">{errorMessage}</p> : null}
+      {errorMessage ? <p className="mt-1 text-[11px] leading-5 text-[var(--accent-ink)]">{errorMessage}</p> : null}
     </div>
   );
 }

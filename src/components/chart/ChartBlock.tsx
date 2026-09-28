@@ -136,14 +136,14 @@ function renderChart(chart: ChartData) {
 
 export function ChartBlock({ chart }: ChartBlockProps) {
   return (
-    <section className="my-5 rounded-2xl border border-black/[0.08] bg-[#FFFEFA]/85 p-4 text-[color:var(--editorial-ink)]">
+    <section className="my-5 rounded-2xl border border-black/[0.08] bg-[var(--paper-1)]/85 p-4 text-[color:var(--editorial-ink)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h4 className="text-[14px] font-semibold leading-5 text-[color:var(--editorial-ink)]">{chart.title}</h4>
           {chart.yAxisLabel ? <p className="mt-1 text-[11px] text-[color:var(--editorial-muted)]">{chart.yAxisLabel}</p> : null}
         </div>
         {chart.sourceRefs && chart.sourceRefs.length > 0 ? (
-          <p className="rounded-full border border-[#BA5C3D]/20 bg-[#BA5C3D]/10 px-2 py-1 text-[11px] font-medium text-[color:var(--editorial-rust-strong)]">
+          <p className="rounded-full border border-[var(--accent)]/20 bg-[var(--accent)]/10 px-2 py-1 text-[11px] font-medium text-[color:var(--editorial-rust-strong)]">
             {chart.sourceRefs.join(", ")}
           </p>
         ) : null}

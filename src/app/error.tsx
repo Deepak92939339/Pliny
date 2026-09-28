@@ -16,12 +16,12 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body className="min-h-screen bg-zinc-950 text-zinc-100">
+      <body className="min-h-screen bg-[color:var(--paper-0)] text-[color:var(--ink-900)]">
         <main className="flex min-h-screen items-center justify-center px-6">
-          <section className="max-w-md rounded-xl border border-white/10 bg-zinc-900/80 p-6 text-center shadow-2xl shadow-black/25">
-            <p className="text-sm font-medium text-[#D27E63]">Pliny</p>
+          <section className="max-w-md rounded-xl border border-[color:var(--rule-strong)] bg-[color:var(--paper-1)] p-6 text-center shadow-2xl shadow-black/10">
+            <p className="text-sm font-medium text-[color:var(--accent-ink)]">Pliny</p>
             <h1 className="mt-3 text-2xl font-semibold">Something went wrong</h1>
-            <p className="mt-3 text-sm leading-6 text-zinc-400">
+            <p className="mt-3 text-sm leading-6 text-[color:var(--ink-500)]">
               The app hit an unexpected error. Try again, or reload the page if the problem continues.
             </p>
             <Button className="mt-6" onClick={reset}>

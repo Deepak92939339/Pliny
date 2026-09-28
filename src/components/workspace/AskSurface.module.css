@@ -1,18 +1,18 @@
 .canvas {
-  --surface: #fffefa;
-  --panel: #f5f0e8;
-  --page: #fcfbf8;
-  --line: #e5e0d8;
-  --line-strong: #d5d2c8;
-  --ok: #3f6249;
-  --ok-bg: #f0f7f2;
-  --ok-line: #cbdcd0;
-  --ok-dot: #6f8f73;
+  --surface: var(--paper-1);
+  --panel: var(--paper-0);
+  --page: var(--paper-2);
+  --line: var(--rule);
+  --line-strong: var(--rule-strong);
+  --ok: var(--ok-ink);
+  --ok-bg: var(--ok-soft);
+  --ok-line: var(--ok);
+  --ok-dot: var(--ok);
   --warn: #8a6023;
   --warn-bg: #f7eedc;
   --warn-line: #e4d3b0;
   --warn-dot: #b08430;
-  --rust-bg: #fbf1ea;
+  --rust-bg: var(--accent-soft);
   --amber: #fcebd8;
   --radius-control: 7px;
   --radius-card: 10px;

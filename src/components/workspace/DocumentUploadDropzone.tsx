@@ -270,8 +270,8 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
         {...getRootProps({
           className: cn(
             "group flex min-h-20 cursor-pointer flex-col justify-center rounded-xl border border-dashed border-black/15 bg-transparent px-4 py-3 text-center transition-colors duration-150",
-            "hover:border-[#BA5C3D]/45 hover:bg-black/[0.025]",
-            isDragActive && "border-[#BA5C3D]/60 bg-[#BA5C3D]/10",
+            "hover:border-[var(--accent)]/45 hover:bg-black/[0.025]",
+            isDragActive && "border-[var(--accent)]/60 bg-[var(--accent)]/10",
             isBusy && "cursor-wait opacity-75"
           ),
         })}
@@ -329,7 +329,7 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
                 <button
                   type="button"
                   onClick={() => uploadAnyway(item.id)}
-                  className="mt-1.5 rounded-md border border-black/15 px-2 py-1 text-[11px] font-medium text-[color:var(--editorial-ink-soft)] transition-colors hover:border-[#BA5C3D]/45 hover:text-[color:var(--editorial-ink)]"
+                  className="mt-1.5 rounded-md border border-black/15 px-2 py-1 text-[11px] font-medium text-[color:var(--editorial-ink-soft)] transition-colors hover:border-[var(--accent)]/45 hover:text-[color:var(--editorial-ink)]"
                 >
                   Upload anyway
                 </button>
