@@ -38,12 +38,14 @@
     "test:storage-cleanup": "node --experimental-strip-types scripts/test-storage-cleanup.mjs",
     "test:trust": "node --experimental-strip-types scripts/test-trust-defects.mjs",
     "test:eval": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-release-eval.mjs",
-    "test:deterministic": "npm run test:ci-config && npm run test:auth && npm run test:answer-provider && npm run test:budget && npm run test:citations && npm run test:context && npm run test:embeddings && npm run test:evidence && npm run test:ingestion && npm run test:history && npm run test:holdout && npm run test:privacy && npm run test:retrieval && npm run test:table-retrieval && npm run test:sanitization && npm run test:report && npm run test:storage-cleanup && npm run test:trust && npm run test:rate-limit-retry && npm run test:response-guard && npm run test:processing",
+    "test:deterministic": "npm run test:ci-config && npm run test:auth && npm run test:answer-provider && npm run test:budget && npm run test:citations && npm run test:context && npm run test:embeddings && npm run test:evidence && npm run test:ingestion && npm run test:history && npm run test:holdout && npm run test:privacy && npm run test:retrieval && npm run test:table-retrieval && npm run test:sanitization && npm run test:report && npm run test:storage-cleanup && npm run test:trust && npm run test:rate-limit-retry && npm run test:response-guard && npm run test:security-headers && npm run test:processing",
     "storage:audit": "node scripts/storage-reconcile.mjs",
     "storage:cleanup": "node scripts/storage-cleanup.mjs",
     "eval": "node --experimental-strip-types scripts/run-evals.mjs",
     "test:processing": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-processing-resilience.mjs",
-    "test:ocr-e2e": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-ocr-e2e.mjs"
+    "test:ocr-e2e": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-ocr-e2e.mjs",
+    "test:security-headers": "node --experimental-strip-types --import ./scripts/register-ts-alias-loader.mjs scripts/test-security-headers.mjs",
+    "check:csp": "node scripts/check-csp.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
@@ -92,6 +94,7 @@
     "postcss": "8.5.26",
     "qs": "6.16.0",
     "sharp": "0.35.4",
-    "ws": "8.21.3"
+    "ws": "8.21.3",
+    "@xmldom/xmldom": "0.8.15"
   }
 }

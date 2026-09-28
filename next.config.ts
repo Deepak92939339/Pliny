@@ -5,18 +5,10 @@ const nextConfig: NextConfig = {
     middlewareClientMaxBodySize: "16mb",
   },
   async headers() {
-    const contentSecurityPolicyReportOnly = [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "object-src 'none'",
-      "frame-ancestors 'none'",
-      "img-src 'self' data: blob:",
-      "font-src 'self'",
-      "connect-src 'self' https://*.supabase.co https://api.anthropic.com",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-    ].join("; ");
-
+    // WP4 (audit-r1, PLN-002): the enforced, nonce-based Content-Security-Policy
+    // is set per-request in src/middleware.ts (it needs the request nonce, so
+    // it cannot live in these static headers). The old Report-Only CSP is
+    // removed; all other headers are unchanged.
     return [
       {
         headers: [
@@ -39,10 +31,6 @@ const nextConfig: NextConfig = {
           {
             key: "Strict-Transport-Security",
             value: "max-age=31536000; includeSubDomains; preload",
-          },
-          {
-            key: "Content-Security-Policy-Report-Only",
-            value: contentSecurityPolicyReportOnly,
           },
         ],
         source: "/:path*",

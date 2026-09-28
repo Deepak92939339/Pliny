@@ -20,6 +20,13 @@ export async function createClient() {
   const { supabaseUrl, supabaseAnonKey } = getSupabaseServerEnv();
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
+    // WP4 (audit-r1, PLN-001): Secure + SameSite=Lax in production; HttpOnly
+    // reasoning in docs/security-and-privacy.md and client.ts.
+    cookieOptions: {
+      path: "/",
+      sameSite: "lax",
+      ...(process.env.NODE_ENV === "production" ? { secure: true } : {}),
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll();
