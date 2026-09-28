@@ -11,6 +11,10 @@ import {
   type UploadBatchItem,
   type UploadItemStatus,
 } from "@/lib/uploads/uploadBatch";
+import {
+  getProcessFailureMessage,
+  PROCESS_START_FAILURE_MESSAGE,
+} from "@/lib/uploads/processFailureMessage";
 import { cn } from "@/lib/utils";
 
 const MAX_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024;
@@ -101,18 +105,28 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
             setUploadItems(items);
           },
           process: async (documentId) => {
-            const processResponse = await fetch("/api/process-document", {
-              body: JSON.stringify({ document_id: documentId }),
-              headers: {
-                "Content-Type": "application/json",
-              },
-              method: "POST",
-            });
+            let processResponse: Response;
+
+            try {
+              processResponse = await fetch("/api/process-document", {
+                body: JSON.stringify({ document_id: documentId }),
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                method: "POST",
+              });
+            } catch {
+              // network error / timeout before any server response
+              throw new Error(PROCESS_START_FAILURE_MESSAGE);
+            }
+
             const processResult = await readProcessResponse(processResponse);
             router.refresh();
 
             if (!processResponse.ok || processResult.ok === false || processResult.status === "failed") {
-              throw new Error(processResult.error ?? "File uploaded, but processing failed. You can retry from the document card.");
+              // 429, 5xx, timeout, or any other failure must end as a failed
+              // item with a readable message - never stuck in "Uploading".
+              throw new Error(getProcessFailureMessage(processResponse, processResult));
             }
 
             return {

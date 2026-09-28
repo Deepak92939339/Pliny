@@ -50,6 +50,16 @@ const nextConfig: NextConfig = {
     ];
   },
   serverExternalPackages: ["pdf-parse", "tesseract.js", "tesseract.js-core", "@napi-rs/canvas", "@tesseract.js-data/eng"],
+  // WP1: make sure the OCR language data and native binaries are traced into
+  // the serverless bundle for the process-document route, so OCR cannot fail
+  // from a missing asset at runtime.
+  outputFileTracingIncludes: {
+    "/api/process-document": [
+      "./node_modules/@tesseract.js-data/eng/**",
+      "./node_modules/tesseract.js-core/**",
+      "./node_modules/@napi-rs/canvas/**",
+    ],
+  },
 };
 
 export default nextConfig;

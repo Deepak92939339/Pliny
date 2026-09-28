@@ -27,3 +27,15 @@ export function logSafeStageError(
     error: getSafeErrorMetadata(error),
   });
 }
+
+/**
+ * Operational (no document text) stage logging for long-running pipelines such
+ * as OCR: start / per-page / end markers with durations only.
+ */
+export function logSafeStageInfo(
+  namespace: string,
+  stage: string,
+  operationalDetails: Record<string, string | number | boolean | null | undefined> = {}
+) {
+  console.info(`[${namespace}]`, stage, operationalDetails);
+}

@@ -33,6 +33,7 @@ export type DocumentRow = {
   file_size: number;
   status: DocumentStatus;
   processing_stage?: DocumentProcessingStage | null;
+  processing_started_at?: string | null;
   error_message: string | null;
   processing_mode: PrivacyMode;
   privacy_policy_version?: string | null;
