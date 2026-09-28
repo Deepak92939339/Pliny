@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getFileExtension } from "@/lib/document-processing/fileKinds";
 import { getProcessorForFile, normalizeDocumentMimeType, supportedFileExtensions } from "@/lib/document-processing/registry";
+import { computeResetRetryAfterSeconds } from "@/lib/limits/retryAfter";
 import { checkRouteRateLimit } from "@/lib/rate-limit";
 import { logSafeStageError } from "@/lib/privacy/safeLogging";
 import { captureDocumentPrivacyPolicy } from "@/lib/privacy/types";
@@ -93,7 +94,10 @@ export async function POST(request: Request) {
         ? "You have reached the upload limit for now."
         : "Upload rate limiting is not configured.";
 
-    return NextResponse.json({ error }, { status });
+    // WP3 (audit-r1): 429s carry Retry-After (seconds until the limiter window resets).
+    const headers = status === 429 ? { "Retry-After": String(computeResetRetryAfterSeconds(uploadLimit.resetAt, Date.now())) } : undefined;
+
+    return NextResponse.json({ error }, { headers, status });
   }
 
   const contentLength = Number(request.headers.get("content-length"));

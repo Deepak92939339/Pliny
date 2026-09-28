@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import {
@@ -15,6 +15,7 @@ import {
   getProcessFailureMessage,
   PROCESS_START_FAILURE_MESSAGE,
 } from "@/lib/uploads/processFailureMessage";
+import { formatRetryWaitDuration, getRetryAfterHeaderSeconds } from "@/lib/limits/retryAfter";
 import { cn } from "@/lib/utils";
 
 const MAX_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024;
@@ -94,6 +95,21 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
   const router = useRouter();
   const [uploadItems, setUploadItems] = useState<UploadBatchItem<File>[]>([]);
   const [isBusy, setIsBusy] = useState(false);
+  // WP3 (audit-r1): a 429 with Retry-After from upload or process disables the
+  // dropzone until the limit window clears, with a live countdown.
+  const [uploadRateLimitedUntil, setUploadRateLimitedUntil] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const uploadLimitedRemainingSeconds = uploadRateLimitedUntil ? Math.ceil((uploadRateLimitedUntil - nowMs) / 1000) : 0;
+  const isUploadRateLimited = uploadLimitedRemainingSeconds > 0;
+
+  useEffect(() => {
+    if (!isUploadRateLimited) {
+      return;
+    }
+
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [isUploadRateLimited]);
 
   const uploadBatch = useCallback(
     async (initialItems: UploadBatchItem<File>[]) => {
@@ -122,6 +138,14 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
 
             const processResult = await readProcessResponse(processResponse);
             router.refresh();
+
+            if (processResponse.status === 429) {
+              const retryAfterSeconds = getRetryAfterHeaderSeconds(processResponse.headers);
+
+              if (retryAfterSeconds !== null) {
+                setUploadRateLimitedUntil(Date.now() + retryAfterSeconds * 1_000);
+              }
+            }
 
             if (!processResponse.ok || processResult.ok === false || processResult.status === "failed") {
               // 429, 5xx, timeout, or any other failure must end as a failed
@@ -156,6 +180,14 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
               method: "POST",
             });
             const uploadResult = await readUploadResponse(uploadResponse);
+
+            if (uploadResponse.status === 429) {
+              const retryAfterSeconds = getRetryAfterHeaderSeconds(uploadResponse.headers);
+
+              if (retryAfterSeconds !== null) {
+                setUploadRateLimitedUntil(Date.now() + retryAfterSeconds * 1_000);
+              }
+            }
 
             if (!uploadResponse.ok || !uploadResult.document) {
               throw new Error(uploadResult.error ?? "Unable to upload this file. Please try again.");
@@ -195,7 +227,7 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       "text/html": [".html", ".htm"],
       "text/plain": [".txt", ".md", ".markdown", ".csv"],
     },
-    disabled: isBusy,
+    disabled: isBusy || isUploadRateLimited,
     maxFiles: MAX_UPLOAD_FILES,
     maxSize: MAX_UPLOAD_SIZE_BYTES,
     multiple: true,
@@ -216,10 +248,18 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       >
         <input {...getInputProps({ "aria-label": "Upload document" })} />
         <p className="text-[13px] font-medium text-[color:var(--editorial-muted)]">
-          {isBusy ? "Processing selected files" : "Drop files or click to upload"}
+          {isUploadRateLimited
+            ? "Upload limit reached — waiting for the limit window"
+            : isBusy
+              ? "Processing selected files"
+              : "Drop files or click to upload"}
         </p>
         <p className="mt-1 text-[11px] leading-5 text-[color:var(--editorial-muted)]">
-          {isDragActive ? "Drop up to 5 files here" : "Up to 5 · PDF · DOCX · XLSX · CSV · MD · HTML · TXT"}
+          {isUploadRateLimited
+            ? `You can upload again in ${formatRetryWaitDuration(uploadLimitedRemainingSeconds)}`
+            : isDragActive
+              ? "Drop up to 5 files here"
+              : "Up to 5 · PDF · DOCX · XLSX · CSV · MD · HTML · TXT"}
         </p>
       </div>
       {uploadItems.length > 0 ? (

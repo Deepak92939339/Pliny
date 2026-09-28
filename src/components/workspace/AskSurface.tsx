@@ -16,6 +16,7 @@ import { tokenizeSafeInlineMarkdown } from "@/lib/markdown/safeInline";
 import { parseResponseWithCharts } from "@/lib/chart/parseResponseWithCharts";
 import { RiskEvidenceReportPreview } from "@/components/workspace/RiskEvidenceReportPreview";
 import { type DocumentListItem, type SearchChunkResult, type WorkspaceSearchResult } from "@/types";
+import { formatRetryWaitDuration } from "@/lib/limits/retryAfter";
 import styles from "./AskSurface.module.css";
 
 type AskSurfaceProps = {
@@ -27,6 +28,7 @@ type AskSurfaceProps = {
   documentsError?: string | null;
   isSearching: boolean;
   pendingQuestion: string | null;
+  rateLimitedUntil?: number | null;
   results: WorkspaceSearchResult[];
   scrollRef?: RefObject<HTMLDivElement | null>;
   searchError?: string | null;
@@ -586,6 +588,7 @@ export function AskSurface({
   documentsError,
   isSearching,
   pendingQuestion,
+  rateLimitedUntil,
   results,
   scrollRef,
   searchError,
@@ -602,7 +605,22 @@ export function AskSurface({
   const noReady = readyCount === 0 && documents.length > 0;
   const bannerMessage = searchError ?? chatError ?? documentsError;
   const trimmedQuery = query.trim();
-  const canSubmit = trimmedQuery.length > 0 && !isSearching && readyCount > 0;
+  // WP3 (audit-r1): a 429 with Retry-After holds the Ask button until the
+  // limit window clears, with a live countdown next to the control.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const rateLimitedRemainingSeconds = rateLimitedUntil ? Math.ceil((rateLimitedUntil - nowMs) / 1000) : 0;
+  const isRateLimited = rateLimitedRemainingSeconds > 0;
+
+  useEffect(() => {
+    if (!isRateLimited) {
+      return;
+    }
+
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [isRateLimited]);
+
+  const canSubmit = trimmedQuery.length > 0 && !isSearching && readyCount > 0 && !isRateLimited;
   const orderedResults = [...results].reverse();
 
   useEffect(() => {
@@ -615,7 +633,7 @@ export function AskSurface({
   }, [query]);
 
   function submitQuestion() {
-    if (!trimmedQuery || isSearching || readyCount === 0) {
+    if (!trimmedQuery || isSearching || readyCount === 0 || isRateLimited) {
       return;
     }
     onAsk(trimmedQuery);
@@ -627,6 +645,9 @@ export function AskSurface({
       return;
     }
     if (!event.ctrlKey && !event.metaKey) {
+      return;
+    }
+    if (isRateLimited) {
       return;
     }
     event.preventDefault();
@@ -754,9 +775,13 @@ export function AskSurface({
           />
           <div className={styles.askRow}>
             <button type="button" className={styles.askBtn} disabled={!canSubmit} onClick={submitQuestion}>
-              Ask
+              {isRateLimited ? "Rate limited" : "Ask"}
             </button>
-            <p className={styles.hint}>CTRL / ⌘ + ENTER TO SUBMIT · ENTER ADDS A LINE BREAK</p>
+            <p className={styles.hint}>
+              {isRateLimited
+                ? `You can ask again in ${formatRetryWaitDuration(rateLimitedRemainingSeconds)}`
+                : "CTRL / ⌘ + ENTER TO SUBMIT · ENTER ADDS A LINE BREAK"}
+            </p>
           </div>
         </div>
       </div>

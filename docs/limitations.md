@@ -33,3 +33,8 @@ Pliny is a production-deployed portfolio system with deliberately narrow guarant
 The current Production dependency audit reports one moderate transitive `@xmldom/xmldom` advisory (`GHSA-6gmq-8vp8-gcm6`). It remains open pending separately scoped dependency remediation.
 
 See [Security & Privacy](./security-and-privacy.md) for implemented controls and [Evaluation](./evaluation.md) for the evidence behind current claims.
+
+## Rate limiting (WP3)
+
+- Upload and document-processing limits run through Upstash sliding windows when Redis is configured. Rejected attempts still consume a slot in the current Upstash window (documented `INFO` finding PLN-004); the UI now disables submits and shows a Retry-After countdown so accidental retry spam is unlikely, but the slot cost of a rejected attempt is inherent to the edge limiter.
+- Chat minute/daily limits count only `allowed` usage events since WP3. Blocked requests are persisted for audit history but no longer extend a user's lockout, and every 429 from `/api/chat`, `/api/documents/upload` and `/api/process-document` carries a `Retry-After` header the UI reads.

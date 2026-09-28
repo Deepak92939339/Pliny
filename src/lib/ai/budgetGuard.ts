@@ -1,4 +1,9 @@
 import type { createClient } from "@/lib/supabase/server";
+import {
+  computeDailyRetryAfterSeconds,
+  computeMinuteRetryAfterSeconds,
+  computeResetRetryAfterSeconds,
+} from "@/lib/limits/retryAfter";
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const MAX_INPUT_TOKENS = 6_000;
@@ -33,6 +38,7 @@ export type AiBudgetDecision = {
   message?: string;
   outputTokens: number;
   reason: string;
+  retryAfterSeconds?: number;
   status: "allowed" | "blocked";
 };
 
@@ -227,6 +233,7 @@ function checkLocalDevBudgetFallback({
       message: "You have reached the local test request limit.",
       outputTokens,
       reason: "minute_rate_limit",
+      retryAfterSeconds: computeResetRetryAfterSeconds(minuteBucket.resetAt, now),
       status: "blocked",
     };
   }
@@ -241,6 +248,7 @@ function checkLocalDevBudgetFallback({
       message: "You have reached the local test request limit.",
       outputTokens,
       reason: "daily_request_limit",
+      retryAfterSeconds: computeDailyRetryAfterSeconds(now),
       status: "blocked",
     };
   }
@@ -255,6 +263,7 @@ function checkLocalDevBudgetFallback({
       message: "This question is too large for the current cost limit.",
       outputTokens,
       reason: "daily_budget_limit",
+      retryAfterSeconds: computeDailyRetryAfterSeconds(now),
       status: "blocked",
     };
   }
@@ -281,12 +290,13 @@ function checkLocalDevBudgetFallback({
   };
 }
 
-function summarizeUsageEvents(events: AiUsageEventForBudget[], now: Date) {
+export function summarizeUsageEvents(events: AiUsageEventForBudget[], now: Date) {
   const startOfDay = getStartOfUtcDay(now).getTime();
   const minuteStart = now.getTime() - RATE_LIMIT_WINDOW_MS;
   let dailyRequestCount = 0;
   let minuteRequestCount = 0;
   let dailySpendUsd = 0;
+  let oldestAllowedMinuteEventAt: number | null = null;
 
   for (const event of events) {
     if (event.model === "document_inventory") {
@@ -299,18 +309,29 @@ function summarizeUsageEvents(events: AiUsageEventForBudget[], now: Date) {
       continue;
     }
 
+    // WP3 (audit-r1, PLN-005): only ALLOWED events count toward the minute and
+    // daily request limits. Blocked events stay persisted below for audit
+    // history, but they must never extend a user's lockout.
+    if (event.status !== "allowed") {
+      continue;
+    }
+
     dailyRequestCount += 1;
 
     if (createdAt >= minuteStart) {
       minuteRequestCount += 1;
+
+      if (oldestAllowedMinuteEventAt === null || createdAt < oldestAllowedMinuteEventAt) {
+        oldestAllowedMinuteEventAt = createdAt;
+      }
     }
 
-    if (event.status !== "blocked") {
-      const estimatedCostUsd = Number(event.estimated_cost_usd);
+    // Spend counts allowed events only (unchanged semantics: everything that
+    // reaches this line has status === "allowed").
+    const estimatedCostUsd = Number(event.estimated_cost_usd);
 
-      if (Number.isFinite(estimatedCostUsd)) {
-        dailySpendUsd += estimatedCostUsd;
-      }
+    if (Number.isFinite(estimatedCostUsd)) {
+      dailySpendUsd += estimatedCostUsd;
     }
   }
 
@@ -318,6 +339,7 @@ function summarizeUsageEvents(events: AiUsageEventForBudget[], now: Date) {
     dailyRequestCount,
     dailySpendUsd,
     minuteRequestCount,
+    oldestAllowedMinuteEventAt,
   };
 }
 
@@ -422,6 +444,7 @@ export async function checkAiBudget({
       message: "You have reached the local test request limit.",
       outputTokens,
       reason: "minute_rate_limit",
+      retryAfterSeconds: computeMinuteRetryAfterSeconds(usageSnapshot.oldestAllowedMinuteEventAt, Date.now(), RATE_LIMIT_WINDOW_MS),
       status: "blocked",
     };
   }
@@ -434,6 +457,7 @@ export async function checkAiBudget({
       message: "You have reached the local test request limit.",
       outputTokens,
       reason: "daily_request_limit",
+      retryAfterSeconds: computeDailyRetryAfterSeconds(Date.now()),
       status: "blocked",
     };
   }
@@ -448,6 +472,7 @@ export async function checkAiBudget({
       message: "This question is too large for the current cost limit.",
       outputTokens,
       reason: "daily_budget_limit",
+      retryAfterSeconds: computeDailyRetryAfterSeconds(Date.now()),
       status: "blocked",
     };
   }

@@ -8,6 +8,7 @@ import { prepareChunkRowsWithEmbeddings } from "@/lib/document-processing/prepar
 import { sanitizeExtractedDocument } from "@/lib/document-processing/sanitizeExtractedDocument";
 import { DocumentProcessingError, type DocumentProcessingMetadata, type DocumentProcessingStage, type SupportedFileKind } from "@/lib/document-processing/types";
 import { isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
+import { computeResetRetryAfterSeconds } from "@/lib/limits/retryAfter";
 import { checkRouteRateLimit } from "@/lib/rate-limit";
 import {
   assertProviderPayloadExcludes,
@@ -433,7 +434,10 @@ export async function POST(request: Request) {
         ? "You have reached the document processing limit for now."
         : "Document processing rate limiting is not configured.";
 
-    return NextResponse.json({ error }, { status });
+    // WP3 (audit-r1): 429s carry Retry-After (seconds until the limiter window resets).
+    const headers = status === 429 ? { "Retry-After": String(computeResetRetryAfterSeconds(processLimit.resetAt, Date.now())) } : undefined;
+
+    return NextResponse.json({ error }, { headers, status });
   }
 
   let document: DocumentRow | null = null;

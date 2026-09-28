@@ -1466,7 +1466,17 @@ export async function POST(request: Request) {
       supabase,
       userId: user.id,
     });
-    return NextResponse.json({ error: budget.message ?? "This request was blocked by the AI budget guard." }, { status: statusCode });
+    const rateLimitHeaders =
+      budget.reason === "minute_rate_limit" ||
+      budget.reason === "daily_request_limit" ||
+      budget.reason === "daily_budget_limit"
+        ? { "Retry-After": String(budget.retryAfterSeconds ?? 60) }
+        : undefined;
+
+    return NextResponse.json(
+      { error: budget.message ?? "This request was blocked by the AI budget guard." },
+      { headers: rateLimitHeaders, status: statusCode }
+    );
   }
 
   const answerProvider = createAnswerProvider();
