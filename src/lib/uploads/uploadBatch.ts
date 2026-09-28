@@ -8,7 +8,9 @@ export type UploadCandidate = {
 export type UploadItemStatus = "queued" | "uploading" | "processing" | "ready" | "failed";
 
 export type UploadBatchItem<TFile extends UploadCandidate = UploadCandidate> = {
+  allowDuplicate?: boolean;
   documentId?: string;
+  duplicate?: boolean;
   file: TFile;
   filename: string;
   id: string;
@@ -16,6 +18,14 @@ export type UploadBatchItem<TFile extends UploadCandidate = UploadCandidate> = {
   pageCount?: number;
   status: UploadItemStatus;
 };
+
+/** WP5 (audit-r1): thrown on a 409 duplicate response so the item can offer "Upload anyway". */
+export class DuplicateUploadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DuplicateUploadError";
+  }
+}
 
 type UploadResult = {
   documentId: string;
@@ -30,7 +40,7 @@ type ProcessResult = {
 type UploadBatchHandlers<TFile extends UploadCandidate> = {
   onChange: (items: UploadBatchItem<TFile>[], changedItem: UploadBatchItem<TFile>) => void;
   process: (documentId: string, file: TFile) => Promise<ProcessResult>;
-  upload: (file: TFile) => Promise<UploadResult>;
+  upload: (file: TFile, item: UploadBatchItem<TFile>) => Promise<UploadResult>;
 };
 
 function defaultIdFactory() {
@@ -96,7 +106,7 @@ export async function runSequentialUploadBatch<TFile extends UploadCandidate>(
     transition(queuedItem.id, { message: undefined, status: "uploading" });
 
     try {
-      const uploaded = await upload(queuedItem.file);
+      const uploaded = await upload(queuedItem.file, queuedItem);
       transition(queuedItem.id, {
         documentId: uploaded.documentId,
         message: "Uploaded. Extracting text now.",
@@ -112,7 +122,9 @@ export async function runSequentialUploadBatch<TFile extends UploadCandidate>(
         status: processed.status,
       });
     } catch (error) {
+      const isDuplicate = error instanceof DuplicateUploadError;
       transition(queuedItem.id, {
+        duplicate: isDuplicate || undefined,
         message: getFailureMessage(error),
         status: "failed",
       });

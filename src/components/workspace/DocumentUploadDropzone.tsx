@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import {
+  DuplicateUploadError,
   createFailedUploadItem,
   createUploadQueue,
   MAX_UPLOAD_FILES,
@@ -162,7 +163,7 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
               status: processResult.status === "processing" ? ("processing" as const) : ("ready" as const),
             };
           },
-          upload: async (file) => {
+          upload: async (file, item) => {
             if (!isSupportedFile(file)) {
               throw new Error("Only PDF, DOCX, XLSX, CSV, MD, HTML, and TXT files can be uploaded. Legacy .xls files are not supported.");
             }
@@ -174,12 +175,23 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
             const uploadFormData = new FormData();
             uploadFormData.append("collection_id", collectionId);
             uploadFormData.append("file", file);
+            if (item.allowDuplicate) {
+              uploadFormData.append("allow_duplicate", "true");
+            }
 
             const uploadResponse = await fetch("/api/documents/upload", {
               body: uploadFormData,
               method: "POST",
             });
             const uploadResult = await readUploadResponse(uploadResponse);
+
+            if (uploadResponse.status === 409) {
+              // WP5 (audit-r1): duplicate content in this workspace — surface
+              // the message and offer "Upload anyway" on the file item.
+              throw new DuplicateUploadError(
+                uploadResult.error ?? "This file is already in the workspace."
+              );
+            }
 
             if (uploadResponse.status === 429) {
               const retryAfterSeconds = getRetryAfterHeaderSeconds(uploadResponse.headers);
@@ -213,6 +225,24 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       setUploadItems([...acceptedItems, ...rejectedItems]);
 
       if (acceptedItems.length > 0) void uploadBatch([...acceptedItems, ...rejectedItems]);
+    },
+    [uploadBatch]
+  );
+
+  // WP5 (audit-r1): "Upload anyway" — re-run the single item with allowDuplicate.
+  const uploadAnyway = useCallback(
+    (itemId: string) => {
+      setUploadItems((current) => {
+        const item = current.find((candidate) => candidate.id === itemId);
+
+        if (item) {
+          void uploadBatch([{ ...item, allowDuplicate: true, duplicate: false, message: undefined, status: "queued" }]);
+        }
+
+        return current.map((candidate) =>
+          candidate.id === itemId ? { ...candidate, allowDuplicate: true, duplicate: false, message: undefined, status: "queued" } : candidate
+        );
+      });
     },
     [uploadBatch]
   );
@@ -294,6 +324,15 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
                 >
                   {item.message}
                 </p>
+              ) : null}
+              {item.duplicate && item.status === "failed" ? (
+                <button
+                  type="button"
+                  onClick={() => uploadAnyway(item.id)}
+                  className="mt-1.5 rounded-md border border-black/15 px-2 py-1 text-[11px] font-medium text-[color:var(--editorial-ink-soft)] transition-colors hover:border-[#BA5C3D]/45 hover:text-[color:var(--editorial-ink)]"
+                >
+                  Upload anyway
+                </button>
               ) : null}
             </li>
           ))}

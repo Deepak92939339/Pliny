@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, EllipsisVertical, Plus, X } from "lucide-react";
+import { DocumentDeleteButton } from "@/components/workspace/DocumentDeleteButton";
 import { DocumentProcessButton } from "@/components/workspace/DocumentProcessButton";
 import { DocumentUploadDropzone } from "@/components/workspace/DocumentUploadDropzone";
 import { getFileKindLabel, inferSupportedFileKind } from "@/lib/document-processing/fileKinds";
@@ -446,6 +447,12 @@ export function DocumentsSurface({
                                     <DocumentProcessButton documentId={document.id} label="Retry" />
                                   </span>
                                 ) : null}
+                                <DocumentDeleteButton
+                                  className={styles.menuItem}
+                                  documentId={document.id}
+                                  filename={filename}
+                                  onDeleted={() => setOpenMenuId(null)}
+                                />
                               </div>
                             ) : null}
                           </div>
@@ -537,6 +544,12 @@ export function DocumentsSurface({
                               <DocumentProcessButton documentId={document.id} label="Retry" />
                             </span>
                           ) : null}
+                          <DocumentDeleteButton
+                            className={styles.menuItem}
+                            documentId={document.id}
+                            filename={filename}
+                            onDeleted={() => setOpenMenuId(null)}
+                          />
                         </div>
                       ) : null}
                     </div>
