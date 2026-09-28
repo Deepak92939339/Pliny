@@ -326,10 +326,13 @@ export function summarizeUsageEvents(events: AiUsageEventForBudget[], now: Date)
       continue;
     }
 
-    // WP3 (audit-r1, PLN-005): only ALLOWED events count toward the minute and
-    // daily request limits. Blocked events stay persisted below for audit
-    // history, but they must never extend a user's lockout.
-    if (event.status !== "allowed") {
+    // WP3 (audit-r1, PLN-005): blocked events never count toward the minute
+    // and daily request limits (they stay persisted for audit history, but must
+    // never extend a user's lockout). Persisted ai_usage_events rows use the
+    // statuses 'success' | 'failed' | 'blocked' (DB check constraint) — there is
+    // no 'allowed' row status, so filter OUT 'blocked' rather than filtering IN
+    // a status that never exists (hotfix: the previous filter counted nothing).
+    if (event.status === "blocked") {
       continue;
     }
 
@@ -343,8 +346,8 @@ export function summarizeUsageEvents(events: AiUsageEventForBudget[], now: Date)
       }
     }
 
-    // Spend counts allowed events only (unchanged semantics: everything that
-    // reaches this line has status === "allowed").
+    // Spend counts every non-blocked event ('success' and 'failed'), matching
+    // the pre-audit semantics.
     const estimatedCostUsd = Number(event.estimated_cost_usd);
 
     if (Number.isFinite(estimatedCostUsd)) {

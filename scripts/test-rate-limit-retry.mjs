@@ -47,7 +47,7 @@ function makeEvent({ ageMs, status, model = "openai/gpt-6-luna", cost = 0.002 })
 await run("minute window counts only allowed events (5 allowed + 10 blocked = 5)", () => {
   assert.equal(typeof summarizeUsageEvents, "function", "summarizeUsageEvents is not exported yet (blocked events still counted)");
   const events = [
-    ...Array.from({ length: 5 }, (_, i) => makeEvent({ ageMs: (i + 1) * 3_000, status: "allowed" })),
+    ...Array.from({ length: 5 }, (_, i) => makeEvent({ ageMs: (i + 1) * 3_000, status: "success" })),
     ...Array.from({ length: 10 }, (_, i) => makeEvent({ ageMs: (i + 1) * 4_000, status: "blocked", cost: 0 })),
   ];
   const snapshot = summarizeUsageEvents(events, new Date());
@@ -64,12 +64,12 @@ await run("daily snapshot ignores blocked events entirely", () => {
       created_at: hoursAgo(2 + (i % 3)),
       estimated_cost_usd: 0.004,
       model: "openai/gpt-6-luna",
-      status: i % 4 === 0 ? "blocked" : "allowed",
+      status: i % 4 === 0 ? "blocked" : i % 4 === 1 ? "failed" : "success",
     })),
   ];
-  // 9 allowed (12 minus every 4th), 3 blocked — all today (2-4h ago)
+  // 9 counted (success + failed = 12 minus every 4th), 3 blocked — all today (2-4h ago)
   const snapshot = summarizeUsageEvents(events, now);
-  assert.equal(snapshot.dailyRequestCount, 9, `expected 9 allowed, got ${snapshot.dailyRequestCount}`);
+  assert.equal(snapshot.dailyRequestCount, 9, `expected 9 counted, got ${snapshot.dailyRequestCount}`);
   // spend still counts only non-blocked events (unchanged behaviour)
   assert.equal(snapshot.dailySpendUsd, 9 * 0.004);
 });
@@ -79,11 +79,24 @@ await run("blocked events in the previous window do not extend the current block
   // 61s ago: 5 blocked retries during an expired block; 10s ago: 2 allowed.
   const events = [
     ...Array.from({ length: 5 }, () => makeEvent({ ageMs: 61_000, status: "blocked", cost: 0 })),
-    makeEvent({ ageMs: 10_000, status: "allowed" }),
-    makeEvent({ ageMs: 20_000, status: "allowed" }),
+    makeEvent({ ageMs: 10_000, status: "success" }),
+    makeEvent({ ageMs: 20_000, status: "success" }),
   ];
   const snapshot = summarizeUsageEvents(events, new Date());
   assert.equal(snapshot.minuteRequestCount, 2, `expected 2, got ${snapshot.minuteRequestCount}`);
+});
+
+await run("real persisted statuses count: 'success' and 'failed' rows hit the limits (hotfix regression guard)", () => {
+  // ai_usage_events.status is constrained to 'success' | 'failed' | 'blocked'.
+  const events = [
+    ...Array.from({ length: 6 }, (_, i) => makeEvent({ ageMs: (i + 1) * 2_000, status: "success" })),
+    makeEvent({ ageMs: 15_000, status: "failed" }),
+    ...Array.from({ length: 4 }, (_, i) => makeEvent({ ageMs: (i + 1) * 5_000, status: "blocked", cost: 0 })),
+  ];
+  const snapshot = summarizeUsageEvents(events, new Date());
+  assert.equal(snapshot.minuteRequestCount, 7, `expected 7 (6 success + 1 failed), got ${snapshot.minuteRequestCount}`);
+  assert.equal(snapshot.dailyRequestCount, 7);
+  assert.ok(snapshot.dailySpendUsd > 0, "spend must accumulate from real 'success' rows");
 });
 
 await run("computeMinuteRetryAfterSeconds derives wait from the oldest allowed event", () => {
