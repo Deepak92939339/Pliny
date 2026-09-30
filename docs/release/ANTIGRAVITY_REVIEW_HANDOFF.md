@@ -5,10 +5,14 @@
 - **Publishing Branch**: `fix/pliny-audit-r1-preview-20260930`
 - **Base Commit**: `b8a984417d6c07d865613b739aa45d9875dd6fd3` (clean `origin/main`)
 - **Application Candidate Commit (Pre-Docs)**: `69de250005a76c8f9dbd99ea7e53f0da591aa9ef`
-- **Final Candidate SHA**: (recorded below after review docs commit and push)
-- **Draft Pull Request**: (recorded below after branch push)
+- **Final Candidate SHA**: `59444917a1516e84d436a5ea97e1ddc441b8a594`
+- **Draft Pull Request**: `https://github.com/Deepak92939339/Pliny/pull/2`
 - **Vercel Preview Deployment**:
   - Target: `Preview` (branch-scoped)
+  - Deployment ID: `dpl_3xHLRGcCvn6jFuqFrsw1f2UwNypj`
+  - Status: `● Ready` (Built and deployed in 1m 45s)
+  - URL: `https://pliny-hhvxbdkaz-deepakpatro626472-2604s-projects.vercel.app`
+  - Alias: `https://pliny-git-fix-pliny-aud-a6b1b1-deepakpatro626472-2604s-projects.vercel.app`
   - Source Branch: `fix/pliny-audit-r1-preview-20260930`
   - Canonical Production (`pliny.vercel.app`): **Untouched** at `b8a9844`
 
@@ -89,8 +93,27 @@
 ```text
 Please perform final independent release review of branch `fix/pliny-audit-r1-preview-20260930` targeting `main`.
 Base commit: b8a984417d6c07d865613b739aa45d9875dd6fd3
+Candidate SHA: 59444917a1516e84d436a5ea97e1ddc441b8a594
+Preview URL: https://pliny-hhvxbdkaz-deepakpatro626472-2604s-projects.vercel.app
+Draft PR: https://github.com/Deepak92939339/Pliny/pull/2
+
 All 10 commits of ALL.patch and PLINY_WP3_HOTFIX.patch have been integrated and verified.
 The UTC rate-limit test flaw has been corrected with 11/11 passing assertions.
 All local gates pass: typecheck (0), lint (0), test:deterministic (24 suites, 0), test:eval (36 cases, 0), build (0), test:privacy:bundle (0), npm audit --omit=dev (0 vulns), OCR e2e (0).
 Zero external provider requests were consumed. Production main and Production Supabase/Vercel remain untouched.
 ```
+
+---
+
+## 8. Handoff Status
+
+**LOCAL CANDIDATE READY — HOSTED VERIFICATION PENDING**
+
+### Status Rationale & Concrete Blockers:
+- **Local Verification**: 100% complete and passing across all required local gates, typechecks, linter, deterministic tests (24 suites), 36-case evaluation, production build, privacy bundle scan, and real OCR end-to-end execution.
+- **Hosted Preview**: Successfully built and deployed to Vercel Preview at `https://pliny-hhvxbdkaz-deepakpatro626472-2604s-projects.vercel.app` (Deployment ID: `dpl_3xHLRGcCvn6jFuqFrsw1f2UwNypj`, Target: `Preview`, Status: `● Ready`).
+- **Hosted Verification Pending Blockers**:
+  1. Isolated Staging Supabase credentials (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`) are required to be configured on the Preview scope for authenticated browser write tests, keeping Production Supabase completely isolated.
+  2. The additive migration `supabase/migrations/20260929090000_documents_content_sha256.sql` must be applied to the staging Supabase project.
+  3. Authenticated end-to-end hosted acceptance flows (workspace creation, document upload, OCR, table retrieval, deletion, citation) remain pending execution against the isolated staging backend before final Production promotion.
+

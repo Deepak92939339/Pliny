@@ -1,37 +1,48 @@
 # Antigravity Progress Checkpoint
 
-## Current Phase: Phase A Complete -> Starting Phase B
+## Current Phase: Complete (Local Candidate Ready — Hosted Verification Pending)
 - **Date**: 2026-09-30
 - **Workspace**: `/Users/sandman/Desktop/RAG intelligence/pliny-antigravity-review`
 - **Publishing Branch**: `fix/pliny-audit-r1-preview-20260930`
-- **Base Commit**: `b8a984417d6c07d865613b739aa45d9875dd6fd3` (clean, synchronized with remote `origin/main`)
-- **Safety**: Local pre-push hook installed in `.git/hooks/pre-push` to enforce publishing branch.
-- **Provider Requests Used This Task**: 0 (ceiling 25)
+- **Base Commit**: `b8a984417d6c07d865613b739aa45d9875dd6fd3` (clean `origin/main`)
+- **Candidate Commit (Source)**: `69de250005a76c8f9dbd99ea7e53f0da591aa9ef`
+- **Candidate Commit (with Review Docs)**: `59444917a1516e84d436a5ea97e1ddc441b8a594`
+- **Vercel Preview Deployment**:
+  - Target: `Preview` (branch-scoped)
+  - Deployment ID: `dpl_3xHLRGcCvn6jFuqFrsw1f2UwNypj`
+  - Status: `● Ready`
+  - URL: `https://pliny-hhvxbdkaz-deepakpatro626472-2604s-projects.vercel.app`
+  - Alias: `https://pliny-git-fix-pliny-aud-a6b1b1-deepakpatro626472-2604s-projects.vercel.app`
+- **Draft Pull Request**: `https://github.com/Deepak92939339/Pliny/pull/2`
+- **Provider Requests Consumed**: `0` (ceiling 25)
 
-## Phase A Summary
-1. Baseline verified:
-   - Node v24.19.0, npm 11.17.0, git 2.54.0, gh 2.98.0
-   - `npm ci` passed (clean install from lockfile).
-   - `npm run typecheck` passed (exit 0).
-   - `npm run lint` passed (exit 0).
-   - `npm run test:deterministic` passed (all 17 suites green).
-   - `npm run test:eval` passed (all 36 cases green, 100% threshold match).
-   - `npm run build` passed (11 static/dynamic routes compiled).
-   - `npm run test:privacy:bundle` passed (verified against build output with dummy server key).
-   - `git diff --check` clean.
-2. Package inspection:
-   - Archive `/Users/sandman/Downloads/pliny-fix-FINAL.zip` verified clean and extracted to `/tmp/pliny-fix-FINAL-extracted`.
-   - `PLINY_WP3_HOTFIX.patch` inspected.
-   - `ALL.patch` applicability pre-checked with `git apply --check` (clean exit 0).
-   - Documented matrix in `docs/release/REPAIR_VERIFICATION_MATRIX.md`.
-3. Defects confirmed:
-   - Baseline counted blocked rows toward rate limits.
-   - ALL.patch introduced zero-count bug (`status !== "allowed"` vs db `'success'|'failed'|'blocked'`).
-   - WP3 Hotfix correctly filters `status === "blocked"`.
-   - Test flaw in `scripts/test-rate-limit-retry.mjs` (UTC date boundary flaw near midnight UTC) identified and targeted for fix.
-   - Baseline chat route single-document draft leak confirmed at `src/app/api/chat/route.ts` line 1586.
-   - Coarse 50-row CSV chunking in baseline confirmed at `src/lib/document-processing/plugins/csv.ts` line 13.
-   - Missing DELETE document route and missing duplicate hash migration confirmed.
+## Phase Summary
+1. **Phase A (Baseline & Inspection)**:
+   - Clean baseline verified (`b8a9844`). All gates passed.
+   - Archive and hotfix integrity verified.
+   - Matrix documented in `docs/release/REPAIR_VERIFICATION_MATRIX.md`.
+2. **Phase B (Integration & UTC Test Correction)**:
+   - Applied all 10 commits of `ALL.patch` cleanly via `git am`.
+   - Applied `PLINY_WP3_HOTFIX.patch` cleanly via `git am`.
+   - Fixed UTC midnight assumption in `scripts/test-rate-limit-retry.mjs` with fixed noon-UTC timestamps, verified 40 success + 10 blocked fixture ($0.40 spend, 40 requests), and added explicit UTC-day-boundary coverage.
+   - Audited complete git diff: 0 secrets, 0 absolute paths, 0 unintended provider/auth changes.
+3. **Phase C & D (Verification & Gates)**:
+   - `npm ci` passed (`npm audit --omit=dev` = 0 vulnerabilities).
+   - `npm run typecheck` passed (0 errors).
+   - `npm run lint` passed (0 errors).
+   - `npm run test:deterministic` passed (24/24 suites).
+   - `npm run test:eval` passed (36/36 release evaluation cases).
+   - `npm run build` passed (production build succeeded).
+   - `npm run test:privacy:bundle` passed (client bundle privacy verified).
+   - `git diff --check` passed (clean whitespace).
+   - `OCR_ENABLED=true PLINY_OCR_E2E=1 npm run test:ocr-e2e` passed (scanned PDF ready in 3.9s vs 240s budget).
+   - Live Next.js production server CSP inspection verified: enforced nonce, `strict-dynamic`, no `unsafe-eval`.
+4. **Phase E (Publishing & Preview Deployment)**:
+   - Verified branch equals `fix/pliny-audit-r1-preview-20260930`.
+   - Pushed via explicit refspec `HEAD:refs/heads/fix/pliny-audit-r1-preview-20260930` to origin.
+   - Inspected Vercel Preview deployment `dpl_3xHLRGcCvn6jFuqFrsw1f2UwNypj` (`● Ready`).
+   - Created draft PR #2 targeting `main`.
+   - Production `main`, Production Vercel deployment, and Production database untouched.
 
 ## Next Action
-Proceed to Phase B: Apply `ALL.patch` series using Git email patch workflow, then immediately apply `PLINY_WP3_HOTFIX.patch`, correct the UTC test flaw, verify both landed, and inspect the resulting diff.
+Ready for Codex review and staged acceptance on isolated staging Supabase backend.
