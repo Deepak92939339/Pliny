@@ -34,10 +34,10 @@ async function run(name, fn) {
 
 const MINUTE_MS = 60_000;
 
-function makeEvent({ ageMs, status, model = "openai/gpt-6-luna", cost = 0.002 }) {
-  const now = Date.now();
+function makeEvent({ ageMs, status, model = "openai/gpt-6-luna", cost = 0.002 }, baseNow = Date.now()) {
+  const baseTime = typeof baseNow === "number" ? baseNow : baseNow.getTime();
   return {
-    created_at: new Date(now - ageMs).toISOString(),
+    created_at: new Date(baseTime - ageMs).toISOString(),
     estimated_cost_usd: cost,
     model,
     status,
@@ -46,18 +46,19 @@ function makeEvent({ ageMs, status, model = "openai/gpt-6-luna", cost = 0.002 })
 
 await run("minute window counts only allowed events (5 allowed + 10 blocked = 5)", () => {
   assert.equal(typeof summarizeUsageEvents, "function", "summarizeUsageEvents is not exported yet (blocked events still counted)");
+  const fixedNow = new Date("2026-09-30T12:00:00.000Z");
   const events = [
-    ...Array.from({ length: 5 }, (_, i) => makeEvent({ ageMs: (i + 1) * 3_000, status: "success" })),
-    ...Array.from({ length: 10 }, (_, i) => makeEvent({ ageMs: (i + 1) * 4_000, status: "blocked", cost: 0 })),
+    ...Array.from({ length: 5 }, (_, i) => makeEvent({ ageMs: (i + 1) * 3_000, status: "success" }, fixedNow)),
+    ...Array.from({ length: 10 }, (_, i) => makeEvent({ ageMs: (i + 1) * 4_000, status: "blocked", cost: 0 }, fixedNow)),
   ];
-  const snapshot = summarizeUsageEvents(events, new Date());
+  const snapshot = summarizeUsageEvents(events, fixedNow);
   assert.equal(snapshot.minuteRequestCount, 5, `expected 5, got ${snapshot.minuteRequestCount}`);
   assert.equal(snapshot.dailyRequestCount, 5, `expected 5, got ${snapshot.dailyRequestCount}`);
 });
 
-await run("daily snapshot ignores blocked events entirely", () => {
+await run("daily snapshot ignores blocked events entirely (fixed noon-UTC fixture)", () => {
   assert.equal(typeof summarizeUsageEvents, "function", "summarizeUsageEvents is not exported yet");
-  const now = new Date();
+  const now = new Date("2026-09-30T12:00:00.000Z");
   const hoursAgo = (h) => new Date(now.getTime() - h * 3_600_000).toISOString();
   const events = [
     ...Array.from({ length: 12 }, (_, i) => ({
@@ -67,7 +68,7 @@ await run("daily snapshot ignores blocked events entirely", () => {
       status: i % 4 === 0 ? "blocked" : i % 4 === 1 ? "failed" : "success",
     })),
   ];
-  // 9 counted (success + failed = 12 minus every 4th), 3 blocked — all today (2-4h ago)
+  // 9 counted (success + failed = 12 minus every 4th), 3 blocked — all today (2-4h ago from noon UTC)
   const snapshot = summarizeUsageEvents(events, now);
   assert.equal(snapshot.dailyRequestCount, 9, `expected 9 counted, got ${snapshot.dailyRequestCount}`);
   // spend still counts only non-blocked events (unchanged behaviour)
@@ -76,27 +77,68 @@ await run("daily snapshot ignores blocked events entirely", () => {
 
 await run("blocked events in the previous window do not extend the current block", () => {
   assert.equal(typeof summarizeUsageEvents, "function", "summarizeUsageEvents is not exported yet");
+  const fixedNow = new Date("2026-09-30T12:00:00.000Z");
   // 61s ago: 5 blocked retries during an expired block; 10s ago: 2 allowed.
   const events = [
-    ...Array.from({ length: 5 }, () => makeEvent({ ageMs: 61_000, status: "blocked", cost: 0 })),
-    makeEvent({ ageMs: 10_000, status: "success" }),
-    makeEvent({ ageMs: 20_000, status: "success" }),
+    ...Array.from({ length: 5 }, () => makeEvent({ ageMs: 61_000, status: "blocked", cost: 0 }, fixedNow)),
+    makeEvent({ ageMs: 10_000, status: "success" }, fixedNow),
+    makeEvent({ ageMs: 20_000, status: "success" }, fixedNow),
   ];
-  const snapshot = summarizeUsageEvents(events, new Date());
+  const snapshot = summarizeUsageEvents(events, fixedNow);
   assert.equal(snapshot.minuteRequestCount, 2, `expected 2, got ${snapshot.minuteRequestCount}`);
 });
 
 await run("real persisted statuses count: 'success' and 'failed' rows hit the limits (hotfix regression guard)", () => {
   // ai_usage_events.status is constrained to 'success' | 'failed' | 'blocked'.
+  const fixedNow = new Date("2026-09-30T12:00:00.000Z");
   const events = [
-    ...Array.from({ length: 6 }, (_, i) => makeEvent({ ageMs: (i + 1) * 2_000, status: "success" })),
-    makeEvent({ ageMs: 15_000, status: "failed" }),
-    ...Array.from({ length: 4 }, (_, i) => makeEvent({ ageMs: (i + 1) * 5_000, status: "blocked", cost: 0 })),
+    ...Array.from({ length: 6 }, (_, i) => makeEvent({ ageMs: (i + 1) * 2_000, status: "success" }, fixedNow)),
+    makeEvent({ ageMs: 15_000, status: "failed" }, fixedNow),
+    ...Array.from({ length: 4 }, (_, i) => makeEvent({ ageMs: (i + 1) * 5_000, status: "blocked", cost: 0 }, fixedNow)),
   ];
-  const snapshot = summarizeUsageEvents(events, new Date());
+  const snapshot = summarizeUsageEvents(events, fixedNow);
   assert.equal(snapshot.minuteRequestCount, 7, `expected 7 (6 success + 1 failed), got ${snapshot.minuteRequestCount}`);
   assert.equal(snapshot.dailyRequestCount, 7);
   assert.ok(snapshot.dailySpendUsd > 0, "spend must accumulate from real 'success' rows");
+});
+
+await run("40 success rows plus 10 blocked rows yield exactly 40 minute req, 40 daily req, and $0.40 spend", () => {
+  const fixedNow = new Date("2026-09-30T12:00:00.000Z");
+  const events = [
+    ...Array.from({ length: 40 }, (_, i) => makeEvent({ ageMs: (i + 1) * 1_000, status: "success", cost: 0.01 }, fixedNow)),
+    ...Array.from({ length: 10 }, (_, i) => makeEvent({ ageMs: (i + 1) * 2_000, status: "blocked", cost: 0 }, fixedNow)),
+  ];
+  const snapshot = summarizeUsageEvents(events, fixedNow);
+  assert.equal(snapshot.minuteRequestCount, 40, `expected 40 minute requests, got ${snapshot.minuteRequestCount}`);
+  assert.equal(snapshot.dailyRequestCount, 40, `expected 40 daily requests, got ${snapshot.dailyRequestCount}`);
+  assert.equal(Math.round(snapshot.dailySpendUsd * 100) / 100, 0.40, `expected $0.40 daily spend, got ${snapshot.dailySpendUsd}`);
+});
+
+await run("UTC day boundary: events before 00:00:00.000Z UTC do not count toward today's daily stats", () => {
+  // Simulate now at 00:00:10.000Z UTC on 2026-09-30
+  const boundaryNow = new Date("2026-09-30T00:00:10.000Z");
+  const events = [
+    // 5 events earlier today (between 00:00:01 and 00:00:09 UTC)
+    ...Array.from({ length: 5 }, (_, i) => ({
+      created_at: new Date(boundaryNow.getTime() - (i + 1) * 1_000).toISOString(),
+      estimated_cost_usd: 0.01,
+      model: "openai/gpt-6-luna",
+      status: "success",
+    })),
+    // 7 events from yesterday UTC (e.g. 23:59:50 to 23:59:58 UTC yesterday)
+    ...Array.from({ length: 7 }, (_, i) => ({
+      created_at: new Date(Date.parse("2026-09-29T23:59:59.000Z") - i * 1_000).toISOString(),
+      estimated_cost_usd: 0.01,
+      model: "openai/gpt-6-luna",
+      status: "success",
+    })),
+  ];
+  const snapshot = summarizeUsageEvents(events, boundaryNow);
+  // Only today's 5 events count toward dailyRequestCount and dailySpendUsd
+  assert.equal(snapshot.dailyRequestCount, 5, `expected 5 daily requests today, got ${snapshot.dailyRequestCount}`);
+  assert.equal(Math.round(snapshot.dailySpendUsd * 100) / 100, 0.05, `expected $0.05 spend today, got ${snapshot.dailySpendUsd}`);
+  // Minute window events within today (00:00:00 to 00:00:10)
+  assert.equal(snapshot.minuteRequestCount, 5, `expected 5 minute requests today, got ${snapshot.minuteRequestCount}`);
 });
 
 await run("computeMinuteRetryAfterSeconds derives wait from the oldest allowed event", () => {
