@@ -48,6 +48,14 @@ const nextConfig: NextConfig = {
       "./node_modules/@napi-rs/canvas/**",
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/__ui-preview",
+        destination: "/ui-preview-harness",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
