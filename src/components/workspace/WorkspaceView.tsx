@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronLeft, FileText, Menu, PanelLeft } from "lucide-react";
 import { AskSurface } from "@/components/workspace/AskSurface";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { DocumentsSurface } from "@/components/workspace/DocumentsSurface";
 import { SourceInspector, SourceSheet } from "@/components/workspace/SourceInspector";
 import { downloadMarkdownFile } from "@/lib/export/browserReportExport";
@@ -487,15 +489,18 @@ export function WorkspaceView({
           </nav>
         </div>
         <div className={styles.headerRight}>
-          <span className={styles.statusChip}>{statusChip}</span>
-          <button
+          <span className={styles.statusChip}>
+            <Badge variant="mono-label">{statusChip}</Badge>
+          </span>
+          <Button
             type="button"
-            className={styles.ghostBtn}
+            variant="secondary"
+            size="sm"
             disabled={searchResults.length === 0}
             onClick={handleExportTranscript}
           >
             Export transcript
-          </button>
+          </Button>
           <div className={styles.menuWrap} ref={(el) => { menuWraps.current.mode = el; }}>
             <button
               ref={(el) => { menuTriggers.current.mode = el; }}

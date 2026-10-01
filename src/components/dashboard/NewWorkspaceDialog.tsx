@@ -34,7 +34,7 @@ function toWorkspaceCopy(message?: string) {
   return message?.replaceAll("Project", "Workspace").replaceAll("project", "workspace");
 }
 
-export function NewWorkspaceDialog({ className, label = "New workspace", size = "sm", tone = "default", variant = "default" }: NewWorkspaceDialogProps) {
+export function NewWorkspaceDialog({ className, label = "New workspace", size = "sm", variant = "default" }: NewWorkspaceDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
