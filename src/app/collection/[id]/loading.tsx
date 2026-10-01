@@ -1,14 +1,14 @@
 function SkeletonBlock({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-md bg-black/[0.08] ${className}`} />;
+  return <div className={`animate-pulse rounded-[var(--radius-sm)] bg-[var(--rule)] ${className}`} />;
 }
 
 export default function CollectionLoading() {
   return (
-    <main className="dm-page flex h-screen w-screen overflow-hidden text-[color:var(--editorial-ink)]">
-      <aside className="hidden h-full min-h-0 w-[260px] shrink-0 flex-col border-r border-black/[0.08] bg-[var(--paper-2)] md:flex">
+    <main className="flex h-screen w-screen overflow-hidden bg-[var(--paper-0)] text-[var(--ink-900)]">
+      <aside className="hidden h-full min-h-0 w-[260px] shrink-0 flex-col border-r border-[var(--rule)] bg-[var(--paper-2)] md:flex">
         <div className="shrink-0 px-4 py-4">
           <SkeletonBlock className="h-8 w-36" />
-          <SkeletonBlock className="mt-4 h-9 w-full rounded-lg" />
+          <SkeletonBlock className="mt-4 h-9 w-full rounded-[var(--radius-md)]" />
         </div>
         <div className="min-h-0 flex-1 px-4 py-3">
           <SkeletonBlock className="h-3 w-24" />
@@ -26,7 +26,7 @@ export default function CollectionLoading() {
       </aside>
 
       <section className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-black/[0.08] bg-[var(--paper-2)]/90 px-4">
+        <header className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--rule)] bg-[var(--paper-2)]/90 px-4">
           <div>
             <SkeletonBlock className="h-4 w-44" />
             <SkeletonBlock className="mt-1.5 h-3 w-20" />
@@ -40,9 +40,9 @@ export default function CollectionLoading() {
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <div className="min-h-0 flex-1 overflow-hidden px-4 py-8 md:px-8">
-              <div className="mx-auto max-w-[820px] space-y-8">
+              <div className="mx-auto max-w-[768px] space-y-8">
                 <div className="flex justify-end">
-                  <SkeletonBlock className="h-12 w-[58%] rounded-2xl" />
+                  <SkeletonBlock className="h-12 w-[58%] rounded-[var(--radius-xl)]" />
                 </div>
                 <div className="space-y-3">
                   <SkeletonBlock className="h-4 w-full" />
@@ -52,17 +52,17 @@ export default function CollectionLoading() {
               </div>
             </div>
             <div className="shrink-0 px-4 pb-6 md:px-8">
-              <SkeletonBlock className="mx-auto h-24 max-w-[720px] rounded-3xl" />
+              <SkeletonBlock className="mx-auto h-24 max-w-[768px] rounded-[var(--radius-xl)]" />
             </div>
           </section>
 
-          <aside className="hidden h-full min-h-0 w-[280px] shrink-0 flex-col border-l border-black/[0.08] bg-[var(--paper-2)]/70 min-[900px]:flex">
-            <div className="flex h-12 shrink-0 items-center gap-2 border-b border-black/[0.08] px-3">
+          <aside className="hidden h-full min-h-0 w-[280px] shrink-0 flex-col border-l border-[var(--rule)] bg-[var(--paper-2)]/70 min-[900px]:flex">
+            <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--rule)] px-3">
               <SkeletonBlock className="h-4 w-24" />
-              <SkeletonBlock className="ml-auto size-7 rounded-md" />
+              <SkeletonBlock className="ml-auto size-7 rounded-[var(--radius-sm)]" />
             </div>
-            <div className="border-b border-black/[0.08] p-3">
-              <SkeletonBlock className="h-20 w-full rounded-xl" />
+            <div className="border-b border-[var(--rule)] p-3">
+              <SkeletonBlock className="h-20 w-full rounded-[var(--radius-lg)]" />
             </div>
             <div className="space-y-2 p-3">
               <SkeletonBlock className="h-10 w-full" />
