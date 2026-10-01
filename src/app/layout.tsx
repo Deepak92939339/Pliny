@@ -8,7 +8,7 @@ const newsreader = Source_Serif_4({
   subsets: ["latin"],
   variable: "--font-newsreader",
   style: ["normal", "italic"],
-  weight: ["300", "400", "500", "600"],
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 

@@ -136,7 +136,7 @@ function renderHighlightedText(text: string, highlight: string | null) {
     <span key={`${part.slice(0, 18)}-${index}`}>
       {part}
       {index < parts.length - 1 ? (
-        <mark className="box-decoration-clone rounded-[3px] bg-amber-300/20 px-0.5 text-inherit">{highlight}</mark>
+        <mark className="box-decoration-clone rounded-[var(--radius-xs)] bg-[var(--accent-soft)] px-0.5 text-[var(--accent-ink)] font-medium">{highlight}</mark>
       ) : null}
     </span>
   ));
@@ -147,11 +147,11 @@ function SourceText({ source }: { source: SearchChunkResult }) {
   const paragraphs = getSourceContent(source).split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean);
 
   if (paragraphs.length === 0) {
-    return <p className="text-[15px] leading-7 text-[color:var(--editorial-muted)]">No source text available.</p>;
+    return <p className="text-[var(--text-sm)] leading-7 text-[var(--ink-500)]">No source text available.</p>;
   }
 
   return (
-    <div className="space-y-4 text-[15px] leading-[1.75] text-[color:var(--editorial-ink)]" style={sourceTextStyle}>
+    <div className="space-y-4 text-[16px] leading-[1.7] text-[var(--ink-900)]" style={sourceTextStyle}>
       {paragraphs.map((paragraph, index) => (
         <p key={`${paragraph.slice(0, 28)}-${index}`} className="whitespace-pre-wrap">
           {renderHighlightedText(paragraph, highlight)}
@@ -169,14 +169,14 @@ function SourceMetadata({
   workspaceName?: string | null;
 }) {
   return (
-    <div className="space-y-1 border-t border-black/[0.08] pt-4 text-[11px] leading-5 text-[color:var(--editorial-muted)]">
+    <div className="space-y-1 border-t border-[var(--rule)] pt-4 text-[var(--text-2xs)] leading-5 text-[var(--ink-500)]">
       {workspaceName ? (
         <p>
-          <span className="text-[color:var(--editorial-ink-soft)]">From:</span> {workspaceName}
+          <span className="text-[var(--ink-700)]">From:</span> {workspaceName}
         </p>
       ) : null}
       <p>
-        <span className="text-[color:var(--editorial-ink-soft)]">Retrieved by:</span> {getRetrievalLabel(retrievalReason)}
+        <span className="text-[var(--ink-700)]">Retrieved by:</span> {getRetrievalLabel(retrievalReason)}
       </p>
     </div>
   );
@@ -194,14 +194,14 @@ function SourceNavigation({
   const totalSources = sources.length;
 
   if (totalSources <= 1) {
-    return <p className="text-center text-[11px] text-[color:var(--editorial-muted)]">1 of 1 source</p>;
+    return <p className="text-center text-[var(--text-2xs)] text-[var(--ink-500)]">1 of 1 source</p>;
   }
 
   const canGoPrevious = selectedSourceIndex > 0;
   const canGoNext = selectedSourceIndex < totalSources - 1;
 
   return (
-    <div className="grid min-h-8 grid-cols-[1fr_auto_1fr] items-center gap-3 text-[12px]">
+    <div className="grid min-h-8 grid-cols-[1fr_auto_1fr] items-center gap-3 text-[var(--text-xs)]">
       <button
         type="button"
         disabled={!canGoPrevious}
@@ -210,12 +210,12 @@ function SourceNavigation({
             onSelectSource(sources[selectedSourceIndex - 1]);
           }
         }}
-        className="inline-flex items-center gap-1 justify-self-start rounded-md px-1 py-1 text-[color:var(--editorial-muted)] hover:bg-black/[0.035] hover:text-[color:var(--editorial-ink)] disabled:pointer-events-none disabled:opacity-35"
+        className="inline-flex min-h-8 items-center gap-1 justify-self-start rounded-[var(--radius-sm)] px-2 py-1 text-[var(--ink-500)] hover:bg-[var(--paper-1)] hover:text-[var(--ink-900)] disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
       >
         <ChevronLeft className="size-3.5" aria-hidden="true" />
         Previous source
       </button>
-      <span className="text-[11px] text-[color:var(--editorial-muted)]">
+      <span className="text-[var(--text-2xs)] text-[var(--ink-500)]">
         {selectedSourceIndex + 1} of {totalSources} sources
       </span>
       <button
@@ -226,7 +226,7 @@ function SourceNavigation({
             onSelectSource(sources[selectedSourceIndex + 1]);
           }
         }}
-        className="inline-flex items-center gap-1 justify-self-end rounded-md px-1 py-1 text-[color:var(--editorial-muted)] hover:bg-black/[0.035] hover:text-[color:var(--editorial-ink)] disabled:pointer-events-none disabled:opacity-35"
+        className="inline-flex min-h-8 items-center gap-1 justify-self-end rounded-[var(--radius-sm)] px-2 py-1 text-[var(--ink-500)] hover:bg-[var(--paper-1)] hover:text-[var(--ink-900)] disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
       >
         Next source
         <ChevronRight className="size-3.5" aria-hidden="true" />
@@ -249,24 +249,24 @@ export function SourceInspector({
   const selectedLocation = getSourceLocationLabel(selectedSource);
 
   return (
-    <aside className="hidden h-full min-h-0 w-[360px] shrink-0 flex-col border-l border-black/[0.08] bg-[var(--paper-2)] text-[color:var(--editorial-ink)] min-[900px]:flex xl:w-[420px]">
-      <header className="shrink-0 border-b border-black/[0.08] px-4 py-3">
+    <aside className="hidden h-full min-h-0 w-[360px] shrink-0 flex-col border-l border-[var(--rule)] bg-[var(--paper-2)] text-[var(--ink-900)] min-[900px]:flex xl:w-[420px]">
+      <header className="shrink-0 border-b border-[var(--rule)] px-4 py-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-[13px] font-medium text-[color:var(--editorial-ink)]">Source</h2>
+          <h2 className="text-[var(--text-xs)] font-medium text-[var(--ink-900)]">Source</h2>
           <button
             type="button"
             aria-label="Close source inspector"
             onClick={onClose}
-            className="ml-auto flex size-8 items-center justify-center rounded-md text-[color:var(--editorial-muted)] hover:bg-black/[0.04] hover:text-[color:var(--editorial-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+            className="ml-auto flex size-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--ink-500)] hover:bg-[var(--paper-1)] hover:text-[var(--ink-900)] focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
         </div>
         <div className="mt-2 min-w-0">
-          <p className="truncate text-[13px] font-medium text-[color:var(--editorial-ink)]" title={selectedFilename}>
+          <p className="truncate text-[var(--text-xs)] font-medium text-[var(--ink-900)]" title={selectedFilename}>
             {selectedFilename}
           </p>
-          <p className="mt-1 truncate text-[11px] text-[color:var(--editorial-muted)]" title={selectedLocation}>
+          <p className="mt-1 truncate text-[var(--text-2xs)] text-[var(--ink-500)]" title={selectedLocation}>
             {selectedLocation}
           </p>
         </div>
@@ -275,18 +275,18 @@ export function SourceInspector({
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {!selectedSource ? (
           <div className="flex h-full items-center justify-center text-center">
-            <p className="text-[13px] text-[color:var(--editorial-muted)]">Select a citation to inspect its source</p>
+            <p className="text-[var(--text-xs)] text-[var(--ink-500)]">Select a citation to inspect its source</p>
           </div>
         ) : (
           <div className="flex min-h-full flex-col gap-5">
-            <section className="rounded-xl border border-black/[0.08] bg-[var(--paper-1)]/85 p-4">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-[color:var(--editorial-muted)]">
+            <section className="rounded-[var(--radius-lg)] border border-[var(--rule)] bg-[var(--paper-1)] p-4 shadow-[var(--shadow-1)]">
+              <p className="mb-3 text-[var(--text-2xs)] font-semibold uppercase tracking-widest text-[var(--ink-500)]">
                 Retrieved passage
               </p>
               <SourceText source={selectedSource} />
             </section>
 
-            <div className="border-t border-black/[0.08] pt-3">
+            <div className="border-t border-[var(--rule)] pt-3">
               <SourceNavigation
                 selectedSourceIndex={safeSelectedIndex}
                 sources={sources.length > 0 ? sources : [selectedSource]}
@@ -312,15 +312,15 @@ export function SourceSheet({ onOpenChange, open, retrievalReason, selectedSourc
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[86vh] gap-0 rounded-t-xl border-black/[0.08] bg-[var(--paper-2)] p-0 text-[color:var(--editorial-ink)] shadow-2xl shadow-black/10 min-[900px]:hidden"
+        className="max-h-[86vh] gap-0 rounded-t-[var(--radius-xl)] border-[var(--rule)] bg-[var(--paper-2)] p-0 text-[var(--ink-900)] shadow-[var(--shadow-3)] min-[900px]:hidden"
       >
-        <SheetHeader className="border-b border-black/[0.08] p-4 pr-12 text-left">
-          <SheetTitle className="text-[13px] font-medium text-[color:var(--editorial-ink)]">Source</SheetTitle>
+        <SheetHeader className="border-b border-[var(--rule)] p-4 pr-12 text-left">
+          <SheetTitle className="text-[var(--text-xs)] font-medium text-[var(--ink-900)]">Source</SheetTitle>
           <SheetDescription className="space-y-1">
-            <span className="block truncate text-[13px] font-medium text-[color:var(--editorial-ink)]" title={selectedFilename}>
+            <span className="block truncate text-[var(--text-xs)] font-medium text-[var(--ink-900)]" title={selectedFilename}>
               {selectedFilename}
             </span>
-            <span className="block text-[11px] text-[color:var(--editorial-muted)]" title={selectedLocation}>
+            <span className="block text-[var(--text-2xs)] text-[var(--ink-500)]" title={selectedLocation}>
               {selectedLocation}
             </span>
           </SheetDescription>
@@ -328,8 +328,8 @@ export function SourceSheet({ onOpenChange, open, retrievalReason, selectedSourc
         <div className="min-h-0 overflow-y-auto p-4">
           {selectedSource ? (
             <div className="space-y-5">
-              <section className="rounded-xl border border-black/[0.08] bg-[var(--paper-1)]/85 p-4">
-                <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-[color:var(--editorial-muted)]">
+              <section className="rounded-[var(--radius-lg)] border border-[var(--rule)] bg-[var(--paper-1)] p-4 shadow-[var(--shadow-1)]">
+                <p className="mb-3 text-[var(--text-2xs)] font-semibold uppercase tracking-widest text-[var(--ink-500)]">
                   Retrieved passage
                 </p>
                 <SourceText source={selectedSource} />
@@ -338,7 +338,7 @@ export function SourceSheet({ onOpenChange, open, retrievalReason, selectedSourc
             </div>
           ) : (
             <div className="flex min-h-[180px] items-center justify-center text-center">
-              <p className="text-[13px] text-[color:var(--editorial-muted)]">Select a citation to inspect its source</p>
+              <p className="text-[var(--text-xs)] text-[var(--ink-500)]">Select a citation to inspect its source</p>
             </div>
           )}
         </div>

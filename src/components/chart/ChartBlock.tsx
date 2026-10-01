@@ -58,15 +58,15 @@ function renderChart(chart: ChartData) {
       cursor={{ fill: "rgba(186, 92, 61, 0.08)" }}
       formatter={(value, name) => [formatValue(value), String(name)]}
       contentStyle={{
-        background: "var(--editorial-card)",
-        border: "1px solid var(--editorial-border)",
-        borderRadius: 10,
-        boxShadow: "0 12px 30px rgba(0, 0, 0, 0.18)",
-        color: "var(--editorial-ink)",
+        background: "var(--paper-1)",
+        border: "1px solid var(--rule)",
+        borderRadius: "var(--radius-md)",
+        boxShadow: "var(--shadow-2)",
+        color: "var(--ink-900)",
         fontSize: 12,
       }}
       labelStyle={{
-        color: "var(--editorial-muted)",
+        color: "var(--ink-500)",
         fontSize: 11,
         marginBottom: 4,
       }}
@@ -136,14 +136,14 @@ function renderChart(chart: ChartData) {
 
 export function ChartBlock({ chart }: ChartBlockProps) {
   return (
-    <section className="my-5 rounded-2xl border border-black/[0.08] bg-[var(--paper-1)]/85 p-4 text-[color:var(--editorial-ink)]">
+    <section className="my-5 rounded-[var(--radius-xl)] border border-[var(--rule)] bg-[var(--paper-1)] p-4 text-[var(--ink-900)] shadow-[var(--shadow-1)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h4 className="text-[14px] font-semibold leading-5 text-[color:var(--editorial-ink)]">{chart.title}</h4>
-          {chart.yAxisLabel ? <p className="mt-1 text-[11px] text-[color:var(--editorial-muted)]">{chart.yAxisLabel}</p> : null}
+          <h4 className="text-[var(--text-sm)] font-semibold leading-5 text-[var(--ink-900)]">{chart.title}</h4>
+          {chart.yAxisLabel ? <p className="mt-1 text-[var(--text-2xs)] text-[var(--ink-500)]">{chart.yAxisLabel}</p> : null}
         </div>
         {chart.sourceRefs && chart.sourceRefs.length > 0 ? (
-          <p className="rounded-full border border-[var(--accent)]/20 bg-[var(--accent)]/10 px-2 py-1 text-[11px] font-medium text-[color:var(--editorial-rust-strong)]">
+          <p className="rounded-full border border-[var(--accent)]/30 bg-[var(--accent-soft)] px-2 py-1 text-[var(--text-2xs)] font-medium text-[var(--accent-ink)] font-mono">
             {chart.sourceRefs.join(", ")}
           </p>
         ) : null}
@@ -156,7 +156,7 @@ export function ChartBlock({ chart }: ChartBlockProps) {
       </div>
 
       {chart.insight ? (
-        <p className="mt-3 border-t border-black/[0.07] pt-3 text-[12px] leading-5 text-[color:var(--editorial-muted)]">
+        <p className="mt-3 border-t border-[var(--rule)] pt-3 text-[var(--text-xs)] leading-5 text-[var(--ink-500)]">
           {chart.insight}
         </p>
       ) : null}
