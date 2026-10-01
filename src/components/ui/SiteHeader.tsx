@@ -112,7 +112,7 @@ export function SiteHeader({ variant = "marketing", className }: SiteHeaderProps
         ) : (
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-[13px] font-semibold text-[var(--ink-500)] transition-colors hover:text-[var(--accent-ink)]"
+            className="inline-flex min-h-[44px] items-center gap-2 text-[13px] font-semibold text-[var(--ink-500)] transition-colors hover:text-[var(--accent-ink)]"
           >
             <ArrowLeft className="size-4" strokeWidth={1.75} aria-hidden="true" />
             <span>Back home</span>

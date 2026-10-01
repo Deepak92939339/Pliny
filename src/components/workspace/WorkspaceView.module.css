@@ -67,6 +67,9 @@
   color: var(--ink);
 }
 .brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   flex: none;
   font-family: var(--font-source-serif), Georgia, serif;
   font-size: 20px;
@@ -86,6 +89,9 @@
   margin-left: 8px;
 }
 .crumbLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   white-space: nowrap;
   font-size: var(--text-sm);
   font-weight: 500;

@@ -24,7 +24,7 @@ export function PrivateBetaView() {
           <Link href="/login" className="inline-flex h-11 items-center gap-2 rounded-md bg-[var(--ink-900)] px-5 text-sm font-semibold text-[var(--paper-2)] hover:opacity-90">
             Sign in <ArrowRight className="size-4" strokeWidth={1.75} aria-hidden="true" />
           </Link>
-          <Link href="/" className="text-sm font-semibold text-[var(--accent-ink)] underline-offset-4 hover:underline">
+          <Link href="/" className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[var(--accent-ink)] underline-offset-4 hover:underline">
             Back to Pliny
           </Link>
         </div>

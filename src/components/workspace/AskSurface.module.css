@@ -14,9 +14,9 @@
   --warn-dot: #b08430;
   --rust-bg: var(--accent-soft);
   --amber: #fcebd8;
-  --radius-control: 7px;
-  --radius-card: 10px;
-  --radius-surface: 14px;
+  --radius-control: var(--radius-md);
+  --radius-card: var(--radius-lg);
+  --radius-surface: var(--radius-xl);
   --t: 180ms;
   --ease: cubic-bezier(.2, .8, .2, 1);
   display: flex;

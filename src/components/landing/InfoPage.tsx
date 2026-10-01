@@ -75,7 +75,7 @@ export function InfoPage({ page }: { page: LandingInfoPage }) {
             href="https://github.com/Deepak92939339/Pliny"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--ink-900)] transition-colors hover:text-[var(--accent-ink)]"
+            className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold text-[var(--ink-900)] transition-colors hover:text-[var(--accent-ink)]"
           >
             View the project <GitBranch className="size-4" strokeWidth={1.75} aria-hidden="true" />
           </a>
