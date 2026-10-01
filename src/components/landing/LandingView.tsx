@@ -1,12 +1,10 @@
 'use client';
 
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle, ChevronDown, Menu, X } from "lucide-react";
+import { ArrowUpRight, CheckCircle, ChevronDown, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { BrandMark } from "@/components/shared/BrandMark";
-import { LandingInfoDialog } from "@/components/landing/LandingInfoDialog";
-import { landingInfoPages } from "@/components/landing/infoContent";
+import { SiteHeader } from "@/components/ui/SiteHeader";
 
 type ScenarioId = "sufficient" | "refusal" | "masked";
 
@@ -107,7 +105,7 @@ const STRIP = [
 
 function MaskedToken({ token }: { token: string }) {
   return (
-    <span className="mx-0.5 inline-flex items-center rounded-[4px] border border-[var(--rule-strong)] bg-[var(--paper-0)] px-1.5 py-0.5 font-mono text-[12px] text-[color:var(--ink-500)]">
+    <span className="mx-0.5 inline-flex items-center rounded-sm border border-[var(--rule-strong)] bg-[var(--paper-0)] px-1.5 py-0.5 font-mono text-xs text-[var(--ink-500)]">
       {token}
     </span>
   );
@@ -131,10 +129,10 @@ function MarginChart() {
   const line = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x} ${point.y}`).join(" ");
   const area = `${line} L424 114 L52 114 Z`;
   return (
-    <div className="min-w-0 rounded-[8px] border border-[var(--rule)] bg-[var(--paper-1)] p-4">
+    <div className="min-w-0 rounded-md border border-[var(--rule)] bg-[var(--paper-1)] p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-[13px] font-semibold">Operating Margin (Quarterly)</h3>
-        <span className="font-mono text-[10px] tracking-[0.14em] text-[var(--ink-500)]">UNITS: % OF REVENUE</span>
+        <h3 className="text-sm font-semibold">Operating Margin (Quarterly)</h3>
+        <span className="font-mono text-[11px] tracking-[0.14em] text-[var(--ink-500)]">UNITS: % OF REVENUE</span>
       </div>
       <svg
         viewBox="0 0 460 158"
@@ -222,22 +220,22 @@ function SourceInspectorBody({
   return (
     <>
       <div className="flex items-center justify-between">
-        <h3 className="text-[13px] font-semibold">Source Inspector</h3>
-        <span className="font-mono text-[10px] text-[var(--ink-500)]">{EVIDENCE.length} sources</span>
+        <h3 className="text-sm font-semibold">Source Inspector</h3>
+        <span className="font-mono text-[11px] text-[var(--ink-500)]">{EVIDENCE.length} sources</span>
       </div>
       {item ? (
-        <div className="mt-4 rounded-[8px] border border-[var(--rule-strong)] border-t-2 border-t-[var(--accent-ink)] bg-[var(--paper-1)] p-4">
-          <span className="inline-flex rounded-full border border-[var(--rule-strong)] bg-[var(--paper-0)] px-2 py-0.5 font-mono text-[10px] font-semibold tracking-[0.1em] text-[var(--accent-ink)]">
+        <div className="mt-4 rounded-md border border-[var(--rule-strong)] border-t-2 border-t-[var(--accent-ink)] bg-[var(--paper-1)] p-4">
+          <span className="inline-flex rounded-full border border-[var(--rule-strong)] bg-[var(--paper-0)] px-2 py-0.5 font-mono text-[11px] font-semibold tracking-[0.1em] text-[var(--accent-ink)]">
             CITATION {item.id}
           </span>
-          <p className="mt-3 break-words text-[12px] font-semibold">{item.file}</p>
+          <p className="mt-3 break-words text-xs font-semibold">{item.file}</p>
           <p className="mt-1 text-[11px] font-medium text-[var(--accent-ink)]">{item.loc}</p>
-          <p className="mt-3 rounded-[6px] bg-[var(--paper-0)] p-3 text-[12px] leading-5 text-[color:var(--ink-700)]">
+          <p className="mt-3 rounded-md bg-[var(--paper-0)] p-3 text-xs leading-relaxed text-[var(--ink-700)]">
             {before}
-            <mark className="rounded-[2px] bg-[var(--accent-ink)]/15 px-0.5 text-inherit">{item.highlight}</mark>
+            <mark className="rounded-sm bg-[var(--accent-ink)]/15 px-0.5 text-inherit">{item.highlight}</mark>
             {after}
           </p>
-          <Link href="/dashboard" className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--accent-ink)] hover:text-[var(--accent-ink)]">
+          <Link href="/dashboard" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-ink)] hover:text-[var(--accent-ink)]">
             Open original
             <ArrowUpRight className="size-3" aria-hidden="true" />
           </Link>
@@ -246,25 +244,25 @@ function SourceInspectorBody({
               type="button"
               onClick={() => onStep(-1)}
               disabled={item.id === 1}
-              className="text-[12px] font-semibold text-[color:var(--ink-700)] hover:text-[var(--accent-ink)] disabled:opacity-50"
+              className="text-xs font-semibold text-[var(--ink-700)] hover:text-[var(--accent-ink)] disabled:opacity-50"
             >
               ← Previous
             </button>
-            <span className="font-mono text-[10px] text-[var(--ink-500)]">
+            <span className="font-mono text-[11px] text-[var(--ink-500)]">
               {item.id} / {EVIDENCE.length}
             </span>
             <button
               type="button"
               onClick={() => onStep(1)}
               disabled={item.id === EVIDENCE.length}
-              className="text-[12px] font-semibold text-[color:var(--ink-700)] hover:text-[var(--accent-ink)] disabled:opacity-50"
+              className="text-xs font-semibold text-[var(--ink-700)] hover:text-[var(--accent-ink)] disabled:opacity-50"
             >
               Next →
             </button>
           </div>
         </div>
       ) : (
-        <div className="mt-4 rounded-[8px] border border-dashed border-[var(--rule-strong)] p-4 text-[12px] leading-5 text-[var(--ink-500)]">
+        <div className="mt-4 rounded-md border border-dashed border-[var(--rule-strong)] p-4 text-xs leading-relaxed text-[var(--ink-500)]">
           Select a citation or evidence item to inspect the exact retrieved passage.
         </div>
       )}
@@ -275,17 +273,17 @@ function SourceInspectorBody({
               type="button"
               onClick={() => onSelect(entry.id)}
               aria-pressed={selected === entry.id}
-              className={`flex w-full items-start gap-3 rounded-[8px] border p-3 text-left transition-colors ${
+              className={`flex w-full items-start gap-3 rounded-md border p-3 text-left transition-colors ${
                 selected === entry.id ? "border-[var(--accent-ink)]/60 bg-[var(--accent-ink)]/10" : "border-transparent hover:bg-[var(--paper-0)]"
               }`}
             >
-              <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--rule)] font-mono text-[10px] font-semibold text-[var(--accent-ink)]">
+              <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--rule)] font-mono text-[11px] font-semibold text-[var(--accent-ink)]">
                 {entry.id}
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-[12px] font-semibold">{entry.file}</span>
+                <span className="block truncate text-xs font-semibold">{entry.file}</span>
                 <span className="mt-0.5 block text-[11px] text-[var(--accent-ink)]">{entry.loc}</span>
-                <span className="mt-1.5 inline-flex rounded-[4px] border border-[var(--rule-strong)] bg-[var(--paper-0)] px-1.5 py-0.5 font-mono text-[10px] tracking-[0.08em] text-[color:var(--ink-500)]">
+                <span className="mt-1.5 inline-flex rounded-sm border border-[var(--rule-strong)] bg-[var(--paper-0)] px-1.5 py-0.5 font-mono text-[11px] tracking-[0.08em] text-[var(--ink-500)]">
                   {scenario === "masked" ? "MASKED" : "STANDARD"}
                 </span>
               </span>
@@ -303,12 +301,9 @@ function SourceInspectorBody({
 export function LandingView() {
   const [scenario, setScenario] = useState<ScenarioId>("sufficient");
   const [selected, setSelected] = useState<number | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [wsOpen, setWsOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const menuTriggerRef = useRef<HTMLButtonElement>(null);
-  const menuPanelRef = useRef<HTMLDivElement>(null);
   const wsTriggerRef = useRef<HTMLButtonElement>(null);
   const wsMenuRef = useRef<HTMLDivElement>(null);
   const evidenceTriggerRef = useRef<HTMLButtonElement>(null);
@@ -330,27 +325,21 @@ export function LandingView() {
         wsTriggerRef.current?.focus();
         return;
       }
-      if (menuOpen) {
-        setMenuOpen(false);
-        menuTriggerRef.current?.focus();
-        return;
-      }
       if (selected !== null) setSelected(null);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sheetOpen, wsOpen, menuOpen, selected]);
+  }, [sheetOpen, wsOpen, selected]);
 
   useEffect(() => {
-    if (!menuOpen && !wsOpen) return;
+    if (!wsOpen) return;
     function onDown(event: MouseEvent) {
       const target = event.target as Node;
-      if (menuOpen && !menuPanelRef.current?.contains(target) && !menuTriggerRef.current?.contains(target)) setMenuOpen(false);
       if (wsOpen && !wsMenuRef.current?.contains(target) && !wsTriggerRef.current?.contains(target)) setWsOpen(false);
     }
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, [menuOpen, wsOpen]);
+  }, [wsOpen]);
 
   useEffect(() => {
     if (!sheetOpen) return;
@@ -407,98 +396,44 @@ export function LandingView() {
 
   return (
     <main className="min-h-screen bg-[var(--paper-2)] text-[var(--ink-900)]">
-      <header className="sticky top-0 z-40 border-b border-[var(--rule)] bg-[var(--paper-2)]/90 backdrop-blur-md">
-        <div className="relative mx-auto flex h-14 w-full max-w-[1240px] items-center justify-between gap-3 px-5 sm:px-8">
-          <Link href="/" aria-label="Pliny home" className="shrink-0 text-[var(--ink-900)] hover:text-[var(--accent-ink)]">
-            <BrandMark className="h-14" textClassName="dm-editorial-display text-[20px] font-semibold" />
-          </Link>
-          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-5 whitespace-nowrap text-[12px] font-semibold text-[color:var(--ink-700)] xl:flex" aria-label="Main navigation">
-            {landingInfoPages.map((page) => (
-              <LandingInfoDialog key={page.key} page={page} />
-            ))}
-          </nav>
-          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-            <Link href="/login" className="text-[13px] font-semibold text-[var(--accent-ink)] hover:text-[var(--accent-ink)]">
-              Sign in
-            </Link>
-            <Link
-              href="/access"
-              className="inline-flex h-10 shrink-0 items-center justify-center rounded-[7px] bg-[var(--ink-900)] px-4 text-[13px] font-semibold text-[var(--paper-2)] transition-colors hover:bg-[var(--ink-900)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25"
-            >
-              Request access
-            </Link>
-            <button
-              ref={menuTriggerRef}
-              type="button"
-              className="inline-flex size-11 items-center justify-center rounded-[7px] text-[color:var(--ink-700)] hover:bg-[var(--paper-0)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25 xl:hidden"
-              aria-expanded={menuOpen}
-              aria-controls="landing-menu-panel"
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              {menuOpen ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
-            </button>
-          </div>
-          {menuOpen ? (
-            <div
-              ref={menuPanelRef}
-              id="landing-menu-panel"
-              className="absolute right-5 top-14 z-50 grid w-64 gap-1 border border-[var(--rule-strong)] bg-[var(--paper-1)] p-2 shadow-[0_16px_40px_rgba(72,48,31,0.14)] sm:right-8"
-            >
-              {landingInfoPages.map((page) => (
-                <LandingInfoDialog key={page.key} page={page} triggerClassName="w-full px-3 py-2 text-left hover:bg-[var(--paper-0)]" />
-              ))}
-              <Link href="/login" className="px-3 py-2 text-[13px] font-semibold text-[var(--accent-ink)] hover:bg-[var(--paper-0)]" onClick={() => setMenuOpen(false)}>
-                Sign in
-              </Link>
-              <Link
-                href="/access"
-                className="mx-1 mt-1 inline-flex h-10 items-center justify-center rounded-[7px] bg-[var(--ink-900)] text-[13px] font-semibold text-[var(--paper-2)] hover:bg-[var(--ink-900)]"
-                onClick={() => setMenuOpen(false)}
-              >
-                Request access
-              </Link>
-            </div>
-          ) : null}
-        </div>
-      </header>
+      <SiteHeader variant="marketing" />
 
       <section className="mx-auto max-w-[900px] px-5 pb-16 pt-16 text-center sm:pb-20 sm:pt-24">
         <h1 className="dm-editorial-display mx-auto max-w-[820px] text-balance text-[clamp(34px,6.6vw,76px)] font-semibold leading-[1.05]">
           Intelligence, traced to its exact source.
         </h1>
-        <p className="mx-auto mt-6 max-w-[680px] text-[15px] leading-7 text-[color:var(--ink-700)] sm:text-[16px]">
+        <p className="mx-auto mt-6 max-w-[680px] text-base leading-relaxed text-[var(--ink-700)]">
           Pliny parses complex enterprise documents, extracts verifiable evidence, and locks the final answer directly to the original passage. When the available evidence is insufficient, Pliny withholds the answer.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/access"
-            className="inline-flex h-11 min-w-[200px] items-center justify-center rounded-[7px] bg-[var(--ink-900)] px-6 text-[14px] font-semibold text-[var(--paper-2)] transition-colors hover:bg-[var(--ink-900)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25"
+            className="inline-flex h-11 min-w-[200px] items-center justify-center rounded-md bg-[var(--ink-900)] px-6 text-sm font-semibold text-[var(--paper-2)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25"
           >
             Request access
           </Link>
           <a
             href="#stage"
             onClick={scrollToStage}
-            className="inline-flex h-11 min-w-[200px] items-center justify-center gap-2 rounded-[7px] border border-[var(--rule-strong)] bg-[var(--paper-1)] px-6 text-[14px] font-semibold text-[var(--ink-900)] transition-colors hover:border-[var(--accent)]/50 hover:bg-[var(--paper-0)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25"
+            className="inline-flex h-11 min-w-[200px] items-center justify-center gap-2 rounded-md border border-[var(--rule-strong)] bg-[var(--paper-1)] px-6 text-sm font-semibold text-[var(--ink-900)] transition-colors hover:border-[var(--accent)]/50 hover:bg-[var(--paper-0)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25"
           >
             Explore the workspace
             <ArrowUpRight className="size-4" aria-hidden="true" />
           </a>
         </div>
-        <p className="mt-5 text-[12px] font-medium text-[var(--ink-500)]">Source-grounded answers · Visible citations · Private workspaces</p>
+        <p className="mt-5 text-xs font-medium text-[var(--ink-500)]">Source-grounded answers · Visible citations · Private workspaces</p>
       </section>
 
       <section id="stage" tabIndex={-1} aria-label="Pliny application preview, interactive demonstration" className="mx-auto max-w-[1240px] px-5 sm:px-8">
-        <div className="overflow-hidden rounded-[10px] border border-[var(--rule-strong)] bg-[var(--paper-1)] shadow-[0_24px_70px_rgba(72,48,31,0.09)]">
+        <div className="overflow-hidden rounded-lg border border-[var(--rule-strong)] bg-[var(--paper-1)] shadow-[var(--shadow-2)]">
           <div className="flex min-h-12 items-center justify-between gap-3 border-b border-[var(--rule)] bg-[var(--paper-0)] px-4 sm:px-5">
             <span className="flex min-w-0 items-center gap-3">
-              <span className="dm-editorial-display text-[17px] font-semibold">Pliny</span>
+              <span className="dm-editorial-display text-lg font-semibold">Pliny</span>
               <span aria-hidden="true" className="h-4 w-px bg-[var(--rule-strong)]" />
-              <span className="truncate text-[12px] font-medium text-[var(--ink-500)]">Q2 Board Pack</span>
+              <span className="truncate text-xs font-medium text-[var(--ink-500)]">Q2 Board Pack</span>
             </span>
             <span className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--rule-strong)] bg-[var(--paper-0)] px-2.5 py-1 font-mono text-[10px] font-semibold tracking-[0.12em] text-[color:var(--ink-500)]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--rule-strong)] bg-[var(--paper-0)] px-2.5 py-1 font-mono text-[11px] font-semibold tracking-[0.12em] text-[var(--ink-500)]">
                 <span aria-hidden="true" className={`size-1.5 rounded-full ${active.badgeDot}`} />
                 {active.badge}
               </span>
@@ -508,28 +443,28 @@ export function LandingView() {
 
           <div className="grid lg:grid-cols-[220px_minmax(0,1fr)_290px]">
             <aside className="hidden border-r border-[var(--rule-strong)] bg-[var(--paper-0)] p-5 lg:block">
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-500)]">Workspace</p>
-              <p className="mt-3 text-[14px] font-semibold">Q2 Board Pack</p>
-              <p className="mt-1 text-[12px] text-[var(--ink-500)]">12 documents</p>
-              <div className="mt-6 space-y-1 text-[13px]">
-                <p className="flex items-center gap-2 rounded-[6px] border border-[var(--rule-strong)] bg-[var(--paper-1)] px-3 py-2 font-semibold">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-500)]">Workspace</p>
+              <p className="mt-3 text-sm font-semibold">Q2 Board Pack</p>
+              <p className="mt-1 text-xs text-[var(--ink-500)]">12 documents</p>
+              <div className="mt-6 space-y-1 text-sm">
+                <p className="flex items-center gap-2 rounded-md border border-[var(--rule-strong)] bg-[var(--paper-1)] px-3 py-2 font-semibold">
                   <span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--accent-ink)]" />
                   Q2 Board Pack
                 </p>
-                <p className="px-3 py-2 text-[color:var(--ink-500)]">Contracts</p>
-                <p className="px-3 py-2 text-[color:var(--ink-500)]">Market Research</p>
+                <p className="px-3 py-2 text-[var(--ink-500)]">Contracts</p>
+                <p className="px-3 py-2 text-[var(--ink-500)]">Market Research</p>
               </div>
-              <div className="mt-6 space-y-1 border-t border-[var(--rule-strong)] pt-4 text-[13px] font-medium">
-                <Link href="/dashboard" className="flex items-center justify-between px-3 py-2 text-[color:var(--ink-700)] hover:bg-[var(--rule)] hover:text-[var(--ink-900)]">
+              <div className="mt-6 space-y-1 border-t border-[var(--rule-strong)] pt-4 text-sm font-medium">
+                <Link href="/dashboard" className="flex items-center justify-between px-3 py-2 text-[var(--ink-700)] hover:bg-[var(--rule)] hover:text-[var(--ink-900)]">
                   Upload documents
                   <ArrowUpRight className="size-3.5" aria-hidden="true" />
                 </Link>
-                <Link href="/dashboard" className="flex items-center justify-between px-3 py-2 text-[color:var(--ink-700)] hover:bg-[var(--rule)] hover:text-[var(--ink-900)]">
+                <Link href="/dashboard" className="flex items-center justify-between px-3 py-2 text-[var(--ink-700)] hover:bg-[var(--rule)] hover:text-[var(--ink-900)]">
                   Open library
                   <ArrowUpRight className="size-3.5" aria-hidden="true" />
                 </Link>
               </div>
-              <p className="mt-8 text-[11px] leading-5 text-[var(--ink-500)]">A private workspace for source-backed review.</p>
+              <p className="mt-8 text-[11px] leading-relaxed text-[var(--ink-500)]">A private workspace for source-backed review.</p>
             </aside>
 
             <div className="min-w-0 p-5 sm:p-7">
@@ -542,7 +477,7 @@ export function LandingView() {
                     aria-expanded={wsOpen}
                     aria-controls="ws-menu"
                     onClick={() => setWsOpen((open) => !open)}
-                    className="inline-flex h-9 items-center gap-2 rounded-[7px] border border-[var(--rule-strong)] bg-[var(--paper-1)] px-3 text-[12px] font-semibold text-[color:var(--ink-700)] hover:bg-[var(--paper-0)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25"
+                    className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--rule-strong)] bg-[var(--paper-1)] px-3 text-xs font-semibold text-[var(--ink-700)] hover:bg-[var(--paper-0)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25"
                   >
                     Q2 Board Pack · 12 documents
                     <ChevronDown className="size-3.5" aria-hidden="true" />
@@ -553,25 +488,25 @@ export function LandingView() {
                       id="ws-menu"
                       role="menu"
                       aria-label="Workspaces"
-                      className="absolute left-0 top-10 z-30 grid w-64 gap-1 border border-[var(--rule-strong)] bg-[var(--paper-1)] p-1.5 shadow-[0_16px_40px_rgba(72,48,31,0.14)]"
+                      className="absolute left-0 top-10 z-30 grid w-64 gap-1 rounded-md border border-[var(--rule-strong)] bg-[var(--paper-1)] p-1.5 shadow-[var(--shadow-2)]"
                     >
                       <button
                         type="button"
                         role="menuitem"
                         aria-current="true"
-                        className="flex items-center justify-between rounded-[6px] px-3 py-2 text-left text-[12px] font-semibold hover:bg-[var(--paper-0)]"
+                        className="flex items-center justify-between rounded-md px-3 py-2 text-left text-xs font-semibold hover:bg-[var(--paper-0)]"
                         onClick={() => setWsOpen(false)}
                       >
                         Q2 Board Pack
-                        <span className="font-mono text-[10px] font-normal text-[var(--ink-500)]">synthetic</span>
+                        <span className="font-mono text-[11px] font-normal text-[var(--ink-500)]">synthetic</span>
                       </button>
-                      <button type="button" role="menuitem" disabled className="flex items-center justify-between rounded-[6px] px-3 py-2 text-left text-[12px] font-semibold text-[var(--ink-500)] opacity-70">
+                      <button type="button" role="menuitem" disabled className="flex items-center justify-between rounded-md px-3 py-2 text-left text-xs font-semibold text-[var(--ink-500)] opacity-70">
                         Contracts
-                        <span className="font-mono text-[10px] font-normal">live product</span>
+                        <span className="font-mono text-[11px] font-normal">live product</span>
                       </button>
-                      <button type="button" role="menuitem" disabled className="flex items-center justify-between rounded-[6px] px-3 py-2 text-left text-[12px] font-semibold text-[var(--ink-500)] opacity-70">
+                      <button type="button" role="menuitem" disabled className="flex items-center justify-between rounded-md px-3 py-2 text-left text-xs font-semibold text-[var(--ink-500)] opacity-70">
                         Market Research
-                        <span className="font-mono text-[10px] font-normal">live product</span>
+                        <span className="font-mono text-[11px] font-normal">live product</span>
                       </button>
                     </div>
                   ) : null}
@@ -579,7 +514,7 @@ export function LandingView() {
                 <button
                   ref={evidenceTriggerRef}
                   type="button"
-                  className="inline-flex h-9 items-center rounded-[7px] border border-[var(--rule-strong)] bg-[var(--paper-1)] px-3 text-[12px] font-semibold text-[var(--accent-ink)] hover:bg-[var(--paper-0)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25 lg:hidden"
+                  className="inline-flex h-9 items-center rounded-md border border-[var(--rule-strong)] bg-[var(--paper-1)] px-3 text-xs font-semibold text-[var(--accent-ink)] hover:bg-[var(--paper-0)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25 lg:hidden"
                   aria-expanded={sheetOpen}
                   aria-controls="inspector-sheet"
                   onClick={() => setSheetOpen(true)}
@@ -588,17 +523,17 @@ export function LandingView() {
                 </button>
               </div>
 
-              <p className="mt-6 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-500)]">Example question</p>
-              <h2 className="dm-editorial-display mt-3 text-[26px] font-semibold sm:text-[30px]">What changed operating margin in Q2?</h2>
+              <p className="mt-6 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-500)]">Example question</p>
+              <h2 className="dm-editorial-display mt-3 text-2xl font-semibold sm:text-3xl">What changed operating margin in Q2?</h2>
               <span className="mt-4 inline-flex rounded-full border border-[var(--rule-strong)] bg-[var(--paper-0)] px-3 py-1 text-[11px] font-semibold text-[var(--accent-ink)]">{active.pill}</span>
               <div aria-hidden="true" className="mb-6 mt-6 border-t border-[var(--rule)]" />
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-500)]">Answer</p>
-              <p className="mt-3 flex items-center gap-2 text-[12px] font-medium text-[color:var(--ink-500)]" aria-live="polite">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ink-500)]">Answer</p>
+              <p className="mt-3 flex items-center gap-2 text-xs font-medium text-[var(--ink-500)]" aria-live="polite">
                 <span aria-hidden="true" className={`size-1.5 rounded-full ${active.gateDot}`} />
                 Evidence gate: {active.gate}
               </p>
 
-              <div role="tablist" aria-label="Example scenario" className="mt-4 inline-flex flex-wrap gap-1 rounded-[8px] border border-[var(--rule-strong)] bg-[var(--paper-0)] p-1">
+              <div role="tablist" aria-label="Example scenario" className="mt-4 inline-flex flex-wrap gap-1 rounded-md border border-[var(--rule-strong)] bg-[var(--paper-0)] p-1">
                 {SCENARIOS.map((entry, index) => (
                   <button
                     key={entry.id}
@@ -613,24 +548,24 @@ export function LandingView() {
                     tabIndex={scenario === entry.id ? 0 : -1}
                     onKeyDown={(event) => onTabKeyDown(event, index)}
                     onClick={() => setScenario(entry.id)}
-                    className={`rounded-[6px] px-4 py-2 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25 ${
-                      scenario === entry.id ? "border border-[var(--rule-strong)] bg-[var(--paper-1)] text-[var(--ink-900)] shadow-sm" : "border border-transparent text-[color:var(--ink-500)] hover:text-[var(--ink-900)]"
+                    className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25 ${
+                      scenario === entry.id ? "border border-[var(--rule-strong)] bg-[var(--paper-1)] text-[var(--ink-900)] shadow-sm" : "border border-transparent text-[var(--ink-500)] hover:text-[var(--ink-900)]"
                     }`}
                   >
                     {entry.label}
                   </button>
                 ))}
               </div>
-              <p className="mt-4 max-w-[640px] text-[12px] leading-5 text-[var(--ink-500)]">
+              <p className="mt-4 max-w-[640px] text-xs leading-relaxed text-[var(--ink-500)]">
                 Example scenarios for this synthetic workspace. Switching between them illustrates possible outcomes; it does not change how a real answer is validated.
               </p>
 
               <div role="tabpanel" id={`panel-${scenario}`} aria-labelledby={`tab-${scenario}`} className="mt-6">
                 {scenario === "sufficient" ? (
                   <>
-                    <p className="max-w-[720px] text-[15px] leading-7 text-[color:var(--ink-700)]">
+                    <p className="max-w-[720px] text-base leading-relaxed text-[var(--ink-700)]">
                       {EVIDENCE.map((entry) => (
-                        <span key={entry.id} className={selected === entry.id ? "rounded-[3px] bg-[var(--accent-ink)]/10 px-0.5" : undefined}>
+                        <span key={entry.id} className={selected === entry.id ? "rounded-sm bg-[var(--accent-ink)]/10 px-0.5" : undefined}>
                           {entry.chunk}
                           <button
                             type="button"
@@ -638,7 +573,7 @@ export function LandingView() {
                             aria-label={entry.aria}
                             aria-pressed={selected === entry.id}
                             aria-expanded={selected === entry.id}
-                            className={`ml-1 inline-flex size-5 items-center justify-center rounded-[4px] border font-mono text-[11px] align-middle transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25 ${
+                            className={`ml-1 inline-flex size-5 items-center justify-center rounded-sm border font-mono text-[11px] align-middle transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25 ${
                               selected === entry.id ? "border-[var(--accent-ink)] bg-[var(--accent-ink)] text-[var(--paper-2)]" : "border-[var(--rule-strong)] bg-[var(--paper-1)] text-[var(--accent-ink)] hover:border-[var(--accent-ink)]"
                             }`}
                           >
@@ -650,10 +585,10 @@ export function LandingView() {
                     <div className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(220px,0.75fr)]">
                       <MarginChart />
                       <div className="border-t border-[var(--rule)] pt-5 xl:border-t-0 xl:border-l xl:pl-6 xl:pt-0">
-                        <h3 className="text-[13px] font-semibold">Key takeaways</h3>
+                        <h3 className="text-sm font-semibold">Key takeaways</h3>
                         <ul className="mt-4 space-y-3">
                           {TAKEAWAYS.map((takeaway) => (
-                            <li key={takeaway} className="flex gap-2 text-[12px] leading-5 text-[color:var(--ink-500)]">
+                            <li key={takeaway} className="flex gap-2 text-xs leading-relaxed text-[var(--ink-500)]">
                               <CheckCircle className="mt-0.5 size-4 shrink-0 text-[var(--accent-ink)]" aria-hidden="true" />
                               <span>{takeaway}</span>
                             </li>
@@ -665,23 +600,23 @@ export function LandingView() {
                 ) : null}
 
                 {scenario === "refusal" ? (
-                  <div className="rounded-[8px] border border-[var(--rule-strong)] bg-[var(--paper-0)] p-5">
-                    <h3 className="dm-editorial-display text-[18px] font-semibold">Evidence Insufficient — Generation Withheld</h3>
-                    <p className="mt-3 max-w-[680px] text-[14px] leading-6 text-[color:var(--ink-700)]">
+                  <div className="rounded-md border border-[var(--rule-strong)] bg-[var(--paper-0)] p-5">
+                    <h3 className="dm-editorial-display text-lg font-semibold">Evidence Insufficient — Generation Withheld</h3>
+                    <p className="mt-3 max-w-[680px] text-sm leading-relaxed text-[var(--ink-700)]">
                       Pliny scanned 12 documents in the Q2 Board Pack workspace. The retrieval engine executed hybrid lexical and semantic search across all indexed chunks. No passage met the minimum evidence-sufficiency threshold required to generate a verifiable answer to this question.
                     </p>
-                    <div className="mt-4 rounded-[6px] border border-[var(--rule-strong)] bg-[var(--paper-0)] p-3 font-mono text-[11px] leading-5 tracking-[0.08em] text-[color:var(--ink-500)]">
+                    <div className="mt-4 rounded-md border border-[var(--rule-strong)] bg-[var(--paper-0)] p-3 font-mono text-[11px] leading-relaxed tracking-[0.08em] text-[var(--ink-500)]">
                       <p>RETRIEVAL PATHS: LEXICAL + SEMANTIC</p>
                       <p>CHUNKS EVALUATED: 347</p>
                       <p>ABOVE THRESHOLD: 0</p>
                       <p>DECISION: REFUSE · DO NOT GENERATE</p>
                     </div>
-                    <p className="mt-4 max-w-[680px] text-[13px] leading-6 text-[color:var(--ink-500)]">
+                    <p className="mt-4 max-w-[680px] text-sm leading-relaxed text-[var(--ink-500)]">
                       This is not an error. Pliny does not fabricate answers when evidence is missing. You can upload additional documents or refine the question.
                     </p>
                     <div className="mt-4 flex flex-wrap items-center gap-3">
-                      <button type="button" disabled aria-label="Escalate to Human Review — planned capability" className="inline-flex h-10 items-center rounded-[7px] border border-[var(--rule-strong)] bg-[var(--paper-0)] px-4 text-[13px] font-semibold text-[var(--ink-500)]">Escalate to Human Review</button>
-                      <span className="rounded-[4px] border border-[var(--rule-strong)] bg-[var(--paper-1)] px-2 py-1 font-mono text-[10px] font-semibold tracking-[0.12em] text-[var(--ink-500)]">PLANNED</span>
+                      <button type="button" disabled aria-label="Escalate to Human Review — planned capability" className="inline-flex h-10 items-center rounded-md border border-[var(--rule-strong)] bg-[var(--paper-0)] px-4 text-sm font-semibold text-[var(--ink-500)]">Escalate to Human Review</button>
+                      <span className="rounded-sm border border-[var(--rule-strong)] bg-[var(--paper-1)] px-2 py-1 font-mono text-[11px] font-semibold tracking-[0.12em] text-[var(--ink-500)]">PLANNED</span>
                     </div>
                   </div>
                 ) : null}
@@ -689,15 +624,15 @@ export function LandingView() {
                 {scenario === "masked" ? (
                   <>
                     {/* Masked projection tokens: [FLOAT_MASKED_9A2], [FLOAT_MASKED_4C1], [USD_MASKED_8F9], [USD_MASKED_3D7]. */}
-                    <p className="max-w-[720px] text-[15px] leading-7 text-[color:var(--ink-700)]">
+                    <p className="max-w-[720px] text-base leading-relaxed text-[var(--ink-700)]">
                       Operating margin improved to <MaskedToken token="[FLOAT_MASKED_9A2]" /> in Q2, driven by productivity gains and lower operating costs. Total operating expenses decreased{" "}
                       <MaskedToken token="[FLOAT_MASKED_4C1]" /> QoQ to <MaskedToken token="[USD_MASKED_8F9]" />. Productivity initiatives delivered{" "}
                       <MaskedToken token="[USD_MASKED_3D7]" /> in annualized savings.
                     </p>
-                    <p className="mt-4 max-w-[680px] rounded-[6px] border border-[var(--rule-strong)] bg-[var(--paper-0)] p-3 text-[12px] leading-5 text-[color:var(--ink-500)]">
+                    <p className="mt-4 max-w-[680px] rounded-md border border-[var(--rule-strong)] bg-[var(--paper-0)] p-3 text-xs leading-relaxed text-[var(--ink-500)]">
                       Privacy projection active in this scenario. The answer above was generated from HMAC-masked source material. Deterministic identifiers and financial figures were pseudonymised before any content reached the external LLM provider. Original values are retained in your private Supabase storage and are visible only to workspace owners.
                     </p>
-                    <div className="mt-4 rounded-[6px] border border-[var(--rule-strong)] bg-[var(--paper-0)] p-3 font-mono text-[11px] leading-5 tracking-[0.08em] text-[color:var(--ink-500)]">
+                    <div className="mt-4 rounded-md border border-[var(--rule-strong)] bg-[var(--paper-0)] p-3 font-mono text-[11px] leading-relaxed tracking-[0.08em] text-[var(--ink-500)]">
                       <p>PROCESSING MODE: PRIVACY-MINIMISED</p>
                       <p>MASKING: DOCUMENT-SCOPED HMAC</p>
                       <p>IDENTIFIERS MASKED: 4</p>
@@ -722,8 +657,8 @@ export function LandingView() {
           {CAPTIONS.map(([title, body]) => (
             <div key={title}>
               <span aria-hidden="true" className="block h-4 w-px bg-[var(--rule-strong)]" />
-              <h2 className="mt-4 text-[14px] font-semibold">{title}</h2>
-              <p className="mt-2 text-[13px] leading-6 text-[color:var(--ink-500)]">{body}</p>
+              <h2 className="mt-4 text-sm font-semibold">{title}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--ink-500)]">{body}</p>
             </div>
           ))}
         </div>
@@ -733,15 +668,15 @@ export function LandingView() {
         <div className="mx-auto grid max-w-[1240px] divide-y divide-[var(--rule-strong)] md:grid-cols-3 md:divide-x md:divide-y-0">
           {STRIP.map(([number, title, body]) => (
             <article key={number} className="px-5 py-8 sm:px-8">
-              <p className="font-mono text-[10px] font-semibold tracking-[0.18em] text-[var(--ink-500)]">{number}</p>
-              <h2 className="mt-3 text-[14px] font-semibold">{title}</h2>
-              <p className="mt-2 text-[13px] leading-6 text-[color:var(--ink-500)]">{body}</p>
+              <p className="font-mono text-[11px] font-semibold tracking-[0.18em] text-[var(--ink-500)]">{number}</p>
+              <h2 className="mt-3 text-sm font-semibold">{title}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--ink-500)]">{body}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <footer className="mx-auto flex max-w-[1240px] flex-col gap-4 px-5 py-8 text-[12px] text-[var(--ink-500)] sm:flex-row sm:items-center sm:justify-between sm:px-8">
+      <footer className="mx-auto flex max-w-[1240px] flex-col gap-4 px-5 py-8 text-xs text-[var(--ink-500)] sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <p>Intelligence, traced to its exact source.</p>
         <a
           href="https://github.com/Deepak92939339/Pliny"
@@ -762,7 +697,7 @@ export function LandingView() {
             role="dialog"
             aria-modal="true"
             aria-label="Source Inspector"
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-[14px] border-t border-[var(--rule-strong)] bg-[var(--paper-1)] p-5 pb-8 lg:hidden"
+            className="fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-xl border-t border-[var(--rule-strong)] bg-[var(--paper-1)] p-5 pb-8 lg:hidden"
           >
             <div className="flex items-center justify-between">
               <span aria-hidden="true" className="h-1 w-10 rounded-full bg-[var(--rule-strong)]" />
@@ -771,7 +706,7 @@ export function LandingView() {
                 type="button"
                 onClick={closeSheet}
                 aria-label="Close Source Inspector"
-                className="inline-flex size-11 items-center justify-center rounded-[7px] text-[color:var(--ink-700)] hover:bg-[var(--paper-0)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25"
+                className="inline-flex size-11 items-center justify-center rounded-md text-[var(--ink-700)] hover:bg-[var(--paper-0)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25"
               >
                 <X className="size-5" aria-hidden="true" />
               </button>
