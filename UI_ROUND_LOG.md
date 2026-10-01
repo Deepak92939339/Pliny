@@ -107,3 +107,32 @@
 - 39 baseline screenshots captured in `artifacts/ui-unification/screenshots/before/`:
   - 13 pages/views: `/`, `/login`, `/signup`, `/about`, `/privacy`, `/security`, `/file-support`, `/does-not-exist`, `preview-workspace`, `preview-dashboard`, `preview-refusal`, `preview-inspector`, `preview-chart`
   - 3 viewports: 390×844 (mobile), 768×1024 (tablet), 1440×900 (desktop) at DPR 2.
+
+---
+
+## 6. U1 Deliverables & Token System
+- Defined full token system in `src/app/globals.css` and `@theme inline` (concentric radii `--radius-xs` to `--radius-full`, type scale `--text-2xs` to `--text-2xl`, warm elevation `--shadow-1` to `--shadow-3`, `--focus-ring`, `--motion-*`).
+- Complete elimination of blue accents (`#0066CC` / `--blue`) across all CSS modules.
+- Delivered `deliverables/U1.patch`, `deliverables/U1-NOTES.md`, and `deliverables/pliny-ui-U1.zip`.
+
+---
+
+## 7. U2 Deliverables & Primitives
+- Standardized `Button.tsx`: variants (`primary`, `secondary`, `ghost`, `destructive`, `link`), sizes (`sm`, `md`, `lg`), `loading` spinner state with `aria-busy`.
+- Enhanced `Input.tsx`: icon slots, error message display with `aria-invalid` and `role="alert"`.
+- Unified `Badge.tsx`: variants (`neutral`, `accent`, `ok`, `danger`, `mono-label`).
+- Standardized `card.tsx`, `dialog.tsx`, and `sheet.tsx` with concentric radii and warm shadows.
+- Implemented `SiteHeader.tsx` (64px height, 1200px max container, `BrandMark`, marketing/info variants).
+- Added unit test `scripts/test-button-variants.mjs` (26/26 tests passing).
+- Delivered `deliverables/U2.patch`, `deliverables/U2-NOTES.md`, and `deliverables/pliny-ui-U2.zip`.
+
+---
+
+## 8. U3 Deliverables & Surface Migrations
+- Auth Surface (`f92092e`): 60fps GPU transform progress animation (`transform: scaleX()`), sub-11px font cleanup, tokenization.
+- Landing & Info Pages (`2370d7b`): SiteHeader integration, `--container-prose` (720px) on info reading pages, tokenization.
+- Dashboard Surface (`8489f3f`): Shared Card, Badge, and Button adoption; dead CSS pruned (-83 lines).
+- Workspace Shell (`b688411`): 60fps instant sidebar width with opacity fade on desktop and GPU translate on mobile; header controls migrated to Badge/Button.
+- Documents Surface (`6ca956a`): Unified `DocumentStatusBadge` for table and mobile cards; modernized dropzone and delete/process buttons; dead CSS pruned (-109 lines).
+- Ask Surface & Source Inspector (`7d61141`): Centered 768px conversation column, Apple-grade composer (`--radius-xl`, `--shadow-2`), accessible screen-reader citation text, 16px reading text in Source Inspector, modernized ChartBlock and RiskEvidenceReportPreview. Removed light weight 300 from `Source_Serif_4` in `src/app/layout.tsx`.
+- Delivered `deliverables/U3.patch`, `deliverables/U3-NOTES.md`, and `deliverables/pliny-ui-U3.zip`.
