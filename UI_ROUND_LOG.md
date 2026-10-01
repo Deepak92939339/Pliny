@@ -146,3 +146,19 @@
 - Unified route error, loading, and not-found states across dashboard and collection routes (`dashboard/loading.tsx`, `dashboard/error.tsx`, `collection/[id]/not-found.tsx`, `collection/[id]/error.tsx`, `collection/[id]/loading.tsx`).
 - Delivered `deliverables/U4.patch`, `deliverables/U4-NOTES.md`, and `deliverables/pliny-ui-U4.zip`.
 
+---
+
+## 10. U5 Verification, Report & Final Deliverables
+- Re-captured all 39 screenshots in `artifacts/ui-unification/screenshots/after/` across 13 views and 3 viewports (390×844, 768×1024, 1440×900) at DPR 2.
+- Automated DOM audit script (`scripts/audit-dom-design.mjs`) achieved 100% green pass:
+  - Radii Check: PASS (100% conforming to concentric scale)
+  - Type Scale: PASS (Zero < 11px text; UI 14px, reading body 16px)
+  - Blue Audit: PASS (Zero occurrences of #0066CC or --blue)
+  - Touch Targets: PASS (Mobile standalone controls >= 44px)
+  - Desktop Controls: PASS (All >= 32px height)
+  - Conversation Column: PASS (Max width 768px)
+- Generated HTML comparison report: `artifacts/ui-unification/UI_ROUND_REPORT.html`.
+- Formatted complete patch series: `deliverables/ALL-UI.patch` covering all 13 commits from `da124a4` to HEAD.
+- Delivered `deliverables/U5-NOTES.md` and packaged `deliverables/pliny-ui-FINAL.zip`.
+
+
