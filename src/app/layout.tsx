@@ -72,16 +72,14 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // WP4 (audit-r1, PLN-002): reading the middleware-set nonce here makes Next
-  // stamp its bootstrap scripts with the same nonce and opts routes into
-  // dynamic rendering so the nonce is always per-request fresh.
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  // Opt into per-request rendering. Next extracts script nonces from the CSP
+  // request header forwarded by middleware; nonce is not an HTML-root attribute.
+  await headers();
 
   return (
     <html
       lang="en"
       className={`${newsreader.variable} ${ibmPlexSans.variable} ${jetBrainsMono.variable} theme-soft-fade font-sans antialiased`}
-      nonce={nonce}
     >
       <body>{children}</body>
     </html>

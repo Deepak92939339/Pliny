@@ -419,6 +419,7 @@ export function AuthView() {
                       <button
                         type="button"
                         className={`${styles.cite} ${selCite === chunk.cite ? styles.sel : ""}`}
+                        data-inline-citation
                         aria-label={CITE_ARIA[chunk.cite - 1]}
                         aria-pressed={selCite === chunk.cite}
                         onClick={() => toggleCite(chunk.cite)}

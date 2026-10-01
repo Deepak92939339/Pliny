@@ -277,14 +277,14 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
         })}
       >
         <input {...getInputProps({ "aria-label": "Upload document" })} />
-        <p className="text-[var(--text-xs)] font-medium text-[var(--ink-500)]">
+        <p className="text-[length:var(--text-xs)] font-medium text-[var(--ink-500)]">
           {isUploadRateLimited
             ? "Upload limit reached — waiting for the limit window"
             : isBusy
               ? "Processing selected files"
               : "Drop files or click to upload"}
         </p>
-        <p className="mt-1 text-[var(--text-2xs)] leading-5 text-[var(--ink-500)]">
+        <p className="mt-1 text-[length:var(--text-2xs)] leading-5 text-[var(--ink-500)]">
           {isUploadRateLimited
             ? `You can upload again in ${formatRetryWaitDuration(uploadLimitedRemainingSeconds)}`
             : isDragActive
@@ -298,7 +298,7 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
             <li
               key={item.id}
               data-upload-status={item.status}
-              className="rounded-[var(--radius-md)] border border-[var(--rule)] bg-[var(--paper-1)] px-2.5 py-2 text-[var(--text-2xs)] leading-4"
+              className="rounded-[var(--radius-md)] border border-[var(--rule)] bg-[var(--paper-1)] px-2.5 py-2 text-[length:var(--text-2xs)] leading-4"
             >
               <span className="flex items-center justify-between gap-2">
                 <span className="min-w-0 truncate font-medium text-[var(--ink-700)]" title={item.filename}>
@@ -329,7 +329,7 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
                 <button
                   type="button"
                   onClick={() => uploadAnyway(item.id)}
-                  className="mt-1.5 rounded-[var(--radius-sm)] border border-[var(--rule)] px-2 py-1 text-[var(--text-2xs)] font-medium text-[var(--ink-700)] transition-colors hover:border-[var(--accent)]/45 hover:text-[var(--ink-900)]"
+                  className="mt-1.5 rounded-[var(--radius-sm)] border border-[var(--rule)] px-2 py-1 text-[length:var(--text-2xs)] font-medium text-[var(--ink-700)] transition-colors hover:border-[var(--accent)]/45 hover:text-[var(--ink-900)]"
                 >
                   Upload anyway
                 </button>

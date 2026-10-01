@@ -330,3 +330,20 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Keep inline prose links/citations in the text flow; standalone controls get
+   touch-sized hit areas without changing desktop density. */
+button:not([data-inline-citation]) {
+  min-height: 32px;
+}
+
+@media (pointer: coarse), (max-width: 640px) {
+  button:not([data-inline-citation]),
+  a.inline-flex,
+  [data-slot="button"],
+  input:not([type="checkbox"]):not([type="radio"]), select,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

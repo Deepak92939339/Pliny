@@ -11,13 +11,15 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
 
-  const response = await updateSession(request, requestHeaders);
-
   const csp = buildEnforcedCsp({
     isDevelopment: process.env.NODE_ENV === "development",
     nonce,
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
   });
+  // Next reads CSP from the forwarded request to nonce its framework and inline
+  // scripts. A response-only policy does not authorize those bootstrap scripts.
+  requestHeaders.set("Content-Security-Policy", csp);
+  const response = await updateSession(request, requestHeaders);
   response.headers.set("Content-Security-Policy", csp);
 
   return response;

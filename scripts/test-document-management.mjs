@@ -9,6 +9,11 @@
  *   (success tears down storage + chunks + row; missing/not-owned → 404)
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
+import { NextResponse } from "next/server.js";
+import { z } from "zod";
 
 const duplicateModule = await import("../src/lib/documents/duplicateDetection.ts").catch((error) => ({ __importError: error }));
 const deleteModule = await import("../src/lib/documents/deleteDocument.ts").catch((error) => ({ __importError: error }));
@@ -137,6 +142,33 @@ await run("delete: row-delete failure surfaces a 500 so the client can retry", a
   assert.equal(result.ok, false);
   assert.equal(result.status, 500);
 });
+
+// Execute the real route with isolated dependencies: no database/storage writes.
+const routeCode = ts.transpileModule(readFileSync("src/app/api/documents/[id]/route.ts", "utf8"), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText;
+for (const reason of ["rate_limited", "missing_redis_config", "redis_error", "allowed"]) {
+  await run(`DELETE route: ${reason} ${reason === "allowed" ? "permits" : "prevents"} deletion`, async () => {
+    let deletes = 0;
+    const exported = {};
+    const dependencies = {
+      "next/server": { NextResponse },
+      zod: { z },
+      "@/lib/documents/deleteDocument": { deleteDocumentWithDependencies: async () => { deletes++; return { ok: true }; } },
+      "@/lib/rate-limit": { checkRouteRateLimit: async () => ({ status: reason === "allowed" ? "allowed" : "blocked", reason, resetAt: Date.now() + 5000 }) },
+      "@/lib/supabase/server": { createClient: async () => ({ auth: { getUser: async () => ({ data: { user: { id: "synthetic-user" } }, error: null }) } }) },
+    };
+    runInNewContext(routeCode, { exports: exported, require: (name) => {
+      assert.ok(Object.hasOwn(dependencies, name), `Unexpected route dependency: ${name}`);
+      return dependencies[name];
+    }, Date });
+    const response = await exported.DELETE(new Request("http://localhost/api/documents/test"), {
+      params: Promise.resolve({ id: "11111111-1111-4111-8111-111111111111" }),
+    });
+    assert.equal(response.status, reason === "allowed" ? 204 : reason === "rate_limited" ? 429 : 503);
+    assert.equal(deletes, reason === "allowed" ? 1 : 0);
+  });
+}
 
 const failures = results.filter((result) => result.status === "FAIL");
 console.log("\n=== WP5 document management tests ===");

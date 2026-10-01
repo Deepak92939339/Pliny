@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { BrandMark } from "@/components/shared/BrandMark";
+import "./globals.css";
 
 export default function GlobalError({
   error,

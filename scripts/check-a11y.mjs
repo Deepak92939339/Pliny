@@ -44,7 +44,7 @@ async function main() {
     ({ chromium } = await import("playwright"));
   } catch {
     console.warn("[check-a11y] playwright is not installed — install with: npm i -D playwright axe-core && npx playwright install chromium");
-    process.exit(0);
+    process.exit(2);
   }
 
   let axeSource;
@@ -77,8 +77,7 @@ async function main() {
       for (const pagePath of PAGES) {
         const response = await page.goto(`${BASE}${pagePath}`, { waitUntil: "networkidle" });
         if (!response || response.status() >= 400) {
-          console.log(`[check-a11y] skip ${pagePath} @${viewport.label} (HTTP ${response ? response.status() : "none"})`);
-          continue;
+          throw new Error(`Missing required page ${pagePath} @${viewport.label} (HTTP ${response ? response.status() : "none"})`);
         }
         await page.addScriptTag({ content: axeSource });
         const results = await page.evaluate(() => window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] }));

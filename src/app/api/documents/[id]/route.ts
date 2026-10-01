@@ -27,10 +27,14 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     window: "1 m",
   });
 
-  if (deleteLimit.status === "blocked" && deleteLimit.reason === "rate_limited") {
+  if (deleteLimit.status === "blocked") {
+    const rateLimited = deleteLimit.reason === "rate_limited";
     return NextResponse.json(
-      { error: "You have reached the document delete limit for now." },
-      { status: 429 }
+      { error: rateLimited ? "You have reached the document delete limit for now." : "Document deletion is temporarily unavailable. Please try again later." },
+      {
+        status: rateLimited ? 429 : 503,
+        headers: rateLimited ? { "Retry-After": String(Math.max(1, Math.ceil((deleteLimit.resetAt - Date.now()) / 1000))) } : undefined,
+      }
     );
   }
 

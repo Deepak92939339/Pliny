@@ -43,7 +43,7 @@ async function main() {
     ({ chromium } = await import("playwright"));
   } catch {
     console.warn("[check-csp] playwright is not installed — skipping live browser check. Install with: npm i -D playwright && npx playwright install chromium");
-    process.exit(0);
+    process.exit(2);
   }
 
   const workDir = mkdtempSync(path.join(tmpdir(), "pliny-csp-"));
@@ -80,7 +80,7 @@ async function main() {
     for (const pagePath of PUBLIC_PAGES) {
       const response = await page.goto(`${BASE}${pagePath}`, { waitUntil: "networkidle" });
       if (!response || response.status() >= 400) {
-        skipped.push(`${pagePath} (HTTP ${response ? response.status() : "no response"})`);
+        throw new Error(`Missing required public page ${pagePath} (HTTP ${response ? response.status() : "no response"})`);
       }
     }
 

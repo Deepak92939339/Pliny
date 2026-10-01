@@ -1,5 +1,9 @@
 # Pliny UI Unification Round (U-series) — Log & Inventory
 
+## Independent corrective review — 2026-10-01
+
+The historical U5 PASS claims below are superseded. Independent review found incomplete mobile evidence, an audit exception, hardcoded report verdicts, wrong font utilities, undersized controls and unsafe archive contents. The corrective branch fixes these defects plus pricing-null, document-delete limiter and CSP nonce-forwarding defects. See `docs/release/CODEX_REPAIR_VERIFICATION.md` for independently exercised coverage and remaining limits. CSS reduction is 9.23%, not 40%; complete axe/FPS and authenticated hosted acceptance remain pending. This is a Preview candidate, not Production approval.
+
 ## 1. Initial State & Baseline Git Context
 - Repository Root: `/Users/sandman/Desktop/RAG intelligence/pliny-antigravity-review`
 - Branch: `fix/pliny-audit-r1-preview-20260930`
@@ -160,5 +164,3 @@
 - Generated HTML comparison report: `artifacts/ui-unification/UI_ROUND_REPORT.html`.
 - Formatted complete patch series: `deliverables/ALL-UI.patch` covering all 13 commits from `da124a4` to HEAD.
 - Delivered `deliverables/U5-NOTES.md` and packaged `deliverables/pliny-ui-FINAL.zip`.
-
-

@@ -139,11 +139,11 @@ export function ChartBlock({ chart }: ChartBlockProps) {
     <section className="my-5 rounded-[var(--radius-xl)] border border-[var(--rule)] bg-[var(--paper-1)] p-4 text-[var(--ink-900)] shadow-[var(--shadow-1)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h4 className="text-[var(--text-sm)] font-semibold leading-5 text-[var(--ink-900)]">{chart.title}</h4>
-          {chart.yAxisLabel ? <p className="mt-1 text-[var(--text-2xs)] text-[var(--ink-500)]">{chart.yAxisLabel}</p> : null}
+          <h4 className="text-[length:var(--text-sm)] font-semibold leading-5 text-[var(--ink-900)]">{chart.title}</h4>
+          {chart.yAxisLabel ? <p className="mt-1 text-[length:var(--text-2xs)] text-[var(--ink-500)]">{chart.yAxisLabel}</p> : null}
         </div>
         {chart.sourceRefs && chart.sourceRefs.length > 0 ? (
-          <p className="rounded-full border border-[var(--accent)]/30 bg-[var(--accent-soft)] px-2 py-1 text-[var(--text-2xs)] font-medium text-[var(--accent-ink)] font-mono">
+          <p className="rounded-full border border-[var(--accent)]/30 bg-[var(--accent-soft)] px-2 py-1 text-[length:var(--text-2xs)] font-medium text-[var(--accent-ink)] font-mono">
             {chart.sourceRefs.join(", ")}
           </p>
         ) : null}
@@ -156,7 +156,7 @@ export function ChartBlock({ chart }: ChartBlockProps) {
       </div>
 
       {chart.insight ? (
-        <p className="mt-3 border-t border-[var(--rule)] pt-3 text-[var(--text-xs)] leading-5 text-[var(--ink-500)]">
+        <p className="mt-3 border-t border-[var(--rule)] pt-3 text-[length:var(--text-xs)] leading-5 text-[var(--ink-500)]">
           {chart.insight}
         </p>
       ) : null}

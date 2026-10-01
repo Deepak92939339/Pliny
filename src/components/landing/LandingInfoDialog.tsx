@@ -40,7 +40,7 @@ export function LandingInfoDialog({ page, triggerClassName }: { page: LandingInf
           <button
             ref={triggerRef}
             type="button"
-            className={cn("rounded-md text-left transition-colors hover:text-[var(--accent-ink)]", triggerClassName)}
+            className={cn("min-h-8 rounded-md text-left transition-colors hover:text-[var(--accent-ink)]", triggerClassName)}
           />
         }
       >

@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { getEvaluationValue, summarizeAudits } from "./ui-audit-contract.mjs";
 
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const baseUrl = process.env.BASE_URL || "http://localhost:3119";
@@ -74,7 +76,8 @@ async function runAudit() {
     "--disable-gpu",
     "--no-sandbox",
   ]);
-
+  let cdp;
+  try {
   let list = null;
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -90,7 +93,7 @@ async function runAudit() {
     throw new Error("No page target found in Chrome DevTools");
   }
 
-  const cdp = new CDPPageClient(pageTarget.webSocketDebuggerUrl);
+  cdp = new CDPPageClient(pageTarget.webSocketDebuggerUrl);
   await cdp.connect();
   console.log("Connected directly to Chrome Page Target via CDP");
 
@@ -118,9 +121,6 @@ async function runAudit() {
     pages: {},
   };
 
-  const allowedRadii = [0, 4, 6, 8, 12, 16, 9999];
-  const allowedFontSizes = [11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36];
-
   for (const page of pages) {
     const pageKey = page.slug;
     console.log(`Auditing ${pageKey} (${page.path})...`);
@@ -144,7 +144,7 @@ async function runAudit() {
       returnByValue: true,
     });
 
-    results.pages[pageKey].mobile = mobileAudit.result.value;
+    results.pages[pageKey].mobile = getEvaluationValue(mobileAudit, `${pageKey}/mobile`);
 
     // Audit Desktop (1440x900)
     await cdp.send("Emulation.setDeviceMetricsOverride", {
@@ -161,83 +161,23 @@ async function runAudit() {
       returnByValue: true,
     });
 
-    results.pages[pageKey].desktop = desktopAudit.result.value;
+    results.pages[pageKey].desktop = getEvaluationValue(desktopAudit, `${pageKey}/desktop`);
 
-    // Aggregate summary flags
-    for (const r of [results.pages[pageKey].mobile, results.pages[pageKey].desktop]) {
-      if (!r) continue;
-      if (r.radii) {
-        for (const radius of r.radii) {
-          const val = Math.round(radius.val);
-          const isAllowed = allowedRadii.some((a) => Math.abs(a - val) <= 1 || (a === 9999 && val >= 500));
-          if (!isAllowed) {
-            results.summary.radiiPass = false;
-            results.summary.flaggedRadii.push({ page: pageKey, ...radius });
-          }
-        }
-      }
-      if (r.fontSizes) {
-        for (const fs of r.fontSizes) {
-          const val = Math.round(fs.val);
-          // Scale: 11, 12, 13, 14, 15, 16, 18, 20, 24, 30, 32, 36, or display headings (>= 40px)
-          const isAllowed = allowedFontSizes.some((a) => Math.abs(a - val) <= 1) || val >= 40 || val === 32;
-          if (!isAllowed || val < 11) {
-            results.summary.typeScalePass = false;
-            results.summary.flaggedFontSizes.push({ page: pageKey, ...fs });
-          }
-        }
-      }
-      if (r.blueUsages && r.blueUsages.length > 0) {
-        results.summary.blueEliminationPass = false;
-        results.summary.flaggedBlue.push(...r.blueUsages.map((b) => ({ page: pageKey, ...b })));
-      }
-      if (r.flaggedTouchTargets && r.flaggedTouchTargets.length > 0) {
-        results.summary.flaggedTouchTargets.push(...r.flaggedTouchTargets.map((t) => ({ page: pageKey, ...t })));
-      }
-      if (r.flaggedDesktopControls && r.flaggedDesktopControls.length > 0) {
-        results.summary.flaggedDesktopControls.push(...r.flaggedDesktopControls.map((d) => ({ page: pageKey, ...d })));
-      }
-      if (r.conversationColumnWidth && r.conversationColumnWidth > 768) {
-        results.summary.conversationColumnPass = false;
-        results.summary.flaggedConversationColumn.push({ page: pageKey, width: r.conversationColumnWidth });
-      }
-    }
   }
 
-  // Deduplicate summary arrays
-  results.summary.flaggedRadii = dedupe(results.summary.flaggedRadii, (x) => `${x.page}-${x.selector}-${Math.round(x.val)}`);
-  results.summary.flaggedFontSizes = dedupe(results.summary.flaggedFontSizes, (x) => `${x.page}-${x.selector}-${Math.round(x.val)}`);
-  results.summary.flaggedBlue = dedupe(results.summary.flaggedBlue, (x) => `${x.page}-${x.selector}`);
-  results.summary.flaggedTouchTargets = dedupe(results.summary.flaggedTouchTargets, (x) => `${x.page}-${x.text}-${x.height}`);
-  results.summary.flaggedDesktopControls = dedupe(results.summary.flaggedDesktopControls, (x) => `${x.page}-${x.text}-${x.height}`);
 
-  if (results.summary.flaggedTouchTargets.length > 0) {
-    const severe = results.summary.flaggedTouchTargets.filter((t) => t.height < 32);
-    if (severe.length > 0) results.summary.touchTargetsPass = false;
-  }
-
+  results.summary = summarizeAudits(results.pages, pages.map((page) => page.slug));
   writeFileSync(outPath, JSON.stringify(results, null, 2), "utf8");
   console.log(`Audit complete! Saved results to ${outPath}`);
-
-  cdp.close();
-  chromeProc.kill("SIGTERM");
-}
-
-function dedupe(arr, keyFn) {
-  const seen = new Set();
-  const out = [];
-  for (const item of arr) {
-    const key = keyFn(item);
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(item);
-    }
+  if (!results.summary.pass) process.exitCode = 1;
+  } finally {
+    cdp?.close();
+    chromeProc.kill("SIGTERM");
   }
-  return out;
 }
 
 // Function injected into browser runtime via evaluate
-function auditDOMInBrowser(mode) {
+export function auditDOMInBrowser(mode) {
   const out = {
     radii: [],
     fontSizes: [],
@@ -245,6 +185,8 @@ function auditDOMInBrowser(mode) {
     flaggedTouchTargets: [],
     flaggedDesktopControls: [],
     conversationColumnWidth: null,
+    viewportWidth: window.innerWidth,
+    overflow: document.documentElement.scrollWidth > window.innerWidth,
   };
 
   const allElements = document.querySelectorAll("*");
@@ -274,7 +216,7 @@ function auditDOMInBrowser(mode) {
     const colors = [style.color, style.backgroundColor, style.borderColor, style.outlineColor];
     for (const c of colors) {
       if (c && (c.includes("0, 102, 204") || c === "#0066CC")) {
-        out.blueUsages.push({ selector: el.tagName.toLowerCase() + (el.className ? "." + el.className.split(" ")[0] : ""), color: c });
+        out.blueUsages.push({ selector: el.tagName.toLowerCase() + (typeof el.className === "string" && el.className ? "." + el.className.split(" ")[0] : ""), color: c });
       }
     }
 
@@ -288,7 +230,7 @@ function auditDOMInBrowser(mode) {
     if (el.childNodes.length > 0 && Array.from(el.childNodes).some((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim().length > 0)) {
       const fs = parseFloat(style.fontSize) || 0;
       if (fs > 0) {
-        out.fontSizes.push({ selector: el.tagName.toLowerCase() + (el.className ? "." + el.className.split(" ")[0] : ""), val: fs, text: el.textContent.trim().slice(0, 30) });
+        out.fontSizes.push({ selector: el.tagName.toLowerCase() + (typeof el.className === "string" && el.className ? "." + el.className.split(" ")[0] : ""), val: fs, text: el.textContent.trim().slice(0, 30) });
       }
     }
 
@@ -297,10 +239,11 @@ function auditDOMInBrowser(mode) {
       const isControl = el.matches("button, a, input, select, textarea, [role='button']");
       if (isControl && !el.closest("nav")?.classList.contains("hidden")) {
         const isInlineTextLink = el.tagName === "A" && el.parentElement && window.getComputedStyle(el.parentElement).display === "block" && el.parentElement.textContent.length > el.textContent.length + 20;
-        const isInlineCitation = el.tagName === "BUTTON" && (el.className?.includes?.("cite") || el.textContent.startsWith("Source ") || el.textContent.startsWith("["));
+        const isInlineCitation = el.hasAttribute("data-inline-citation");
         const isTableCellChild = Boolean(el.closest("td, th"));
         const isHarness = Boolean(el.closest("[class*='harness'], [data-harness]"));
-        if (!isInlineTextLink && !isInlineCitation && !isTableCellChild && !isHarness && h < 32) {
+        const h = rect.height;
+        if (!isInlineTextLink && !isInlineCitation && !isTableCellChild && !isHarness && (h < 44 || rect.width < 44)) {
           out.flaggedTouchTargets.push({
             tag: el.tagName.toLowerCase(),
             text: (el.textContent || el.getAttribute("aria-label") || "").trim().slice(0, 30),
@@ -314,9 +257,9 @@ function auditDOMInBrowser(mode) {
     // Desktop controls check
     if (mode === "desktop") {
       const isButton = el.matches("button, input[type='submit'], input[type='button'], .button, [role='button']");
-      if (isButton) {
+      if (isButton && !el.hasAttribute("data-inline-citation") && !el.closest("[data-harness]")) {
         const h = rect.height;
-        if (h > 0 && h < 30) {
+        if (h > 0 && h < 32) {
           out.flaggedDesktopControls.push({
             tag: el.tagName.toLowerCase(),
             text: (el.textContent || el.getAttribute("aria-label") || "").trim().slice(0, 30),
@@ -336,7 +279,9 @@ function auditDOMInBrowser(mode) {
   return out;
 }
 
-runAudit().catch((err) => {
-  console.error("Audit failed:", err);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  runAudit().catch((err) => {
+    console.error("Audit failed:", err);
+    process.exitCode = 1;
+  });
+}

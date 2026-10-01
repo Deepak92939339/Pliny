@@ -1,5 +1,11 @@
 # Pliny Project State
 
+## Codex corrective Preview candidate — 2026-10-01
+
+- Active branch `fix/pliny-audit-r1-preview-20260930`; parent candidate `57e76dfb4979ffc3ba0754997a8b956b9d9f6775`. Independent corrections cover pricing-null crash, document-delete limiter fail-open, CSP request nonce forwarding/hydration, metadata font sizing, mobile hit areas, root-error stylesheet, dev fixture geometry, audit/report truthfulness and safe packaging.
+- Typecheck, lint (two existing warnings), 26 deterministic suites, additional UI-review tests, 36 release cases, build, client secret canary scan and diff check pass. Provider requests: 0. See `docs/release/CODEX_REPAIR_VERIFICATION.md` for exact coverage and remaining limitations.
+- Separate Supabase staging project initialized previously; URL/anon-key now override only this branch's Vercel Preview. Production untouched. Publish this branch to Preview only; no merge or main push. Authenticated hosted acceptance needs a staging test user and confirmed isolated Redis. Full axe/FPS and complete DOM collection remain pending; CSS reduction is 9.23%, not 40%. No Production approval.
+
 ## Antigravity Audit Fix R1 candidate integration — 2026-09-30
 - Task workspace: `/Users/sandman/Desktop/RAG intelligence/pliny-antigravity-review`
 - Publishing branch: `fix/pliny-audit-r1-preview-20260930`

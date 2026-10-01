@@ -237,14 +237,14 @@ function UiPreviewContent() {
   return (
     <div className="min-h-screen bg-[var(--paper-0)] text-[var(--ink-900)]">
       {/* Dev-only harness toolbar */}
-      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-[var(--rule-strong)] bg-[var(--paper-1)] px-4 py-2 text-xs">
+      <header data-harness className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--rule-strong)] bg-[var(--paper-1)] px-4 py-2 text-xs">
         <div className="flex items-center gap-2">
           <BrandMark markClassName="size-6" textClassName="text-sm font-semibold" />
           <span className="rounded bg-[var(--accent)]/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-[var(--accent-ink)]">
             UI PREVIEW HARNESS (DEV ONLY)
           </span>
         </div>
-        <nav className="flex items-center gap-1">
+        <nav className="flex flex-wrap items-center gap-1">
           <button
             onClick={() => setTab("workspace")}
             className={`rounded px-2.5 py-1 font-medium transition-colors ${
@@ -321,7 +321,7 @@ function UiPreviewContent() {
 
         {activeTab === "inspector" && (
           <div className="flex h-[calc(100vh-45px)]">
-            <div className="flex-1 overflow-auto p-8">
+            <div className="min-w-0 flex-1 overflow-auto p-8">
               <h2 className="mb-4 text-xl font-semibold">Active Conversation With Source Selection</h2>
               <p className="mb-6 max-w-xl text-sm text-[var(--ink-700)]">
                 Clicking citation <span className="font-semibold text-[var(--accent-ink)]">[[s.1]]</span> opens the Source Inspector panel alongside the conversation without obscuring the reading column.
@@ -336,7 +336,7 @@ function UiPreviewContent() {
                 </p>
               </div>
             </div>
-            <div className="w-[380px] border-l border-[var(--rule)] bg-[var(--paper-1)]">
+            <div className="hidden shrink-0 min-[900px]:block">
               <SourceInspector
                 sources={syntheticSources}
                 selectedSourceIndex={selectedSourceIndex}

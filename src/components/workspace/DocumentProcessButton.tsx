@@ -79,7 +79,7 @@ export function DocumentProcessButton({
           {label}
         </Button>
         {errorMessage ? (
-          <p className="mt-1 text-[var(--text-2xs)] leading-5 text-[var(--danger-ink)]">{errorMessage}</p>
+          <p className="mt-1 text-[length:var(--text-2xs)] leading-5 text-[var(--danger-ink)]">{errorMessage}</p>
         ) : null}
       </div>
     );
@@ -92,14 +92,14 @@ export function DocumentProcessButton({
         onClick={handleProcess}
         disabled={isProcessing}
         className={cn(
-          "rounded-[var(--radius-sm)] px-1 py-0.5 text-[var(--text-2xs)] font-medium text-[var(--accent-ink)] underline-offset-2 hover:bg-[var(--accent)]/10 hover:text-[var(--accent-ink)] hover:underline disabled:pointer-events-none disabled:opacity-50",
+          "rounded-[var(--radius-sm)] px-1 py-0.5 text-[length:var(--text-2xs)] font-medium text-[var(--accent-ink)] underline-offset-2 hover:bg-[var(--accent)]/10 hover:text-[var(--accent-ink)] hover:underline disabled:pointer-events-none disabled:opacity-50",
           className
         )}
       >
         {isProcessing ? "Processing…" : label}
       </button>
       {errorMessage ? (
-        <p className="mt-1 text-[var(--text-2xs)] leading-5 text-[var(--danger-ink)]">{errorMessage}</p>
+        <p className="mt-1 text-[length:var(--text-2xs)] leading-5 text-[var(--danger-ink)]">{errorMessage}</p>
       ) : null}
     </div>
   );

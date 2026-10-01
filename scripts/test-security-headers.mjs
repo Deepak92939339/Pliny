@@ -8,6 +8,9 @@
  * 'unsafe-inline' for scripts.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 
 const cspModule = await import("../src/lib/security/csp.ts").catch((error) => ({ __importError: error }));
 
@@ -58,6 +61,28 @@ await run("CSP hardening directives are present", () => {
   assert.ok(csp.includes("form-action 'self'"), csp);
   assert.ok(csp.includes("object-src 'none'"), csp);
   assert.ok(csp.startsWith("default-src 'self'"), csp);
+});
+
+await run("middleware forwards the same nonce CSP to Next rendering and the browser", async () => {
+  const exports = {};
+  let forwarded;
+  const code = ts.transpileModule(readFileSync("src/middleware.ts", "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  runInNewContext(code, {
+    exports, Headers, crypto: { randomUUID: () => "test-nonce" },
+    process: { env: { NODE_ENV: "production", NEXT_PUBLIC_SUPABASE_URL: SUPABASE_URL } },
+    require: (name) => {
+      if (name === "@/lib/security/csp") return { buildEnforcedCsp };
+      if (name === "@/lib/supabase/middleware") return { updateSession: async (_request, headers) => { forwarded = headers; return { headers: new Headers() }; } };
+      throw new Error(`Unexpected dependency ${name}`);
+    },
+  });
+  const response = await exports.middleware({ headers: new Headers() });
+  assert.equal(forwarded.get("x-nonce"), "test-nonce");
+  assert.equal(forwarded.get("Content-Security-Policy"), response.headers.get("Content-Security-Policy"));
+  assert.ok(forwarded.get("Content-Security-Policy").includes("'nonce-test-nonce'"));
+  assert.doesNotMatch(readFileSync("src/app/layout.tsx", "utf8"), /nonce=\{nonce\}/);
 });
 
 const failures = results.filter((result) => result.status === "FAIL");

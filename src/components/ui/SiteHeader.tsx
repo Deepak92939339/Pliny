@@ -41,7 +41,7 @@ export function SiteHeader({ variant = "marketing", className }: SiteHeaderProps
         <Link
           href="/"
           aria-label="Pliny home"
-          className="shrink-0 text-[var(--ink-900)] transition-colors hover:text-[var(--accent-ink)]"
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center text-[var(--ink-900)] transition-colors hover:text-[var(--accent-ink)]"
         >
           <BrandMark
             markClassName="size-6"
@@ -65,20 +65,20 @@ export function SiteHeader({ variant = "marketing", className }: SiteHeaderProps
             <div className="flex items-center gap-3">
               <Link
                 href="/login"
-                className="text-[13px] font-semibold text-[var(--accent-ink)] transition-colors hover:text-[var(--accent)]"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center text-[13px] font-semibold text-[var(--accent-ink)] transition-colors hover:text-[var(--accent)]"
               >
                 Sign in
               </Link>
               <Link
                 href="/access"
-                className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+                className={cn(buttonVariants({ variant: "primary", size: "sm" }), "min-h-11")}
               >
                 Request access
               </Link>
               <button
                 ref={menuTriggerRef}
                 type="button"
-                className="inline-flex size-9 items-center justify-center rounded-md border border-[var(--rule)] text-[var(--ink-700)] transition-colors hover:bg-[var(--paper-0)] md:hidden"
+                className="inline-flex size-11 items-center justify-center rounded-md border border-[var(--rule)] text-[var(--ink-700)] transition-colors hover:bg-[var(--paper-0)] md:hidden"
                 aria-expanded={mobileMenuOpen}
                 aria-controls="mobile-nav-panel"
                 aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
@@ -103,7 +103,7 @@ export function SiteHeader({ variant = "marketing", className }: SiteHeaderProps
                   <LandingInfoDialog
                     key={page.key}
                     page={page}
-                    triggerClassName="w-full px-3 py-2 text-left text-sm hover:bg-[var(--paper-0)] rounded-md"
+                    triggerClassName="min-h-11 w-full px-3 py-2 text-left text-sm hover:bg-[var(--paper-0)] rounded-md"
                   />
                 ))}
               </div>

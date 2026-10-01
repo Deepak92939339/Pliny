@@ -571,6 +571,7 @@ export function LandingView() {
                             type="button"
                             onClick={() => toggleCitation(entry.id)}
                             aria-label={entry.aria}
+                            data-inline-citation
                             aria-pressed={selected === entry.id}
                             aria-expanded={selected === entry.id}
                             className={`ml-1 inline-flex size-5 items-center justify-center rounded-sm border font-mono text-[11px] align-middle transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--accent)]/25 ${

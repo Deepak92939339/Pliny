@@ -282,6 +282,7 @@ function renderInlineNodes(
             key={`${keyPrefix}-cite-${index}`}
             type="button"
             className={`${styles.cite} ${selected ? styles.citeSel : ""}`}
+            data-inline-citation
             aria-label={`${srLabel}. Open in Source Inspector.`}
             aria-pressed={selected}
             aria-current={selected ? "true" : undefined}

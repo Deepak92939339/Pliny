@@ -131,6 +131,10 @@ function getModelRates(model: string) {
     }
     const entry = Object.hasOwn(pricing, model) ? (pricing as Record<string, unknown>)[model] : undefined;
     if (entry !== undefined) {
+      if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+        logSafeStageError("ai-budget", "AI_MODEL_PRICING_JSON contains an invalid model entry; falling back to the most expensive known rate", "invalid_entry", { model });
+        return { ...MAX_KNOWN_RATE };
+      }
       const { inputUsdPerMillion, outputUsdPerMillion } = entry as Record<string, unknown>;
       if (
         typeof inputUsdPerMillion !== "number" || !Number.isFinite(inputUsdPerMillion) || inputUsdPerMillion < 0 ||

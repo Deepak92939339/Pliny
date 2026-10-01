@@ -27,4 +27,10 @@ assert.equal(estimateRequestCostUsd("openai/gpt-6-luna", 1_000_000, 1_000_000), 
 delete process.env.AI_MODEL_PRICING_JSON;
 assert.equal(estimateRequestCostUsd("unknown-model-x", 1_000_000, 1_000_000), 18);
 
+for (const invalidEntry of [null, [], "invalid", 42, true]) {
+  process.env.AI_MODEL_PRICING_JSON = JSON.stringify({ "openai/gpt-6-luna": invalidEntry });
+  assert.equal(estimateRequestCostUsd("openai/gpt-6-luna", 1_000_000, 1_000_000), 18);
+}
+delete process.env.AI_MODEL_PRICING_JSON;
+
 console.log("AI budget pricing and limit tests passed.");
