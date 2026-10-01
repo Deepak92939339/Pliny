@@ -92,106 +92,101 @@ export function NewWorkspaceDialog({ className, label = "New workspace", size = 
     });
   }
 
-  const isPaperTone = tone === "paper";
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button size={size} variant={variant} className={cn(className)} />}>
-        <Plus aria-hidden="true" />
+      <DialogTrigger
+        render={
+          <Button
+            size={size === "default" ? "md" : size}
+            variant={variant === "outline" ? "secondary" : variant}
+            className={cn(className)}
+          />
+        }
+      >
+        <Plus className="size-4" aria-hidden="true" />
         {label}
       </DialogTrigger>
-      <DialogContent
-        className={cn(
-          isPaperTone &&
-            "border-[var(--rule)] bg-white text-[var(--ink-900)] shadow-[0_24px_70px_rgba(72,48,31,0.14)] ring-0"
-        )}
-      >
+      <DialogContent className="max-w-[480px]">
         <DialogHeader>
-          <DialogTitle className={cn(isPaperTone && "dm-editorial-display text-[24px] font-semibold tracking-[-0.035em] text-[var(--ink-900)]")}>New workspace</DialogTitle>
-          <DialogDescription className={cn("text-zinc-400", isPaperTone && "text-[var(--ink-500)]")}>
+          <DialogTitle className="dm-editorial-display text-2xl font-semibold tracking-[-0.03em] text-[var(--ink-900)]">
+            New workspace
+          </DialogTitle>
+          <DialogDescription className="text-sm text-[var(--ink-500)]">
             Create a workspace for a group of documents.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="workspace-name" className={cn(isPaperTone && "text-[13px] font-semibold text-[var(--ink-900)]")}>Workspace name</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="workspace-name" className="text-sm font-semibold text-[var(--ink-900)]">
+              Workspace name
+            </Label>
             <Input
               id="workspace-name"
               placeholder="Acme diligence room"
-              className={cn(
-                isPaperTone &&
-                  "h-11 rounded-[7px] border-[var(--rule-strong)] bg-white text-[var(--ink-900)] shadow-sm shadow-[rgba(72,48,31,0.04)] placeholder:text-[var(--ink-500)] focus-visible:border-[var(--accent)] focus-visible:ring-[var(--accent)]/20"
-              )}
-              aria-invalid={errors.name ? "true" : "false"}
+              error={errors.name ? toWorkspaceCopy(errors.name.message) : undefined}
               {...register("name")}
             />
-            {errors.name ? <p className={cn("text-sm text-red-300", isPaperTone && "text-[var(--danger-ink)]")}>{toWorkspaceCopy(errors.name.message)}</p> : null}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="workspace-processing-mode" className={cn(isPaperTone && "text-[13px] font-semibold text-[var(--ink-900)]")}>New document processing</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="workspace-processing-mode" className="text-sm font-semibold text-[var(--ink-900)]">
+              New document processing
+            </Label>
             <select
               id="workspace-processing-mode"
-              className={cn(
-                "h-11 w-full rounded-lg border border-[color:var(--editorial-border)] bg-[var(--editorial-card)] px-3 text-sm text-[color:var(--editorial-ink)] outline-none focus-visible:border-[var(--accent)]/45 focus-visible:ring-3 focus-visible:ring-[var(--accent)]/15",
-                isPaperTone && "rounded-[7px] border-[var(--rule-strong)] bg-white text-[var(--ink-900)] focus-visible:border-[var(--accent)] focus-visible:ring-[var(--accent)]/20"
-              )}
+              className="h-10 w-full rounded-md border border-[var(--rule-strong)] bg-[var(--paper-0)] px-3 text-sm text-[var(--ink-900)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ink)]"
               {...register("defaultProcessingMode")}
             >
               <option value="standard">Standard</option>
               <option value="privacy_minimised">Privacy-minimised</option>
             </select>
-            <p className="text-xs leading-5 text-[color:var(--editorial-muted)]">
+            <p className="text-xs leading-relaxed text-[var(--ink-500)]">
               This default is captured by each new document and does not change existing documents.
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="workspace-description" className={cn(isPaperTone && "text-[13px] font-semibold text-[var(--ink-900)]")}>Description</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="workspace-description" className="text-sm font-semibold text-[var(--ink-900)]">
+              Description
+            </Label>
             <textarea
               id="workspace-description"
               rows={4}
               placeholder="Contracts, notes, and source material for this review."
-              className={cn(
-                "min-h-24 w-full resize-none rounded-lg border border-[color:var(--editorial-border)] bg-[var(--editorial-card)] px-3 py-2 text-sm text-[color:var(--editorial-ink)] shadow-inner shadow-black/10 outline-none transition-colors placeholder:text-[color:var(--editorial-muted)] focus-visible:border-[var(--accent)]/45 focus-visible:ring-3 focus-visible:ring-[var(--accent)]/15 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-[var(--editorial-panel)] disabled:opacity-50",
-                isPaperTone &&
-                  "rounded-[7px] border-[var(--rule-strong)] bg-white text-[var(--ink-900)] shadow-sm shadow-[rgba(72,48,31,0.04)] placeholder:text-[var(--ink-500)] focus-visible:border-[var(--accent)] focus-visible:ring-[var(--accent)]/20 disabled:bg-[var(--paper-0)]"
-              )}
+              className="min-h-24 w-full resize-none rounded-md border border-[var(--rule-strong)] bg-[var(--paper-0)] px-3 py-2 text-sm text-[var(--ink-900)] transition-colors placeholder:text-[var(--ink-500)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ink)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-[var(--paper-0)] disabled:opacity-50"
               aria-invalid={errors.description ? "true" : "false"}
               {...register("description")}
             />
-            {errors.description ? <p className={cn("text-sm text-red-300", isPaperTone && "text-[var(--danger-ink)]")}>{toWorkspaceCopy(errors.description.message)}</p> : null}
+            {errors.description ? (
+              <p className="text-xs text-[var(--danger-ink)]">{toWorkspaceCopy(errors.description.message)}</p>
+            ) : null}
           </div>
 
           {formError ? (
             <div
-              className={cn(
-                "rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-sm text-red-200",
-                isPaperTone && "border-[var(--accent)]/25 bg-[var(--accent)]/10 text-[var(--danger-ink)]"
-              )}
+              className="rounded-md border border-[var(--danger-soft)] bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger-ink)]"
               role="alert"
             >
               {toWorkspaceCopy(formError)}
             </div>
           ) : null}
 
-          <DialogFooter className={cn(isPaperTone && "-mx-5 -mb-5 border-t border-[var(--rule)] bg-[var(--paper-0)]")}>
+          <DialogFooter className="mt-6 flex items-center justify-end gap-3 border-t border-[var(--rule)] pt-4">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               disabled={isPending}
               onClick={() => handleOpenChange(false)}
-              className={cn(isPaperTone && "border-[var(--rule-strong)] bg-white text-[var(--ink-900)] hover:bg-[var(--paper-0)]")}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={isPending}
-              className={cn(isPaperTone && "border-[var(--accent)] bg-[var(--accent)] text-white hover:bg-[var(--accent-ink)]")}
+              variant="primary"
+              loading={isPending}
             >
-              {isPending ? "Creating" : "Create workspace"}
+              Create workspace
             </Button>
           </DialogFooter>
         </form>

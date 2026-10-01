@@ -55,9 +55,11 @@ export function DeleteCollectionButton({ collectionId, collectionName }: DeleteC
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
-          <button
+          <Button
             type="button"
-            className="inline-flex size-7 items-center justify-center rounded-lg border border-[color:var(--rule)] bg-[color:var(--paper-2)] text-[color:var(--ink-500)] transition-colors hover:border-[color:var(--danger-soft)] hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger-ink)] focus-visible:border-[color:var(--danger)] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[color:var(--danger-soft)]"
+            variant="ghost"
+            size="sm"
+            className="size-8 p-0 text-[var(--ink-500)] hover:text-[var(--danger-ink)] hover:bg-[var(--danger-soft)]"
             aria-label={`Delete ${collectionName}`}
           />
         }
@@ -67,25 +69,25 @@ export function DeleteCollectionButton({ collectionId, collectionName }: DeleteC
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete workspace</DialogTitle>
-          <DialogDescription className="text-[color:var(--ink-500)]">This removes the workspace from your dashboard.</DialogDescription>
+          <DialogDescription className="text-[var(--ink-500)]">This removes the workspace from your dashboard.</DialogDescription>
         </DialogHeader>
 
-        <div className="rounded-lg border border-[color:var(--rule)] bg-[color:var(--paper-0)] p-3">
-          <p className="text-sm font-medium text-[color:var(--ink-900)]">{collectionName}</p>
+        <div className="rounded-md border border-[var(--rule)] bg-[var(--paper-0)] p-3">
+          <p className="text-sm font-medium text-[var(--ink-900)]">{collectionName}</p>
         </div>
 
         {error ? (
-          <div className="rounded-lg border border-[color:var(--danger-soft)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger-ink)]" role="alert">
+          <div className="rounded-md border border-[var(--danger-soft)] bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger-ink)]" role="alert">
             {toWorkspaceCopy(error)}
           </div>
         ) : null}
 
         <DialogFooter>
-          <Button type="button" variant="outline" disabled={isPending} onClick={() => handleOpenChange(false)}>
+          <Button type="button" variant="secondary" disabled={isPending} onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" variant="destructive" disabled={isPending} onClick={handleDelete}>
-            {isPending ? "Deleting" : "Delete workspace"}
+          <Button type="button" variant="destructive" loading={isPending} onClick={handleDelete}>
+            Delete workspace
           </Button>
         </DialogFooter>
       </DialogContent>
