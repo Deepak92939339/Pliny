@@ -1,20 +1,59 @@
-import * as React from "react"
-import { Input as InputPrimitive } from "@base-ui/react/input"
+import * as React from "react";
+import { Input as InputPrimitive } from "@base-ui/react/input";
+import { cn } from "@/lib/utils";
 
-import { cn } from "@/lib/utils"
-
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
-  return (
-    <InputPrimitive
-      type={type}
-      data-slot="input"
-      className={cn(
-        "h-10 w-full min-w-0 rounded-lg border border-[color:var(--editorial-border)] bg-[var(--editorial-card)] px-3 py-1 text-base text-[color:var(--editorial-ink)] shadow-inner shadow-black/10 transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-[color:var(--editorial-ink)] placeholder:text-[color:var(--editorial-muted)] focus-visible:border-[var(--accent)]/45 focus-visible:ring-3 focus-visible:ring-[var(--accent)]/15 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-[var(--editorial-panel)] disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm",
-        className
-      )}
-      {...props}
-    />
-  )
+interface InputProps extends React.ComponentProps<"input"> {
+  icon?: React.ReactNode;
+  endIcon?: React.ReactNode;
+  error?: string | boolean;
 }
 
-export { Input }
+const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
+  { className, type, icon, endIcon, error, id, ...props },
+  ref
+) {
+  const hasError = Boolean(error);
+  const errorMessage = typeof error === "string" ? error : undefined;
+
+  return (
+    <div className="w-full">
+      <div className="relative flex items-center">
+        {icon && (
+          <div className="pointer-events-none absolute left-3 flex items-center justify-center text-[var(--ink-500)] [&_svg]:size-4">
+            {icon}
+          </div>
+        )}
+        <InputPrimitive
+          ref={ref}
+          id={id}
+          type={type}
+          data-slot="input"
+          aria-invalid={hasError ? "true" : undefined}
+          className={cn(
+            "h-10 w-full min-w-0 rounded-md border border-[var(--rule-strong)] bg-[var(--paper-1)] px-3 text-sm text-[var(--ink-900)] transition-colors duration-150 outline-none placeholder:text-[var(--ink-500)]",
+            "focus-visible:border-[var(--accent-ink)] focus-visible:outline-none",
+            hasError && "border-[var(--danger)] text-[var(--danger-ink)] focus-visible:border-[var(--danger)]",
+            icon && "pl-9",
+            endIcon && "pr-9",
+            className
+          )}
+          {...props}
+        />
+        {endIcon && (
+          <div className="absolute right-3 flex items-center justify-center text-[var(--ink-500)] [&_svg]:size-4">
+            {endIcon}
+          </div>
+        )}
+      </div>
+      {errorMessage && (
+        <p className="mt-1.5 text-xs text-[var(--danger-ink)]" role="alert">
+          {errorMessage}
+        </p>
+      )}
+    </div>
+  );
+});
+
+Input.displayName = "Input";
+
+export { Input, type InputProps };
