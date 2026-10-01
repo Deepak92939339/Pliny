@@ -1,8 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { embedText, getEmbeddingConfig, isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
 import { selectDocumentAwareResults } from "@/lib/search/documentCoverage";
-import { fuseAndRerankCandidates } from "@/lib/search/fusion";
+import { fuseAndRerankCandidates, fuseCandidatesRrf } from "@/lib/search/fusion";
 import { expandKnownRoleTerms, getKnownRoleConcepts } from "@/lib/search/queryEquivalents";
+import { extractIdentifiers, getIdentifierHead } from "@/lib/search/identifiers";
+
+// Re-exported for evaluation scripts and consumers of the lexical query path.
+export { extractIdentifiers };
 import {
   assertProviderPayloadExcludes,
   collectOriginalDeterministicIdentifiers,
@@ -79,6 +83,31 @@ const MAX_CANDIDATES_PER_DOCUMENT = 10;
 const MIN_CANDIDATES_PER_DOCUMENT = 3;
 const MAX_GLOBAL_CANDIDATES = 60;
 const CTO_SEARCH_TERMS = new Set(["cto", "chief", "technology", "officer"]);
+
+/**
+ * WP2 (audit-r1): fusion selector. `RETRIEVAL_FUSION` = `rrf` (default) or
+ * `weighted`. RRF is rank-based so a lexically-perfect chunk (exact-ID row)
+ * is no longer mathematically unable to outrank the top semantic chunk the
+ * way it was under min-max weighted fusion. The weighted implementation is
+ * kept unchanged for A/B via env. Measured before choosing the default —
+ * see AUDIT_FIX_R1_LOG.md (Hit@1/Hit@3 per suite, both modes).
+ */
+function getFusionMode(): "rrf" | "weighted" {
+  const raw = (process.env.RETRIEVAL_FUSION ?? "").trim().toLowerCase();
+  return raw === "weighted" ? "weighted" : "rrf";
+}
+
+/**
+ * WP2 (audit-r1): candidate pool size per lane before fusion.
+ * `RETRIEVAL_CANDIDATES_PER_LANE`, default 20, clamped to 50. The final
+ * context size stays AI_MAX_CHUNKS — this only widens the pool the fusion
+ * step sees.
+ */
+export function getRetrievalCandidatesPerLane(): number {
+  const parsed = Number.parseInt(process.env.RETRIEVAL_CANDIDATES_PER_LANE ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 20;
+  return Math.min(50, parsed);
+}
 
 type DocumentMeta = {
   filename?: string | null;
@@ -190,15 +219,60 @@ export function buildLexicalWebsearchQuery(query: string) {
     (value, token) => value.replaceAll(token, " "),
     queryWithoutQuotedPhrases
   );
+
+  // WP2 (audit-r1): identifier-aware lexical query. Each identifier
+  // (INC-5517, POL-IND-CAP-12, ...) becomes a leading quoted phrase of its
+  // normalized parts ("inc 5517") so websearch_to_tsquery('simple', ...) must
+  // match the parts adjacently, instead of flooding the lane with the generic
+  // prefix ("inc" matched every row) as an unrelated OR term.
+  const identifiers = extractIdentifiers(queryWithoutPseudonyms);
+  const identifierPhrases = Array.from(
+    new Set(
+      identifiers
+        .map((identifier) => `"${normalizeText(identifier)}"`)
+        .filter((phrase) => phrase !== '""')
+    )
+  );
+
+  // The identifier's generic prefix fragment (inc, ctr, sku, ...) is removed
+  // from the loose OR terms when it only occurs as part of an identifier. If
+  // the fragment also occurs standalone in the query ("INC-5517 and the INC
+  // checklist"), the identifier stays whole in the loose-term text so the
+  // standalone usage keeps matching.
+  const identifierHeads = identifiers.map(getIdentifierHead).filter(Boolean);
+  const hasStandaloneHead =
+    identifierHeads.length > 0 &&
+    identifierHeads.some((head) => {
+      const headPattern = new RegExp(`\\b${head.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi");
+      const identifierSpans: Array<[number, number]> = [];
+      for (const identifier of identifiers) {
+        let from = 0;
+        while (true) {
+          const at = queryWithoutPseudonyms.indexOf(identifier, from);
+          if (at === -1) break;
+          identifierSpans.push([at, at + identifier.length]);
+          from = at + identifier.length;
+        }
+      }
+      return Array.from(queryWithoutPseudonyms.matchAll(headPattern)).some((match) => {
+        const at = match.index ?? -1;
+        return !identifierSpans.some(([start, end]) => at >= start && at < end);
+      });
+    });
+  const looseTermsSource = identifiers.reduce((value, identifier) => {
+    const replacement = hasStandaloneHead ? identifier : identifier.replace(/^[A-Za-z]{2,}[-_]?/, "");
+    return value.replace(identifier, replacement);
+  }, queryWithoutPseudonyms);
+
   const terms = Array.from(
     new Set(
-      normalizeText(queryWithoutPseudonyms)
+      normalizeText(looseTermsSource)
         .split(" ")
         .filter((term) => term.length > 1 && !STOP_WORDS.has(term))
     )
   ).slice(0, 24);
 
-  return Array.from(new Set([...pseudonymTokens, ...quotedPhrases, ...terms])).slice(0, 24).join(" OR ");
+  return Array.from(new Set([...pseudonymTokens, ...identifierPhrases, ...quotedPhrases, ...terms])).slice(0, 24).join(" OR ");
 }
 
 function countOccurrences(value: string, term: string) {
@@ -620,7 +694,7 @@ async function retrieveSemanticResults({
   } else {
     const { data, error } = await supabase.rpc("match_document_chunks", {
       match_collection_id: collectionId,
-      match_count: 20,
+      match_count: getRetrievalCandidatesPerLane(),
       match_user_id: userId,
       query_embedding: queryEmbedding.embedding,
     });
@@ -677,7 +751,9 @@ async function retrieveLexicalResults({
         supabase.rpc("match_document_chunks_lexical_by_mode", {
           match_collection_id: collectionId,
           match_count:
-            documentId === null ? Math.min(MAX_GLOBAL_CANDIDATES, Math.max(limit * 3, limit)) : candidateLimit,
+            documentId === null
+              ? Math.min(MAX_GLOBAL_CANDIDATES, Math.max(getRetrievalCandidatesPerLane(), limit * 3, limit))
+              : candidateLimit,
           match_document_id: documentId,
           match_processing_mode: mode,
           match_query: lexicalQuery,
@@ -813,18 +889,24 @@ export async function retrieveRelevantChunks(
     });
   }
 
+  // TODO(audit-r1): BM25 honesty — PostgreSQL ts_rank_cd is NOT BM25. If the
+  // owner's Supabase project offers a real BM25 extension (check via:
+  // select name, default_version from pg_available_extensions where name in
+  // ('pg_search','vchord_bm25','pg_textsearch');), a BM25 lane would slot in
+  // alongside retrieveLexicalResults here: fetch candidates into a third lane,
+  // rank it with the same rankLane map used by fuseCandidatesRrf, and add its
+  // 1/(k + rank) contribution to the fusion score. Do not fake BM25 over
+  // ts_rank_cd in the meantime.
   if (keywordResults.length > 0 && semanticResults.length > 0) {
-    const selection = cleanRetrievedResults(
-      fuseAndRerankCandidates({
-        keywordResults,
-        limit: Math.max(limit * 3, limit, scopedDocumentIds.length * MIN_CANDIDATES_PER_DOCUMENT),
-        query,
-        semanticResults,
-      }),
-      limit,
-      scopedDocumentIds,
-      rows
-    );
+    const candidatesPerLane = getRetrievalCandidatesPerLane();
+    const fusionInput = {
+      keywordResults: keywordResults.slice(0, candidatesPerLane),
+      limit: Math.max(limit * 3, limit, scopedDocumentIds.length * MIN_CANDIDATES_PER_DOCUMENT),
+      query,
+      semanticResults: semanticResults.slice(0, candidatesPerLane),
+    };
+    const fused = getFusionMode() === "rrf" ? fuseCandidatesRrf(fusionInput) : fuseAndRerankCandidates(fusionInput);
+    const selection = cleanRetrievedResults(fused, limit, scopedDocumentIds, rows);
 
     return {
       error: null,

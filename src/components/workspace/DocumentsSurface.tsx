@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, EllipsisVertical, Plus, X } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { DocumentDeleteButton } from "@/components/workspace/DocumentDeleteButton";
 import { DocumentProcessButton } from "@/components/workspace/DocumentProcessButton";
 import { DocumentUploadDropzone } from "@/components/workspace/DocumentUploadDropzone";
 import { getFileKindLabel, inferSupportedFileKind } from "@/lib/document-processing/fileKinds";
@@ -26,6 +29,31 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "processing", label: "Processing" },
   { key: "failed", label: "Needs attention" },
 ];
+
+function DocumentStatusBadge({ status }: { status: DocumentListItem["status"] }) {
+  if (status === "ready") {
+    return (
+      <Badge variant="ok" className="gap-1.5 font-sans font-medium text-[11px]">
+        <span className="size-1.5 rounded-full bg-[var(--ok-ink)] shrink-0" aria-hidden="true" />
+        Ready
+      </Badge>
+    );
+  }
+  if (status === "processing") {
+    return (
+      <Badge variant="accent" className="gap-1.5 font-sans font-medium text-[11px]">
+        <span className="size-1.5 rounded-full bg-[var(--accent-ink)] shrink-0" aria-hidden="true" />
+        Processing
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="danger" className="gap-1.5 font-sans font-medium text-[11px]">
+      <span className="size-1.5 rounded-full bg-[var(--danger-ink)] shrink-0" aria-hidden="true" />
+      Needs attention
+    </Badge>
+  );
+}
 
 function getSafeFilename(filename: string | null | undefined) {
   return typeof filename === "string" && filename.trim().length > 0 ? filename.trim() : "Untitled document";
@@ -234,40 +262,45 @@ export function DocumentsSurface({
       <section className={styles.canvas} aria-label="Documents">
         <div className={styles.headRow}>
           <div className={styles.headText}>
-            <button type="button" className={styles.backBtn} onClick={onBack}>
-              <ArrowLeft className={styles.icon} aria-hidden="true" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              className="gap-1.5 px-2 text-[var(--ink-500)] hover:text-[var(--ink-900)] mb-1"
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
               Ask a question
-            </button>
+            </Button>
             <p className={styles.eyebrow}>Workspace</p>
             <h1 className={styles.title}>Documents</h1>
             <p className={styles.lede}>
               Files become answerable only after extraction and indexing complete. OCR runs only when a file has no usable embedded text.
             </p>
           </div>
-          <button
-            type="button"
-            className={styles.primaryBtn}
+          <Button
+            variant="primary"
             onClick={(event) => openDialog(event.currentTarget)}
+            className="gap-2 shrink-0"
           >
-            <Plus className={styles.icon} aria-hidden="true" />
+            <Plus className="size-4" aria-hidden="true" />
             Add documents
-          </button>
+          </Button>
         </div>
 
         <div className={styles.toolbar}>
           <div className={styles.chips}>
-            <span className={styles.chip}>
-              <span className={`${styles.statusDot} ${styles.dotOk}`} aria-hidden="true" />
+            <Badge variant="ok" className="gap-1.5 font-mono text-[11px]">
+              <span className="size-1.5 rounded-full bg-[var(--ok-ink)] shrink-0" aria-hidden="true" />
               {readyCount} ready
-            </span>
-            <span className={styles.chip}>
-              <span className={`${styles.statusDot} ${styles.dotRust}`} aria-hidden="true" />
+            </Badge>
+            <Badge variant="accent" className="gap-1.5 font-mono text-[11px]">
+              <span className="size-1.5 rounded-full bg-[var(--accent-ink)] shrink-0" aria-hidden="true" />
               {processingCount} processing
-            </span>
-            <span className={styles.chip}>
-              <span className={`${styles.statusDot} ${styles.dotRed}`} aria-hidden="true" />
+            </Badge>
+            <Badge variant="danger" className="gap-1.5 font-mono text-[11px]">
+              <span className="size-1.5 rounded-full bg-[var(--danger-ink)] shrink-0" aria-hidden="true" />
               {failedCount} need attention
-            </span>
+            </Badge>
           </div>
           <div className={styles.filters} role="group" aria-label="Filter documents by status">
             {FILTERS.map((entry) => (
@@ -292,9 +325,9 @@ export function DocumentsSurface({
           {documentsError ? (
             <div className={styles.errorBlock} role="alert">
               <p>We couldn&apos;t load this workspace&apos;s documents. Previously loaded data is kept in memory.</p>
-              <button type="button" className={styles.ghostBtn} onClick={retryLoad}>
+              <Button variant="secondary" size="sm" onClick={retryLoad}>
                 Try again
-              </button>
+              </Button>
             </div>
           ) : null}
 
@@ -321,14 +354,14 @@ export function DocumentsSurface({
               <p className={styles.emptyCopy}>
                 Add PDFs, spreadsheets, or text files. Each file is extracted, prepared into passages, and indexed before it can support an answer.
               </p>
-              <button
-                type="button"
-                className={styles.primaryBtn}
+              <Button
+                variant="primary"
                 onClick={(event) => openDialog(event.currentTarget)}
+                className="gap-2"
               >
-                <Plus className={styles.icon} aria-hidden="true" />
+                <Plus className="size-4" aria-hidden="true" />
                 Add documents
-              </button>
+              </Button>
             </div>
           ) : null}
 
@@ -371,27 +404,7 @@ export function DocumentsSurface({
                           </span>
                         </td>
                         <td className={styles.td}>
-                          <span
-                            className={`${styles.statusChip} ${
-                              document.status === "ready"
-                                ? styles.statusOk
-                                : document.status === "processing"
-                                  ? styles.statusRust
-                                  : styles.statusRed
-                            }`}
-                          >
-                            <span
-                              className={`${styles.statusDot} ${
-                                document.status === "ready"
-                                  ? styles.dotOk
-                                  : document.status === "processing"
-                                    ? styles.dotRust
-                                    : styles.dotRed
-                              }`}
-                              aria-hidden="true"
-                            />
-                            {document.status === "ready" ? "Ready" : document.status === "processing" ? "Processing" : "Needs attention"}
-                          </span>
+                          <DocumentStatusBadge status={document.status} />
                           {document.status === "processing" ? (
                             <>
                               <span className={styles.stageText}>{stageLabel(document.processingStage)}</span>
@@ -446,6 +459,12 @@ export function DocumentsSurface({
                                     <DocumentProcessButton documentId={document.id} label="Retry" />
                                   </span>
                                 ) : null}
+                                <DocumentDeleteButton
+                                  className={styles.menuItem}
+                                  documentId={document.id}
+                                  filename={filename}
+                                  onDeleted={() => setOpenMenuId(null)}
+                                />
                               </div>
                             ) : null}
                           </div>
@@ -475,27 +494,7 @@ export function DocumentsSurface({
                       <span className={styles.cardSub}>
                         {getFileKindLabel(inferSupportedFileKind(filename))} · {humanSize(document.fileSize)}
                       </span>
-                      <span
-                        className={`${styles.statusChip} ${
-                          document.status === "ready"
-                            ? styles.statusOk
-                            : document.status === "processing"
-                              ? styles.statusRust
-                              : styles.statusRed
-                        }`}
-                      >
-                        <span
-                          className={`${styles.statusDot} ${
-                            document.status === "ready"
-                              ? styles.dotOk
-                              : document.status === "processing"
-                                ? styles.dotRust
-                                : styles.dotRed
-                          }`}
-                          aria-hidden="true"
-                        />
-                        {document.status === "ready" ? "Ready" : document.status === "processing" ? "Processing" : "Needs attention"}
-                      </span>
+                      <DocumentStatusBadge status={document.status} />
                       {document.status === "processing" ? (
                         <span className={styles.stageText}>{stageLabel(document.processingStage)}</span>
                       ) : null}
@@ -537,6 +536,12 @@ export function DocumentsSurface({
                               <DocumentProcessButton documentId={document.id} label="Retry" />
                             </span>
                           ) : null}
+                          <DocumentDeleteButton
+                            className={styles.menuItem}
+                            documentId={document.id}
+                            filename={filename}
+                            onDeleted={() => setOpenMenuId(null)}
+                          />
                         </div>
                       ) : null}
                     </div>
@@ -581,9 +586,9 @@ export function DocumentsSurface({
                       Drag-and-drop is optional. Each file is validated before upload and processed independently.
                     </p>
                   </div>
-                  <button type="button" className={styles.ghostBtn} onClick={chooseFiles}>
+                  <Button type="button" variant="secondary" size="sm" onClick={chooseFiles}>
                     Choose files
-                  </button>
+                  </Button>
                 </div>
                 <DocumentUploadDropzone className={styles.dropEngine} collectionId={collectionId} />
                 <p className={styles.formatLine}>
@@ -591,12 +596,12 @@ export function DocumentsSurface({
                 </p>
               </div>
               <div className={styles.dialogFoot}>
-                <button type="button" className={styles.ghostBtn} onClick={closeDialog}>
+                <Button type="button" variant="ghost" onClick={closeDialog}>
                   Cancel
-                </button>
-                <button type="button" className={styles.primaryBtn} onClick={chooseFiles}>
+                </Button>
+                <Button type="button" variant="primary" onClick={chooseFiles}>
                   Upload
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -666,7 +671,7 @@ export function DocumentsSurface({
             ) : null}
             {selectedDocument.status === "failed" ? (
               <div className={styles.detailActions}>
-                <DocumentProcessButton documentId={selectedDocument.id} label="Retry" />
+                <DocumentProcessButton documentId={selectedDocument.id} label="Retry" variant="secondary" className="w-full" />
               </div>
             ) : null}
           </div>

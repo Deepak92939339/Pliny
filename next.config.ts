@@ -5,18 +5,10 @@ const nextConfig: NextConfig = {
     middlewareClientMaxBodySize: "16mb",
   },
   async headers() {
-    const contentSecurityPolicyReportOnly = [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "object-src 'none'",
-      "frame-ancestors 'none'",
-      "img-src 'self' data: blob:",
-      "font-src 'self'",
-      "connect-src 'self' https://*.supabase.co https://api.anthropic.com",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-    ].join("; ");
-
+    // WP4 (audit-r1, PLN-002): the enforced, nonce-based Content-Security-Policy
+    // is set per-request in src/middleware.ts (it needs the request nonce, so
+    // it cannot live in these static headers). The old Report-Only CSP is
+    // removed; all other headers are unchanged.
     return [
       {
         headers: [
@@ -40,16 +32,30 @@ const nextConfig: NextConfig = {
             key: "Strict-Transport-Security",
             value: "max-age=31536000; includeSubDomains; preload",
           },
-          {
-            key: "Content-Security-Policy-Report-Only",
-            value: contentSecurityPolicyReportOnly,
-          },
         ],
         source: "/:path*",
       },
     ];
   },
   serverExternalPackages: ["pdf-parse", "tesseract.js", "tesseract.js-core", "@napi-rs/canvas", "@tesseract.js-data/eng"],
+  // WP1: make sure the OCR language data and native binaries are traced into
+  // the serverless bundle for the process-document route, so OCR cannot fail
+  // from a missing asset at runtime.
+  outputFileTracingIncludes: {
+    "/api/process-document": [
+      "./node_modules/@tesseract.js-data/eng/**",
+      "./node_modules/tesseract.js-core/**",
+      "./node_modules/@napi-rs/canvas/**",
+    ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/__ui-preview",
+        destination: "/ui-preview-harness",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

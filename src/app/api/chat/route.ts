@@ -10,6 +10,7 @@ import { checkAiBudget, getAiConfig, type AiBudgetDecision } from "@/lib/ai/budg
 import { selectPromptChunks } from "@/lib/ai/contextSelection";
 import { assessEvidenceSufficiency } from "@/lib/ai/evidenceSufficiency";
 import { routeModel } from "@/lib/ai/modelRouter";
+import { resolveVerifiedResponseAnswer, resolveVerifiedResponseCitations } from "@/lib/chat/responseGuard";
 import {
   assertPrivacyGenerationPayload,
   buildCitationRepairProviderPayload,
@@ -1466,7 +1467,17 @@ export async function POST(request: Request) {
       supabase,
       userId: user.id,
     });
-    return NextResponse.json({ error: budget.message ?? "This request was blocked by the AI budget guard." }, { status: statusCode });
+    const rateLimitHeaders =
+      budget.reason === "minute_rate_limit" ||
+      budget.reason === "daily_request_limit" ||
+      budget.reason === "daily_budget_limit"
+        ? { "Retry-After": String(budget.retryAfterSeconds ?? 60) }
+        : undefined;
+
+    return NextResponse.json(
+      { error: budget.message ?? "This request was blocked by the AI budget guard." },
+      { headers: rateLimitHeaders, status: statusCode }
+    );
   }
 
   const answerProvider = createAnswerProvider();
@@ -1583,8 +1594,16 @@ export async function POST(request: Request) {
       sources: citationChunks,
     });
     const isInsufficientEvidence = !finalEvidence.sufficient;
-    const responseAnswer = isInsufficientEvidence && requiredDocumentIds.length > 1 ? NO_CONTEXT_ANSWER : answer;
-    const citations = isInsufficientEvidence && requiredDocumentIds.length > 1 ? [] : generatedCitations;
+    // WP6 (audit-r1): ANY insufficient-evidence outcome returns the refusal
+    // text and no citations — regardless of document count — so the unverified
+    // draft can never reach the API response, chat history, exports, or (for
+    // privacy-minimised mode) providerSafeAnswer.
+    const responseAnswer = resolveVerifiedResponseAnswer({
+      answer,
+      isInsufficientEvidence,
+      noContextAnswer: NO_CONTEXT_ANSWER,
+    });
+    const citations = resolveVerifiedResponseCitations({ citations: generatedCitations, isInsufficientEvidence });
     const response: ChatResponse = isInsufficientEvidence
       ? {
           answer: responseAnswer,

@@ -4,11 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronLeft, FileText, Menu, PanelLeft } from "lucide-react";
 import { AskSurface } from "@/components/workspace/AskSurface";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { DocumentsSurface } from "@/components/workspace/DocumentsSurface";
 import { SourceInspector, SourceSheet } from "@/components/workspace/SourceInspector";
 import { downloadMarkdownFile } from "@/lib/export/browserReportExport";
 import { buildChatTranscriptMarkdown, getTranscriptMarkdownFilename } from "@/lib/export/reportExport";
 import { logout } from "@/lib/auth/actions";
+import { formatRetryWaitMessage, getRetryAfterHeaderSeconds } from "@/lib/limits/retryAfter";
 import { PROCESSING_BOUNDARY_PARAGRAPHS, PROCESSING_BOUNDARY_TITLE } from "@/lib/privacy/disclosure";
 import type {
   ChatResponse,
@@ -197,6 +200,8 @@ export function WorkspaceView({
   const [isSourceSheetOpen, setIsSourceSheetOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  // WP3 (audit-r1): set from a 429's Retry-After header; holds the Ask button.
+  const [askRateLimitedUntil, setAskRateLimitedUntil] = useState<number | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [isDocumentPanelOpen, setIsDocumentPanelOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -394,6 +399,15 @@ export function WorkspaceView({
       });
       const result = await readChatResponse(response);
       if (!response.ok) {
+        if (response.status === 429) {
+          const retryAfterSeconds = getRetryAfterHeaderSeconds(response.headers);
+
+          if (retryAfterSeconds !== null) {
+            setAskRateLimitedUntil(Date.now() + retryAfterSeconds * 1_000);
+            setSearchError(`You've hit the limit. ${formatRetryWaitMessage(retryAfterSeconds)}`);
+            return;
+          }
+        }
         setSearchError(getFriendlyChatError(result.error));
         return;
       }
@@ -475,15 +489,18 @@ export function WorkspaceView({
           </nav>
         </div>
         <div className={styles.headerRight}>
-          <span className={styles.statusChip}>{statusChip}</span>
-          <button
+          <span className={styles.statusChip}>
+            <Badge variant="mono-label">{statusChip}</Badge>
+          </span>
+          <Button
             type="button"
-            className={styles.ghostBtn}
+            variant="secondary"
+            size="sm"
             disabled={searchResults.length === 0}
             onClick={handleExportTranscript}
           >
             Export transcript
-          </button>
+          </Button>
           <div className={styles.menuWrap} ref={(el) => { menuWraps.current.mode = el; }}>
             <button
               ref={(el) => { menuTriggers.current.mode = el; }}
@@ -696,6 +713,7 @@ export function WorkspaceView({
             documentsError={documentsError}
             isSearching={isSearching}
             pendingQuestion={pendingQuestion}
+            rateLimitedUntil={askRateLimitedUntil}
             results={searchResults}
             scrollRef={canvasScrollRef}
             searchError={searchError}

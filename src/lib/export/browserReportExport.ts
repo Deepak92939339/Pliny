@@ -46,7 +46,7 @@ function buildPrintDocument(report: GeneratedReport) {
   <style>
     :root {
       color: #171717;
-      background: #ffffff;
+      background: var(--paper-1);
       font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     * {
@@ -54,7 +54,7 @@ function buildPrintDocument(report: GeneratedReport) {
     }
     body {
       margin: 0;
-      background: #ffffff;
+      background: var(--paper-1);
       color: #171717;
     }
     main {
@@ -68,21 +68,21 @@ function buildPrintDocument(report: GeneratedReport) {
       justify-content: space-between;
       gap: 24px;
       margin-bottom: 36px;
-      border-bottom: 1px solid #d8d8d8;
+      border-bottom: 1px solid var(--rule-strong);
       padding-bottom: 18px;
     }
     .brand {
-      color: #17202a;
+      color: var(--ink-900);
       font-family: Georgia, "Times New Roman", serif;
       font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.02em;
     }
     .print-button {
-      border: 1px solid #ba5c3d;
+      border: 1px solid var(--accent);
       border-radius: 6px;
-      background: #ba5c3d;
-      color: #ffffff;
+      background: var(--accent);
+      color: var(--paper-1);
       cursor: pointer;
       font: inherit;
       font-size: 13px;
@@ -91,7 +91,7 @@ function buildPrintDocument(report: GeneratedReport) {
     }
     h1 {
       margin: 0 0 12px;
-      color: #17202a;
+      color: var(--ink-900);
       font-family: Georgia, "Times New Roman", serif;
       font-size: 34px;
       line-height: 1.12;
@@ -109,7 +109,7 @@ function buildPrintDocument(report: GeneratedReport) {
     }
     h2 {
       margin: 0 0 10px;
-      color: #17202a;
+      color: var(--ink-900);
       font-size: 15px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -130,13 +130,13 @@ function buildPrintDocument(report: GeneratedReport) {
       list-style: none;
     }
     .source {
-      border: 1px solid #d8d8d8;
+      border: 1px solid var(--rule-strong);
       border-radius: 8px;
       padding: 12px 14px;
       page-break-inside: avoid;
     }
     .note {
-      border-top: 1px solid #d8d8d8;
+      border-top: 1px solid var(--rule-strong);
       padding-top: 14px;
       color: #4b5563;
       font-size: 13px;

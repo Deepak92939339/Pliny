@@ -24,13 +24,23 @@ function isProtectedRoute(pathname: string) {
   );
 }
 
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({
-    request,
-  });
+export async function updateSession(request: NextRequest, requestHeaders?: Headers) {
+  let response = requestHeaders
+    ? NextResponse.next({
+        request: { headers: requestHeaders },
+      })
+    : NextResponse.next({ request });
   const { supabaseUrl, supabaseAnonKey } = getSupabaseMiddlewareEnv();
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: {
+      // WP4 (audit-r1, PLN-001): Secure cookies in production. HttpOnly stays
+      // off because the browser Supabase client must read the session —
+      // reasoning documented in docs/security-and-privacy.md.
+      path: "/",
+      sameSite: "lax",
+      ...(process.env.NODE_ENV === "production" ? { secure: true } : {}),
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -40,9 +50,11 @@ export async function updateSession(request: NextRequest) {
           request.cookies.set(name, value);
         });
 
-        response = NextResponse.next({
-          request,
-        });
+        response = requestHeaders
+          ? NextResponse.next({
+              request: { headers: requestHeaders },
+            })
+          : NextResponse.next({ request });
 
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getFileExtension } from "@/lib/document-processing/fileKinds";
+import { getUnsupportedFileRejection, getFileExtension } from "@/lib/document-processing/fileKinds";
 import { getProcessorForFile, normalizeDocumentMimeType, supportedFileExtensions } from "@/lib/document-processing/registry";
+import { DUPLICATE_UPLOAD_MESSAGE, computeDocumentHash, shouldBlockDuplicateUpload } from "@/lib/documents/duplicateDetection";
+import { computeResetRetryAfterSeconds } from "@/lib/limits/retryAfter";
 import { checkRouteRateLimit } from "@/lib/rate-limit";
 import { logSafeStageError } from "@/lib/privacy/safeLogging";
 import { captureDocumentPrivacyPolicy } from "@/lib/privacy/types";
@@ -12,6 +14,10 @@ export const runtime = "nodejs";
 
 const uploadSchema = z.object({
   collection_id: z.string().uuid("Invalid project id."),
+  allow_duplicate: z
+    .string()
+    .optional()
+    .transform((value) => value === "true"),
 });
 const MAX_MULTIPART_BODY_BYTES = 16 * 1024 * 1024;
 
@@ -93,7 +99,10 @@ export async function POST(request: Request) {
         ? "You have reached the upload limit for now."
         : "Upload rate limiting is not configured.";
 
-    return NextResponse.json({ error }, { status });
+    // WP3 (audit-r1): 429s carry Retry-After (seconds until the limiter window resets).
+    const headers = status === 429 ? { "Retry-After": String(computeResetRetryAfterSeconds(uploadLimit.resetAt, Date.now())) } : undefined;
+
+    return NextResponse.json({ error }, { headers, status });
   }
 
   const contentLength = Number(request.headers.get("content-length"));
@@ -109,6 +118,7 @@ export async function POST(request: Request) {
 
   const parsedFields = uploadSchema.safeParse({
     collection_id: formData.get("collection_id"),
+    allow_duplicate: formData.get("allow_duplicate") ?? undefined,
   });
 
   if (!parsedFields.success) {
@@ -150,11 +160,12 @@ export async function POST(request: Request) {
   });
 
   if (!processor) {
-    if ([".xls", ".xlsm"].includes(getFileExtension(displayFilename))) {
-      return NextResponse.json(
-        { error: "Legacy and macro-enabled spreadsheets are not supported. Upload an .xlsx or CSV file instead." },
-        { status: 400 }
-      );
+    // WP7 (audit-r1): .xls now returns 415 with the client's message;
+    // .xlsm keeps its specific 400. Other unsupported files fall through.
+    const legacyRejection = getUnsupportedFileRejection(displayFilename);
+
+    if (legacyRejection) {
+      return NextResponse.json({ error: legacyRejection.error }, { status: legacyRejection.status });
     }
 
     return NextResponse.json(
@@ -181,6 +192,28 @@ export async function POST(request: Request) {
 
   const storagePath = `${user.id}/${collectionId}/${crypto.randomUUID()}-${getSafeFilename(displayFilename)}`;
 
+  // WP5 (audit-r1, PLN-006): duplicate detection — hash the received bytes and
+  // block a re-upload of identical content into the same collection unless the
+  // previous document failed or the user chose "Upload anyway".
+  const contentSha256 = computeDocumentHash(fileData);
+  const { data: existingDocument } = await supabase
+    .from("documents")
+    .select("id,status")
+    .eq("collection_id", collectionId)
+    .eq("content_sha256", contentSha256)
+    .limit(1)
+    .maybeSingle();
+
+  if (shouldBlockDuplicateUpload({ allowDuplicate: parsedFields.data.allow_duplicate, existingStatus: existingDocument?.status ?? null }) === "block") {
+    return NextResponse.json(
+      {
+        error: DUPLICATE_UPLOAD_MESSAGE,
+        existingDocumentId: existingDocument?.id ?? null,
+      },
+      { status: 409 }
+    );
+  }
+
   const { error: uploadError } = await supabase.storage.from("documents").upload(storagePath, fileData, {
     contentType: mimeType,
     upsert: false,
@@ -195,6 +228,7 @@ export async function POST(request: Request) {
     .from("documents")
     .insert({
       collection_id: collectionId,
+      content_sha256: contentSha256,
       file_size: file.size,
       filename: displayFilename,
       processing_stage: "uploading",

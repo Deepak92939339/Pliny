@@ -51,7 +51,7 @@ Pliny treats evidence as the product boundary. Retrieval happens before generati
 
 Pliny uses a React 19 interface and Next.js 15 App Router on Vercel. Supabase provides authentication, private object storage and PostgreSQL with pgvector, generated lexical indexes, row-level security and explicit role grants. Server-side ingestion selects a processor by file type, normalises provenance, creates bounded chunks and builds either original or provider-safe retrieval material.
 
-At query time, Pliny resolves document scope and the strictest participating privacy boundary, runs lexical and semantic retrieval, fuses and validates the evidence, and only then constructs a bounded generation envelope. Voyage 4 supplies 1,024-dimensional embeddings through the configured direct or OpenRouter transport. OpenRouter's `openai/gpt-6-luna` supplies answers by default; Anthropic remains an explicitly selectable alternative, with no automatic fallback. All provider calls stay behind server-side boundaries.
+At query time, Pliny resolves document scope and the strictest participating privacy boundary, runs lexical and semantic retrieval, fuses and validates the evidence, and only then constructs a bounded generation envelope. Lexical retrieval is PostgreSQL full-text search (`ts_rank_cd` over generated `tsvector` columns) with identifier-aware queries — structured IDs such as `INC-5517` are searched as exact quoted phrases. Tabular CSV/XLSX documents are chunked row-faithfully (8 rows per unit, headers repeated, rows never split). Fusion is Reciprocal Rank Fusion (RRF, k=60) across the lexical and semantic lanes with a deterministic identifier-match boost and a guaranteed identifier slot; the earlier weighted blend remains selectable via `RETRIEVAL_FUSION=weighted`. Voyage 4 supplies 1,024-dimensional embeddings through the configured direct or OpenRouter transport. OpenRouter's `openai/gpt-6-luna` supplies answers by default; Anthropic remains an explicitly selectable alternative, with no automatic fallback. All provider calls stay behind server-side boundaries.
 
 ```mermaid
 flowchart LR
@@ -174,7 +174,7 @@ Legacy `.xls`, macro-enabled spreadsheets, presentations, notebooks and arbitrar
 - Provider-backed quality evaluation is still limited relative to the deterministic suite.
 - The answer and embedding providers are external processors. The daily answer budget is an estimate, not an account-level spending cap, and does not include embedding charges.
 - Team roles, SSO and billing are not implemented.
-- A moderate transitive `@xmldom/xmldom` advisory remains open.
+- Dependency posture (audit-r1): `npm audit --omit=dev` reports 0 vulnerabilities. `@xmldom/xmldom` is pinned via npm `overrides` to 0.8.15 (the patched release compatible with `mammoth`), and `ai` was updated within its existing range to clear the remaining low-severity advisories.
 
 See [current limitations](./docs/limitations.md) for the precise boundaries.
 

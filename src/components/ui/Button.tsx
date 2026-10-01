@@ -1,59 +1,76 @@
-import { Button as ButtonPrimitive } from "@base-ui/react/button"
-import { cva, type VariantProps } from "class-variance-authority"
-
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
+import { cva, type VariantProps } from "class-variance-authority";
+import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-colors duration-150 outline-none select-none focus-visible:border-[#BA5C3D]/55 focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/18 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-colors duration-150 outline-none select-none focus-visible:outline-none active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed aria-invalid:border-[var(--danger)] [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
+        primary:
+          "border-[var(--ink-900)] bg-[var(--ink-900)] text-[var(--paper-2)] hover:opacity-90 [a]:hover:bg-[var(--ink-900)]",
         default:
-          "border-[#0C1427] bg-[#0C1427] text-[#FCFBF8] shadow-sm shadow-black/10 hover:bg-[#17213A] [a]:hover:bg-[#17213A]",
-        outline:
-          "border-[color:var(--editorial-border)] bg-[var(--editorial-card)] text-[color:var(--editorial-ink)] hover:border-[#BA5C3D]/35 hover:bg-[var(--editorial-panel)] aria-expanded:bg-[var(--editorial-panel)]",
+          "border-[var(--ink-900)] bg-[var(--ink-900)] text-[var(--paper-2)] hover:opacity-90 [a]:hover:bg-[var(--ink-900)]",
         secondary:
-          "border-[color:var(--editorial-border)] bg-[var(--editorial-panel)] text-[color:var(--editorial-ink)] hover:border-[#BA5C3D]/35 hover:bg-[var(--editorial-card)] aria-expanded:bg-[var(--editorial-card)]",
+          "border-[var(--rule)] bg-[var(--paper-1)] text-[var(--ink-900)] hover:border-[var(--rule-strong)] hover:bg-[var(--paper-0)]",
+        outline:
+          "border-[var(--rule)] bg-[var(--paper-1)] text-[var(--ink-900)] hover:border-[var(--rule-strong)] hover:bg-[var(--paper-0)]",
         ghost:
-          "text-[color:var(--editorial-muted)] hover:bg-[var(--editorial-panel)] hover:text-[color:var(--editorial-ink)] aria-expanded:bg-[var(--editorial-panel)]",
+          "text-[var(--ink-700)] hover:bg-[var(--paper-0)] hover:text-[var(--ink-900)]",
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20",
-        link: "text-[color:var(--editorial-rust-strong)] underline-offset-4 hover:text-[color:var(--editorial-rust)] hover:underline",
+          "border border-[var(--danger)]/20 bg-[var(--danger-soft)] text-[var(--danger-ink)] hover:bg-[var(--danger)]/20",
+        link: "border-0 bg-transparent text-[var(--accent-ink)] hover:text-[var(--accent)] hover:underline p-0 h-auto font-medium",
       },
       size: {
-        default:
-          "h-10 gap-2 px-3 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5",
-        xs: "h-7 gap-1 rounded-md px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-1.5 rounded-md px-2.5 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-11 gap-2 px-4 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
-        icon: "size-10",
-        "icon-xs":
-          "size-7 rounded-md in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":
-          "size-8 rounded-md in-data-[slot=button-group]:rounded-lg",
-        "icon-lg": "size-11",
+        sm: "h-8 gap-1.5 px-3 text-[13px] [&_svg:not([class*='size-'])]:size-3.5",
+        md: "h-10 gap-2 px-4 text-sm [&_svg:not([class*='size-'])]:size-4",
+        default: "h-10 gap-2 px-4 text-sm [&_svg:not([class*='size-'])]:size-4",
+        lg: "h-12 gap-2.5 px-5 text-sm font-semibold [&_svg:not([class*='size-'])]:size-4",
+        icon: "size-10 [&_svg:not([class*='size-'])]:size-4",
+        "icon-sm": "size-8 [&_svg:not([class*='size-'])]:size-3.5",
+        "icon-lg": "size-12 [&_svg:not([class*='size-'])]:size-5",
       },
     },
     defaultVariants: {
-      variant: "default",
-      size: "default",
+      variant: "primary",
+      size: "md",
     },
   }
-)
+);
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
-  return (
-    <ButtonPrimitive
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  )
+interface ButtonProps
+  extends ButtonPrimitive.Props,
+    VariantProps<typeof buttonVariants> {
+  loading?: boolean;
 }
 
-export { Button, buttonVariants }
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { className, variant = "primary", size = "md", loading = false, disabled, children, ...props },
+  ref
+) {
+  return (
+    <ButtonPrimitive
+      ref={ref}
+      data-slot="button"
+      disabled={disabled || loading}
+      aria-busy={loading ? "true" : undefined}
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    >
+      {loading ? (
+        <>
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          {children}
+        </>
+      ) : (
+        children
+      )}
+    </ButtonPrimitive>
+  );
+});
+
+Button.displayName = "Button";
+
+export { Button, buttonVariants, type ButtonProps };

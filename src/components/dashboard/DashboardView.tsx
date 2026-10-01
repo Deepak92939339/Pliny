@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { BrandMark } from "@/components/shared/BrandMark";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/card";
 import { DeleteCollectionButton } from "@/components/dashboard/DeleteCollectionButton";
 import { NewWorkspaceDialog } from "@/components/dashboard/NewWorkspaceDialog";
 import { logout } from "@/lib/auth/actions";
@@ -67,10 +70,10 @@ function ChevronGlyph() {
 
 function ReadyBadge() {
   return (
-    <span className={styles.badge}>
-      <span className={styles.badgeDot} aria-hidden="true" />
+    <Badge variant="ok" className="gap-1.5 font-medium">
+      <span className="size-1.5 rounded-full bg-[var(--ok-ink)]" aria-hidden="true" />
       Ready
-    </span>
+    </Badge>
   );
 }
 
@@ -309,21 +312,29 @@ export function DashboardView({ userEmail, collections, collectionsError }: Dash
           </div>
 
           {collectionsError ? (
-            <section className={styles.errorCard} aria-label="Workspace list error">
-              <h2 className={styles.errorTitle}>We couldn&apos;t load your workspaces right now. Your data is safe — retry when you&apos;re back online.</h2>
-              <p className={styles.errorDetail}>{toWorkspaceCopy(collectionsError)}</p>
-              <button type="button" className={styles.retryBtn} onClick={() => router.refresh()}>
-                Try again
-              </button>
-            </section>
+            <Card className="mt-6 border-[var(--danger-soft)] bg-[var(--danger-soft)]/20 p-6" aria-label="Workspace list error">
+              <h2 className="text-base font-semibold text-[var(--danger-ink)]">
+                We couldn&apos;t load your workspaces right now. Your data is safe — retry when you&apos;re back online.
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--ink-700)]">{toWorkspaceCopy(collectionsError)}</p>
+              <div className="mt-4">
+                <Button type="button" variant="secondary" onClick={() => router.refresh()}>
+                  Try again
+                </Button>
+              </div>
+            </Card>
           ) : collections.length === 0 ? (
-            <section className={styles.emptyCard} aria-label="No workspaces yet">
-              <h2 className={styles.emptyTitle}>No workspaces yet</h2>
-              <p className={styles.emptyBody}>Create your first workspace to start uploading documents and asking source-backed questions.</p>
-              <NewWorkspaceDialog tone="default" size="default" className={styles.emptyCreate} />
-            </section>
+            <Card className="mt-6 flex flex-col items-center justify-center border-[var(--rule)] bg-[var(--paper-1)] p-12 text-center" aria-label="No workspaces yet">
+              <h2 className="dm-editorial-display text-2xl font-semibold text-[var(--ink-900)]">No workspaces yet</h2>
+              <p className="mt-2 max-w-[480px] text-sm leading-relaxed text-[var(--ink-500)]">
+                Create your first workspace to start uploading documents and asking source-backed questions.
+              </p>
+              <div className="mt-6">
+                <NewWorkspaceDialog tone="default" size="default" />
+              </div>
+            </Card>
           ) : (
-            <section className={styles.tableCard} aria-label="Your workspaces">
+            <Card className="mt-6 overflow-hidden border-[var(--rule)] bg-[var(--paper-1)] p-0" aria-label="Your workspaces">
               <div className={styles.tableWrap}>
                 <table className={styles.table} aria-label="Your workspaces">
                   <colgroup>
@@ -351,7 +362,9 @@ export function DashboardView({ userEmail, collections, collectionsError }: Dash
                           <Link className={styles.wName} href={`/collection/${collection.id}`} title={collection.name}>
                             {collection.name}
                           </Link>
-                          <span className={styles.wSub}>{modeLabel(collection.defaultProcessingMode)}</span>
+                          <div className="mt-1">
+                            <Badge variant="mono-label">{modeLabel(collection.defaultProcessingMode)}</Badge>
+                          </div>
                         </td>
                         <td className={styles.td}>{collection.documentCount}</td>
                         <td className={styles.td}>
@@ -376,7 +389,9 @@ export function DashboardView({ userEmail, collections, collectionsError }: Dash
                       </Link>
                       <ReadyBadge />
                     </div>
-                    <span className={styles.wSub}>{modeLabel(collection.defaultProcessingMode)}</span>
+                    <div>
+                      <Badge variant="mono-label">{modeLabel(collection.defaultProcessingMode)}</Badge>
+                    </div>
                     <p className={styles.wsCardMeta}>
                       {getDocumentCountLabel(collection.documentCount)} · Updated {formatDate(collection.updatedAt)}
                     </p>
@@ -386,7 +401,7 @@ export function DashboardView({ userEmail, collections, collectionsError }: Dash
                   </li>
                 ))}
               </ul>
-            </section>
+            </Card>
           )}
         </main>
       </div>

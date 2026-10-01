@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import {
+  DuplicateUploadError,
   createFailedUploadItem,
   createUploadQueue,
   MAX_UPLOAD_FILES,
@@ -11,6 +12,11 @@ import {
   type UploadBatchItem,
   type UploadItemStatus,
 } from "@/lib/uploads/uploadBatch";
+import {
+  getProcessFailureMessage,
+  PROCESS_START_FAILURE_MESSAGE,
+} from "@/lib/uploads/processFailureMessage";
+import { formatRetryWaitDuration, getRetryAfterHeaderSeconds } from "@/lib/limits/retryAfter";
 import { cn } from "@/lib/utils";
 
 const MAX_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024;
@@ -90,6 +96,21 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
   const router = useRouter();
   const [uploadItems, setUploadItems] = useState<UploadBatchItem<File>[]>([]);
   const [isBusy, setIsBusy] = useState(false);
+  // WP3 (audit-r1): a 429 with Retry-After from upload or process disables the
+  // dropzone until the limit window clears, with a live countdown.
+  const [uploadRateLimitedUntil, setUploadRateLimitedUntil] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const uploadLimitedRemainingSeconds = uploadRateLimitedUntil ? Math.ceil((uploadRateLimitedUntil - nowMs) / 1000) : 0;
+  const isUploadRateLimited = uploadLimitedRemainingSeconds > 0;
+
+  useEffect(() => {
+    if (!isUploadRateLimited) {
+      return;
+    }
+
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [isUploadRateLimited]);
 
   const uploadBatch = useCallback(
     async (initialItems: UploadBatchItem<File>[]) => {
@@ -101,18 +122,36 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
             setUploadItems(items);
           },
           process: async (documentId) => {
-            const processResponse = await fetch("/api/process-document", {
-              body: JSON.stringify({ document_id: documentId }),
-              headers: {
-                "Content-Type": "application/json",
-              },
-              method: "POST",
-            });
+            let processResponse: Response;
+
+            try {
+              processResponse = await fetch("/api/process-document", {
+                body: JSON.stringify({ document_id: documentId }),
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                method: "POST",
+              });
+            } catch {
+              // network error / timeout before any server response
+              throw new Error(PROCESS_START_FAILURE_MESSAGE);
+            }
+
             const processResult = await readProcessResponse(processResponse);
             router.refresh();
 
+            if (processResponse.status === 429) {
+              const retryAfterSeconds = getRetryAfterHeaderSeconds(processResponse.headers);
+
+              if (retryAfterSeconds !== null) {
+                setUploadRateLimitedUntil(Date.now() + retryAfterSeconds * 1_000);
+              }
+            }
+
             if (!processResponse.ok || processResult.ok === false || processResult.status === "failed") {
-              throw new Error(processResult.error ?? "File uploaded, but processing failed. You can retry from the document card.");
+              // 429, 5xx, timeout, or any other failure must end as a failed
+              // item with a readable message - never stuck in "Uploading".
+              throw new Error(getProcessFailureMessage(processResponse, processResult));
             }
 
             return {
@@ -124,7 +163,7 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
               status: processResult.status === "processing" ? ("processing" as const) : ("ready" as const),
             };
           },
-          upload: async (file) => {
+          upload: async (file, item) => {
             if (!isSupportedFile(file)) {
               throw new Error("Only PDF, DOCX, XLSX, CSV, MD, HTML, and TXT files can be uploaded. Legacy .xls files are not supported.");
             }
@@ -136,12 +175,31 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
             const uploadFormData = new FormData();
             uploadFormData.append("collection_id", collectionId);
             uploadFormData.append("file", file);
+            if (item.allowDuplicate) {
+              uploadFormData.append("allow_duplicate", "true");
+            }
 
             const uploadResponse = await fetch("/api/documents/upload", {
               body: uploadFormData,
               method: "POST",
             });
             const uploadResult = await readUploadResponse(uploadResponse);
+
+            if (uploadResponse.status === 409) {
+              // WP5 (audit-r1): duplicate content in this workspace — surface
+              // the message and offer "Upload anyway" on the file item.
+              throw new DuplicateUploadError(
+                uploadResult.error ?? "This file is already in the workspace."
+              );
+            }
+
+            if (uploadResponse.status === 429) {
+              const retryAfterSeconds = getRetryAfterHeaderSeconds(uploadResponse.headers);
+
+              if (retryAfterSeconds !== null) {
+                setUploadRateLimitedUntil(Date.now() + retryAfterSeconds * 1_000);
+              }
+            }
 
             if (!uploadResponse.ok || !uploadResult.document) {
               throw new Error(uploadResult.error ?? "Unable to upload this file. Please try again.");
@@ -171,6 +229,24 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
     [uploadBatch]
   );
 
+  // WP5 (audit-r1): "Upload anyway" — re-run the single item with allowDuplicate.
+  const uploadAnyway = useCallback(
+    (itemId: string) => {
+      setUploadItems((current) => {
+        const item = current.find((candidate) => candidate.id === itemId);
+
+        if (item) {
+          void uploadBatch([{ ...item, allowDuplicate: true, duplicate: false, message: undefined, status: "queued" }]);
+        }
+
+        return current.map((candidate) =>
+          candidate.id === itemId ? { ...candidate, allowDuplicate: true, duplicate: false, message: undefined, status: "queued" } : candidate
+        );
+      });
+    },
+    [uploadBatch]
+  );
+
   const { getInputProps, getRootProps, isDragActive } = useDropzone({
     accept: {
       "application/pdf": [".pdf"],
@@ -181,7 +257,7 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       "text/html": [".html", ".htm"],
       "text/plain": [".txt", ".md", ".markdown", ".csv"],
     },
-    disabled: isBusy,
+    disabled: isBusy || isUploadRateLimited,
     maxFiles: MAX_UPLOAD_FILES,
     maxSize: MAX_UPLOAD_SIZE_BYTES,
     multiple: true,
@@ -193,19 +269,27 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
       <div
         {...getRootProps({
           className: cn(
-            "group flex min-h-20 cursor-pointer flex-col justify-center rounded-xl border border-dashed border-black/15 bg-transparent px-4 py-3 text-center transition-colors duration-150",
-            "hover:border-[#BA5C3D]/45 hover:bg-black/[0.025]",
-            isDragActive && "border-[#BA5C3D]/60 bg-[#BA5C3D]/10",
+            "group flex min-h-20 cursor-pointer flex-col justify-center rounded-[var(--radius-lg)] border border-dashed border-[var(--rule)] bg-transparent px-4 py-3 text-center transition-colors duration-150",
+            "hover:border-[var(--accent)]/45 hover:bg-[var(--paper-2)]",
+            isDragActive && "border-[var(--accent)]/60 bg-[var(--accent-soft)]",
             isBusy && "cursor-wait opacity-75"
           ),
         })}
       >
         <input {...getInputProps({ "aria-label": "Upload document" })} />
-        <p className="text-[13px] font-medium text-[color:var(--editorial-muted)]">
-          {isBusy ? "Processing selected files" : "Drop files or click to upload"}
+        <p className="text-[length:var(--text-xs)] font-medium text-[var(--ink-500)]">
+          {isUploadRateLimited
+            ? "Upload limit reached — waiting for the limit window"
+            : isBusy
+              ? "Processing selected files"
+              : "Drop files or click to upload"}
         </p>
-        <p className="mt-1 text-[11px] leading-5 text-[color:var(--editorial-muted)]">
-          {isDragActive ? "Drop up to 5 files here" : "Up to 5 · PDF · DOCX · XLSX · CSV · MD · HTML · TXT"}
+        <p className="mt-1 text-[length:var(--text-2xs)] leading-5 text-[var(--ink-500)]">
+          {isUploadRateLimited
+            ? `You can upload again in ${formatRetryWaitDuration(uploadLimitedRemainingSeconds)}`
+            : isDragActive
+              ? "Drop up to 5 files here"
+              : "Up to 5 · PDF · DOCX · XLSX · CSV · MD · HTML · TXT"}
         </p>
       </div>
       {uploadItems.length > 0 ? (
@@ -214,16 +298,16 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
             <li
               key={item.id}
               data-upload-status={item.status}
-              className="rounded-md border border-black/[0.07] bg-white/55 px-2.5 py-2 text-[11px] leading-4"
+              className="rounded-[var(--radius-md)] border border-[var(--rule)] bg-[var(--paper-1)] px-2.5 py-2 text-[length:var(--text-2xs)] leading-4"
             >
               <span className="flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate font-medium text-[color:var(--editorial-ink-soft)]" title={item.filename}>
+                <span className="min-w-0 truncate font-medium text-[var(--ink-700)]" title={item.filename}>
                   {item.filename}
                 </span>
                 <span
                   className={cn(
                     "shrink-0 font-semibold uppercase tracking-wide",
-                    item.status === "failed" ? "text-[color:var(--editorial-destructive)]" : "text-[color:var(--editorial-muted)]"
+                    item.status === "failed" ? "text-[var(--danger-ink)]" : "text-[var(--ink-500)]"
                   )}
                 >
                   {getStatusLabel(item.status)}
@@ -234,12 +318,21 @@ export function DocumentUploadDropzone({ className, collectionId }: DocumentUplo
                   className={cn(
                     "mt-1",
                     item.status === "failed"
-                      ? "text-[color:var(--editorial-destructive)]"
-                      : "text-[color:var(--editorial-muted)]"
+                      ? "text-[var(--danger-ink)]"
+                      : "text-[var(--ink-500)]"
                   )}
                 >
                   {item.message}
                 </p>
+              ) : null}
+              {item.duplicate && item.status === "failed" ? (
+                <button
+                  type="button"
+                  onClick={() => uploadAnyway(item.id)}
+                  className="mt-1.5 rounded-[var(--radius-sm)] border border-[var(--rule)] px-2 py-1 text-[length:var(--text-2xs)] font-medium text-[var(--ink-700)] transition-colors hover:border-[var(--accent)]/45 hover:text-[var(--ink-900)]"
+                >
+                  Upload anyway
+                </button>
               ) : null}
             </li>
           ))}

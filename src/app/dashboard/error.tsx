@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 export default function DashboardError({
@@ -15,14 +16,26 @@ export default function DashboardError({
   }, [error.digest]);
 
   return (
-    <main className="min-h-screen bg-[#FAF7F2] px-6 py-10 text-[#17202A]">
-      <section className="mx-auto max-w-md rounded-[18px] border border-[#E8E2D9] bg-white p-6 text-center shadow-[0_24px_70px_rgba(72,48,31,0.08)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#BA5C3D]">Dashboard error</p>
-        <h1 className="dm-editorial-display mt-3 text-[30px] font-semibold tracking-[-0.035em] text-[#17202A]">Unable to load workspaces</h1>
-        <p className="mt-3 text-sm leading-6 text-[#6B7280]">Refresh the dashboard and try again.</p>
-        <Button className="mt-6 border-[#BA5C3D] bg-[#BA5C3D] text-white hover:bg-[#A8421F]" onClick={reset}>
-          Try again
-        </Button>
+    <main className="min-h-screen bg-[var(--paper-0)] px-6 py-16 text-[var(--ink-900)]">
+      <section className="mx-auto max-w-md rounded-[var(--radius-xl)] border border-[var(--rule-strong)] bg-[var(--paper-1)] p-8 text-center shadow-[var(--shadow-2)]">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-[var(--radius-md)] border border-[var(--rule)] bg-[var(--paper-2)]">
+          <AlertCircle className="size-6 text-[var(--accent)]" aria-hidden="true" />
+        </div>
+        <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">
+          Dashboard error
+        </p>
+        <h1 className="font-serif mt-2 text-2xl font-semibold tracking-tight text-[var(--ink-900)]">
+          Unable to load workspaces
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-[var(--ink-500)]">
+          An error occurred while loading your workspaces. Refresh the dashboard and try again.
+        </p>
+        <div className="mt-8 flex justify-center">
+          <Button variant="primary" size="md" onClick={reset} className="gap-2">
+            <RefreshCw className="size-4" aria-hidden="true" />
+            <span>Try again</span>
+          </Button>
+        </div>
       </section>
     </main>
   );

@@ -1,24 +1,23 @@
 .shell {
-  --paper: #FAF9F7;
-  --canvas: #F7F5F1;
-  --side: #F0EDE7;
-  --sheet: #FFFFFF;
-  --sheet-warm: #FAFAF8;
-  --ink: #1D1D1F;
-  --ink-2: #4E4E53;
-  --slate: #5F5F64;
-  --slate-2: #6E6E73;
-  --blue: #0066CC;
-  --rust: #AE4E24;
-  --line: #E4E1DA;
-  --line-2: #D2D2D7;
-  --ok: #3F6249;
-  --ok-bg: #F0F7F2;
-  --ok-line: #CBDCD0;
-  --ok-dot: #6F8F73;
-  --red: #B3261E;
-  --red-bg: #FBECEA;
-  --red-line: #E7C6C2;
+  --paper: var(--paper-2);
+  --canvas: var(--paper-2);
+  --side: var(--paper-0);
+  --sheet: var(--paper-1);
+  --sheet-warm: var(--paper-2);
+  --ink: var(--ink-900);
+  --ink-2: var(--ink-700);
+  --slate: var(--ink-500);
+  --slate-2: var(--ink-500);
+  --rust: var(--accent-ink);
+  --line: var(--rule);
+  --line-2: var(--rule-strong);
+  --ok: var(--ok-ink);
+  --ok-bg: var(--ok-soft);
+  --ok-line: var(--ok);
+  --ok-dot: var(--ok);
+  --red: var(--danger);
+  --red-bg: var(--accent-soft);
+  --red-line: var(--danger-soft);
   --ease: cubic-bezier(.2, .8, .2, 1);
   --t: 180ms;
   display: flex;
@@ -66,7 +65,7 @@
   width: 44px;
   height: 44px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--ink-2);
   cursor: pointer;
@@ -79,7 +78,7 @@
 .brandLinkTop {
   display: inline-flex;
   align-items: center;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   color: var(--ink);
   text-decoration: none;
 }
@@ -88,7 +87,7 @@
   gap: 8px;
 }
 .brandText {
-  font-family: var(--font-newsreader), Georgia, serif;
+  font-family: var(--font-source-serif), Georgia, serif;
   font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.015em;
@@ -107,7 +106,7 @@
   min-width: 44px;
   min-height: 44px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--ink-2);
   cursor: pointer;
@@ -123,8 +122,8 @@
   height: 32px;
   border-radius: 999px;
   background: var(--ink);
-  color: #FCFBF8;
-  font-size: 13px;
+  color: var(--paper-2);
+  font-size: var(--text-sm);
   font-weight: 600;
   flex: none;
 }
@@ -139,8 +138,8 @@
   padding: 4px;
   background: var(--sheet);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 16px 40px rgba(72, 48, 31, 0.14);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
 }
 .menuItem {
   display: flex;
@@ -149,10 +148,10 @@
   min-height: 44px;
   padding: 0 12px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   text-align: left;
   text-decoration: none;
@@ -211,7 +210,7 @@
 }
 .drawerTitle {
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: .16em;
   text-transform: uppercase;
@@ -224,7 +223,7 @@
   width: 44px;
   height: 44px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--ink-2);
   cursor: pointer;
@@ -240,7 +239,7 @@
 .sideBrandLink {
   display: inline-flex;
   align-items: center;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   color: var(--ink);
   text-decoration: none;
 }
@@ -252,11 +251,11 @@
   width: 100%;
   min-height: 44px;
   justify-content: flex-start;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--line-2);
   background: var(--sheet-warm);
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   box-shadow: none;
 }
@@ -267,7 +266,7 @@
 .navLabel {
   padding: 16px 16px 6px;
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: .16em;
   text-transform: uppercase;
@@ -288,14 +287,14 @@
   min-height: 44px;
   padding: 0 12px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   text-decoration: none;
 }
 .navItem:hover {
-  background: #E7E2D9;
+  background: var(--rule);
   color: var(--ink);
 }
 .navItemCurrent {
@@ -317,7 +316,7 @@
   border-radius: 999px;
   background: var(--side);
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--slate-2);
 }
 
@@ -340,7 +339,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--slate-2);
 }
 .signOut {
@@ -349,8 +348,8 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--blue);
-  font-size: 12px;
+  color: var(--accent-ink);
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: pointer;
 }
@@ -377,7 +376,7 @@
 }
 .eyebrow {
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: .18em;
   text-transform: uppercase;
@@ -385,7 +384,7 @@
 }
 .title {
   margin-top: 10px;
-  font-family: var(--font-newsreader), Georgia, serif;
+  font-family: var(--font-source-serif), Georgia, serif;
   font-size: clamp(26px, 2vw + 14px, 34px);
   font-weight: 600;
   line-height: 1.05;
@@ -394,30 +393,22 @@
 .lede {
   margin-top: 10px;
   max-width: 640px;
-  font-size: 15px;
+  font-size: var(--text-base);
   line-height: 1.65;
   color: var(--slate);
 }
-.headCreate,
-.emptyCreate {
+.headCreate {
   min-height: 44px;
   padding: 0 18px;
   border: 1px solid var(--ink);
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   background: var(--ink);
-  color: #FCFBF8;
-  font-size: 13px;
+  color: var(--paper-2);
+  font-size: var(--text-sm);
   font-weight: 600;
-  box-shadow: 0 12px 24px rgba(12, 20, 39, 0.14);
+  box-shadow: var(--shadow-1);
 }
 
-.tableCard {
-  margin-top: 24px;
-  background: var(--sheet);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  overflow: hidden;
-}
 .tableWrap {
   display: none;
   overflow-x: auto;
@@ -425,7 +416,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 .col1 { width: 34%; }
 .col2 { width: 14%; }
@@ -437,7 +428,7 @@
   background: var(--sheet-warm);
   border-bottom: 1px solid var(--line);
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: .14em;
   text-transform: uppercase;
@@ -461,7 +452,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   color: var(--ink);
   font-weight: 600;
   text-decoration: none;
@@ -470,39 +461,13 @@
   color: var(--rust);
   text-decoration: underline;
 }
-.wSub {
-  display: block;
-  margin-top: 3px;
-  font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 10px;
-  letter-spacing: .12em;
-  color: var(--slate-2);
-}
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--ok-line);
-  border-radius: 999px;
-  background: var(--ok-bg);
-  color: var(--ok);
-  font-size: 11px;
-  font-weight: 600;
-}
-.badgeDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--ok-dot);
-}
 .delCell {
   text-align: right;
 }
 .delCell button {
   min-height: 44px;
   min-width: 44px;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
 }
 
 .wsCards {
@@ -518,7 +483,7 @@
   padding: 14px 16px;
   background: var(--sheet);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 .wsCardTop {
   display: flex;
@@ -527,72 +492,12 @@
   gap: 12px;
 }
 .wsCardMeta {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--slate-2);
 }
 .wsCardActions {
   display: flex;
   justify-content: flex-end;
-}
-
-.emptyCard {
-  margin-top: 24px;
-  padding: 32px clamp(16px, 3vw, 32px);
-  background: var(--sheet-warm);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-}
-.emptyTitle {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--ink);
-}
-.emptyBody {
-  margin-top: 10px;
-  max-width: 520px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--slate);
-}
-.emptyCreate {
-  margin-top: 20px;
-}
-
-.errorCard {
-  margin-top: 24px;
-  padding: 24px clamp(16px, 3vw, 32px);
-  background: var(--red-bg);
-  border: 1px solid var(--red-line);
-  border-radius: 14px;
-}
-.errorTitle {
-  max-width: 640px;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.5;
-  color: var(--red);
-}
-.errorDetail {
-  margin-top: 8px;
-  max-width: 640px;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--ink-2);
-}
-.retryBtn {
-  margin-top: 16px;
-  min-height: 44px;
-  padding: 0 18px;
-  border: 1px solid var(--ink);
-  border-radius: 7px;
-  background: var(--ink);
-  color: #FCFBF8;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.retryBtn:hover {
-  opacity: .88;
 }
 
 .hamburger:focus-visible,
@@ -602,11 +507,10 @@
 .navItem:focus-visible,
 .wName:focus-visible,
 .signOut:focus-visible,
-.retryBtn:focus-visible,
 .brandLinkTop:focus-visible,
 .sideBrandLink:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 @media (min-width: 900px) {

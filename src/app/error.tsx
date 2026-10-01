@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { BrandMark } from "@/components/shared/BrandMark";
 
-export default function GlobalError({
+export default function ErrorBoundary({
   error,
   reset,
 }: {
@@ -11,25 +13,42 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[global-error]", { digest: error.digest ?? "unavailable" });
+    console.error("[app-error]", { digest: error.digest ?? "unavailable" });
   }, [error.digest]);
 
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-zinc-950 text-zinc-100">
-        <main className="flex min-h-screen items-center justify-center px-6">
-          <section className="max-w-md rounded-xl border border-white/10 bg-zinc-900/80 p-6 text-center shadow-2xl shadow-black/25">
-            <p className="text-sm font-medium text-[#D27E63]">Pliny</p>
-            <h1 className="mt-3 text-2xl font-semibold">Something went wrong</h1>
-            <p className="mt-3 text-sm leading-6 text-zinc-400">
-              The app hit an unexpected error. Try again, or reload the page if the problem continues.
-            </p>
-            <Button className="mt-6" onClick={reset}>
-              Try again
-            </Button>
-          </section>
-        </main>
-      </body>
-    </html>
+    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-16">
+      <section
+        className="w-full max-w-md rounded-[var(--radius-xl)] border border-[var(--rule-strong)] bg-[var(--paper-1)] p-8 text-center shadow-[var(--shadow-2)]"
+        aria-labelledby="app-error-heading"
+      >
+        <div className="mx-auto flex justify-center">
+          <BrandMark textClassName="font-serif text-2xl font-semibold" />
+        </div>
+        <div className="mx-auto mt-6 flex size-12 items-center justify-center rounded-[var(--radius-md)] border border-[var(--rule)] bg-[var(--paper-2)]">
+          <AlertCircle className="size-6 text-[var(--accent)]" aria-hidden="true" />
+        </div>
+        <h1
+          id="app-error-heading"
+          className="font-serif mt-5 text-2xl font-semibold tracking-tight text-[var(--ink-900)]"
+        >
+          Something went wrong
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-[var(--ink-500)]">
+          The app hit an unexpected error. Try again, or reload the page if the problem continues.
+        </p>
+        <div className="mt-8 flex justify-center gap-3">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={reset}
+            className="gap-2"
+          >
+            <RefreshCw className="size-4" aria-hidden="true" />
+            <span>Try again</span>
+          </Button>
+        </div>
+      </section>
+    </main>
   );
 }

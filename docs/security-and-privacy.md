@@ -70,3 +70,15 @@ These mechanisms improve reviewability but do not guarantee that every answer is
 - Production browser-bundle scans found no pseudonym key name, configured OpenRouter credential, or OpenRouter server-only configuration names.
 
 See [Architecture](./architecture.md), [Evaluation](./evaluation.md) and [Limitations](./limitations.md) for the wider evidence and boundaries.
+
+## Auth cookie policy (WP4, audit-r1)
+
+Supabase SSR session cookies are set with `path: '/'`, `sameSite: 'lax'` and `secure: true` in production on every client that touches them (`src/lib/supabase/client.ts`, `server.ts`, `middleware.ts`).
+
+`httpOnly` is intentionally NOT set: the browser Supabase client (`createBrowserClient`) must be able to read the session cookie to refresh and attach the access token. Mitigations in depth:
+
+- enforced, per-request nonce-based Content-Security-Policy (`script-src 'nonce-…' 'strict-dynamic'`, no `unsafe-eval` in production) — see `src/lib/security/csp.ts` and `src/middleware.ts`;
+- short-lived Supabase access tokens with server-side refresh-token rotation;
+- RLS on every table (user-scoped policies), verified by `src/lib/supabase/rls-verification.sql`.
+
+`scripts/check-csp.mjs` loads the public pages against a production build and fails on any CSP violation report.

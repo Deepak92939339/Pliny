@@ -14,8 +14,11 @@ import {
 import { downloadMarkdownFile, openPrintReport } from "@/lib/export/browserReportExport";
 import { tokenizeSafeInlineMarkdown } from "@/lib/markdown/safeInline";
 import { parseResponseWithCharts } from "@/lib/chart/parseResponseWithCharts";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { RiskEvidenceReportPreview } from "@/components/workspace/RiskEvidenceReportPreview";
 import { type DocumentListItem, type SearchChunkResult, type WorkspaceSearchResult } from "@/types";
+import { formatRetryWaitDuration } from "@/lib/limits/retryAfter";
 import styles from "./AskSurface.module.css";
 
 type AskSurfaceProps = {
@@ -27,6 +30,7 @@ type AskSurfaceProps = {
   documentsError?: string | null;
   isSearching: boolean;
   pendingQuestion: string | null;
+  rateLimitedUntil?: number | null;
   results: WorkspaceSearchResult[];
   scrollRef?: RefObject<HTMLDivElement | null>;
   searchError?: string | null;
@@ -271,17 +275,21 @@ function renderInlineNodes(
         flushBuffer(citation);
         const number = citationNumber(citation, sources);
         const selected = citation.source.id === selectedSourceId;
+        const pageText = citation.source.pageNumber > 0 ? `, page ${citation.source.pageNumber}` : "";
+        const srLabel = `Source ${number}: ${getSafeFilename(citation.source.filename)}${pageText}`;
         nodes.push(
           <button
             key={`${keyPrefix}-cite-${index}`}
             type="button"
             className={`${styles.cite} ${selected ? styles.citeSel : ""}`}
-            aria-label={`Citation ${number}: ${getSafeFilename(citation.source.filename)}. Open in Source Inspector.`}
+            data-inline-citation
+            aria-label={`${srLabel}. Open in Source Inspector.`}
             aria-pressed={selected}
             aria-current={selected ? "true" : undefined}
             onClick={() => onSelectSource(citation.source)}
           >
-            {number}
+            <span className="sr-only">{srLabel}</span>
+            <span aria-hidden="true">{number}</span>
           </button>
         );
         return;
@@ -586,6 +594,7 @@ export function AskSurface({
   documentsError,
   isSearching,
   pendingQuestion,
+  rateLimitedUntil,
   results,
   scrollRef,
   searchError,
@@ -602,7 +611,22 @@ export function AskSurface({
   const noReady = readyCount === 0 && documents.length > 0;
   const bannerMessage = searchError ?? chatError ?? documentsError;
   const trimmedQuery = query.trim();
-  const canSubmit = trimmedQuery.length > 0 && !isSearching && readyCount > 0;
+  // WP3 (audit-r1): a 429 with Retry-After holds the Ask button until the
+  // limit window clears, with a live countdown next to the control.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const rateLimitedRemainingSeconds = rateLimitedUntil ? Math.ceil((rateLimitedUntil - nowMs) / 1000) : 0;
+  const isRateLimited = rateLimitedRemainingSeconds > 0;
+
+  useEffect(() => {
+    if (!isRateLimited) {
+      return;
+    }
+
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [isRateLimited]);
+
+  const canSubmit = trimmedQuery.length > 0 && !isSearching && readyCount > 0 && !isRateLimited;
   const orderedResults = [...results].reverse();
 
   useEffect(() => {
@@ -615,7 +639,7 @@ export function AskSurface({
   }, [query]);
 
   function submitQuestion() {
-    if (!trimmedQuery || isSearching || readyCount === 0) {
+    if (!trimmedQuery || isSearching || readyCount === 0 || isRateLimited) {
       return;
     }
     onAsk(trimmedQuery);
@@ -627,6 +651,9 @@ export function AskSurface({
       return;
     }
     if (!event.ctrlKey && !event.metaKey) {
+      return;
+    }
+    if (isRateLimited) {
       return;
     }
     event.preventDefault();
@@ -645,9 +672,9 @@ export function AskSurface({
               passage it relies on.
             </p>
             <div className={styles.headActions}>
-              <button type="button" className={styles.primaryBtn} onClick={onOpenDocuments}>
+              <Button variant="primary" onClick={onOpenDocuments}>
                 Add documents
-              </button>
+              </Button>
             </div>
             <p className={styles.supportedNote}>Supported: PDF · DOCX · XLSX · CSV · HTML · MD · TXT</p>
           </>
@@ -663,17 +690,17 @@ export function AskSurface({
                   No ready documents yet. Pliny cannot answer until at least one document completes processing. Processing and failed files are never
                   included in retrieval.
                 </p>
-                <button type="button" className={styles.ghostBtn} onClick={onOpenDocuments}>
+                <Button variant="secondary" size="sm" onClick={onOpenDocuments}>
                   Go to Documents
-                </button>
+                </Button>
               </div>
             ) : null}
           </>
         )}
-        <p className={styles.chip}>
-          <span className={styles.chipDot} aria-hidden="true" />
+        <Badge variant="ok" className="gap-1.5 font-mono text-[11px]">
+          <span className="size-1.5 rounded-full bg-[var(--ok-ink)] shrink-0" aria-hidden="true" />
           {`Searching ${readyCount} ready document${readyCount === 1 ? "" : "s"}`}
-        </p>
+        </Badge>
       </header>
 
       {bannerMessage ? (
@@ -731,16 +758,17 @@ export function AskSurface({
             <label className={styles.composerLabel} htmlFor="ask-surface-composer">
               Ask a question about the ready documents in this workspace.
             </label>
-            <button
+            <Button
               type="button"
-              className={styles.ghostBtn}
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setQuery("");
                 textareaRef.current?.focus();
               }}
             >
               New question
-            </button>
+            </Button>
           </div>
           <textarea
             id="ask-surface-composer"
@@ -753,10 +781,20 @@ export function AskSurface({
             onKeyDown={handleKeyDown}
           />
           <div className={styles.askRow}>
-            <button type="button" className={styles.askBtn} disabled={!canSubmit} onClick={submitQuestion}>
-              Ask
-            </button>
-            <p className={styles.hint}>CTRL / ⌘ + ENTER TO SUBMIT · ENTER ADDS A LINE BREAK</p>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={!canSubmit}
+              onClick={submitQuestion}
+              className="min-w-20"
+            >
+              {isRateLimited ? "Rate limited" : "Ask"}
+            </Button>
+            <p className={styles.hint}>
+              {isRateLimited
+                ? `You can ask again in ${formatRetryWaitDuration(rateLimitedRemainingSeconds)}`
+                : "CTRL / ⌘ + ENTER TO SUBMIT · ENTER ADDS A LINE BREAK"}
+            </p>
           </div>
         </div>
       </div>

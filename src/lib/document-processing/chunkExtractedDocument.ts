@@ -63,6 +63,34 @@ export function chunkExtractedDocument(document: ExtractedDocument, options: Chu
     const pageNumber = unit.pageNumber ?? 1;
     const metadata = buildUnitMetadata(document, unit, unitIndex);
 
+    // WP2 (audit-r1): row-faithful table chunks. A table unit (CSV/XLSX) is
+    // emitted as exactly ONE chunk so a row is never split away from its
+    // headers or its neighbours — exact-ID lookups stay discoverable. Unit
+    // counts are already bounded by the plugins' adaptive cap
+    // (<= MAX_TABLE_UNITS = 150), so MAX_DOCUMENT_CHUNKS still holds. Only
+    // pathological adaptive-cap units can exceed the token target; the
+    // embedding layer clamps oversized inputs downstream.
+    if (unit.blockType === "table_row") {
+      if (chunks.length >= maxChunks) {
+        throw new DocumentProcessingError(`This document exceeds the supported ${maxChunks}-chunk indexing limit.`, 413);
+      }
+
+      chunks.push({
+        chunkIndex: chunks.length,
+        content: unit.text,
+        estimatedTokens: estimateTokens(words.length),
+        fileKind: document.kind,
+        locationLabel: unit.locationLabel,
+        metadata: {
+          ...metadata,
+          chunkPart: 1,
+        },
+        pageNumber,
+      });
+
+      return;
+    }
+
     for (let start = 0; start < words.length; start += stepWords) {
       const slice = words.slice(start, start + targetWords);
 

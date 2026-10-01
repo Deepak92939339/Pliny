@@ -419,6 +419,7 @@ export function AuthView() {
                       <button
                         type="button"
                         className={`${styles.cite} ${selCite === chunk.cite ? styles.sel : ""}`}
+                        data-inline-citation
                         aria-label={CITE_ARIA[chunk.cite - 1]}
                         aria-pressed={selCite === chunk.cite}
                         onClick={() => toggleCite(chunk.cite)}
@@ -441,37 +442,37 @@ export function AuthView() {
                     <span className={styles.kpiVal}>18.7%</span>
                   </div>
                   <svg className={styles.chart} viewBox="0 0 560 150" fill="none" role="img" aria-label="Operating margin quarterly trend chart, units percent of revenue.">
-                    <g stroke="#EAEAEA" strokeWidth="1">
+                    <g stroke="var(--rule)" strokeWidth="1">
                       <path d="M44 18H540" />
                       <path d="M44 40H540" />
                       <path d="M44 62H540" />
                       <path d="M44 84H540" />
                       <path d="M44 106H540" />
                     </g>
-                    <g fill="#6E6E73" fontSize="10" fontFamily="var(--font-jetbrains-mono), monospace" textAnchor="end">
+                    <g fill="var(--ink-500)" fontSize="10" fontFamily="var(--font-jetbrains-mono), monospace" textAnchor="end">
                       <text x="36" y="21">24%</text>
                       <text x="36" y="43">20%</text>
                       <text x="36" y="65">16%</text>
                       <text x="36" y="87">12%</text>
                       <text x="36" y="109">8%</text>
                     </g>
-                    <path d="M60 81.8L170 67L280 74.1L390 77.4L500 47.2" stroke="#AE4E24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M60 81.8L170 67L280 74.1L390 77.4L500 47.2" stroke="var(--accent-ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     {CHART_POINTS.map((point, index) => (
                       <g key={point.label} className={`${styles.pt} ${selCite !== null && point.cites.split(" ").includes(String(selCite)) ? styles.sel : ""}`} data-cite={point.cites}>
                         <circle
                           cx={point.x}
                           cy={point.y}
                           r="3.2"
-                          fill={index === CHART_POINTS.length - 1 ? "#AE4E24" : "#FFFFFF"}
-                          stroke="#AE4E24"
+                          fill={index === CHART_POINTS.length - 1 ? "var(--accent-ink)" : "var(--paper-1)"}
+                          stroke="var(--accent-ink)"
                           strokeWidth="1.6"
                         />
-                        <text x={point.x} y={point.y - 8} textAnchor="middle" fontSize="10" fill="#5F5F64" fontFamily="var(--font-jetbrains-mono), monospace">
+                        <text x={point.x} y={point.y - 8} textAnchor="middle" fontSize="10" fill="var(--ink-500)" fontFamily="var(--font-jetbrains-mono), monospace">
                           {point.label}
                         </text>
                       </g>
                     ))}
-                    <g fill="#6E6E73" fontSize="10" fontFamily="var(--font-jetbrains-mono), monospace" textAnchor="middle">
+                    <g fill="var(--ink-500)" fontSize="10" fontFamily="var(--font-jetbrains-mono), monospace" textAnchor="middle">
                       {CHART_QUARTERS.map((quarter, index) => (
                         <text key={quarter} x={CHART_POINTS[index].x} y="134">{quarter}</text>
                       ))}

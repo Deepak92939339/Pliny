@@ -40,7 +40,7 @@ export function LandingInfoDialog({ page, triggerClassName }: { page: LandingInf
           <button
             ref={triggerRef}
             type="button"
-            className={cn("rounded-sm text-left transition-colors hover:text-[#8D3F28] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25", triggerClassName)}
+            className={cn("min-h-8 rounded-md text-left transition-colors hover:text-[var(--accent-ink)]", triggerClassName)}
           />
         }
       >
@@ -48,25 +48,25 @@ export function LandingInfoDialog({ page, triggerClassName }: { page: LandingInf
       </DialogTrigger>
       <DialogContent showCloseButton={false} initialFocus aria-modal="true" className="max-w-[min(30rem,calc(100%-2rem))] gap-6 p-6 sm:p-7">
         <DialogHeader className="pr-8">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#BA5C3D]">Pliny / {page.label}</p>
-          <DialogTitle className="dm-editorial-display text-[30px] leading-[1.05] tracking-[-0.035em]">{page.title}</DialogTitle>
-          <DialogDescription className="text-[14px] leading-6 text-[#596170]">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Pliny / {page.label}</p>
+          <DialogTitle className="dm-editorial-display text-2xl leading-[1.05] tracking-[-0.03em]">{page.title}</DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed text-[var(--ink-500)]">
             A concise view of what is active in this release.
           </DialogDescription>
         </DialogHeader>
-        <ul className="space-y-3 border-y border-[#E5E0D8] py-5 text-[13px] leading-5 text-[#394152]">
+        <ul className="space-y-3 border-y border-[var(--rule)] py-5 text-sm leading-relaxed text-[var(--ink-700)]">
           {page.summary.map((item) => (
             <li key={item} className="flex gap-3">
-              <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-[#BA5C3D]" aria-hidden="true" />
+              <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />
               <span>{item}</span>
             </li>
           ))}
         </ul>
         <div className="flex items-center justify-between gap-4">
-          <Link href={page.href} className="text-[13px] font-semibold text-[#8D3F28] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25">
+          <Link href={page.href} className="text-sm font-semibold text-[var(--accent-ink)] underline-offset-4 hover:underline">
             {page.key === "about" ? "Read the full story" : "Read full details"}
           </Link>
-          <DialogClose className="rounded-sm px-2 py-1.5 text-[13px] font-semibold text-[#596170] hover:bg-[#F5F0E8] hover:text-[#0C1427] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#BA5C3D]/25">
+          <DialogClose className="rounded-md px-2.5 py-1.5 text-sm font-semibold text-[var(--ink-500)] hover:bg-[var(--paper-0)] hover:text-[var(--ink-900)]">
             Close
           </DialogClose>
         </div>

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { chunkExtractedDocument, type ExtractedDocumentChunk } from "@/lib/document-processing/chunkExtractedDocument";
+import { markDocumentFailed, runProcessingWithTerminalState } from "@/lib/documents/processingTerminalState";
 import { assertExtractedDocumentLimits } from "@/lib/document-processing/limits";
 import { getDocumentProcessor, getProcessorForExtension, normalizeDocumentMimeType } from "@/lib/document-processing/registry";
 import { prepareChunkRowsWithEmbeddings } from "@/lib/document-processing/prepareChunkRowsWithEmbeddings";
 import { sanitizeExtractedDocument } from "@/lib/document-processing/sanitizeExtractedDocument";
 import { DocumentProcessingError, type DocumentProcessingMetadata, type DocumentProcessingStage, type SupportedFileKind } from "@/lib/document-processing/types";
 import { isEmbeddingsEnabled } from "@/lib/embeddings/embedText";
+import { computeResetRetryAfterSeconds } from "@/lib/limits/retryAfter";
 import { checkRouteRateLimit } from "@/lib/rate-limit";
 import {
   assertProviderPayloadExcludes,
@@ -23,6 +25,10 @@ import type { DocumentStatus, PrivacyMode } from "@/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+// WP1: OCR and large PDFs can run long; 300s keeps the function alive long enough to reach a
+// terminal state instead of being killed mid-processing. The owner must confirm the Vercel plan
+// allows maxDuration = 300 - if the plan's maximum is lower, this value must match the plan.
+export const maxDuration = 300;
 
 const processDocumentSchema = z.object({
   document_id: z.string().uuid("Invalid document id."),
@@ -182,36 +188,6 @@ function throwSupabaseProcessingError(step: string, error: unknown, message: str
   throw new ProcessingError(message, 500);
 }
 
-async function markDocumentFailed(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  documentId: string,
-  userId: string,
-  message: string,
-  pageCount?: number
-) {
-  const updateValues: {
-    error_message: string;
-    page_count?: number;
-    processing_stage: "failed";
-    status: "failed";
-  } = {
-    error_message: message,
-    processing_stage: "failed",
-    status: "failed",
-  };
-
-  if (typeof pageCount === "number" && Number.isFinite(pageCount)) {
-    updateValues.page_count = pageCount;
-  }
-
-  const { error } = await supabase.from("documents").update(updateValues).eq("id", documentId).eq("user_id", userId);
-
-  if (error) {
-    logProcessError("failed status update error", error, { documentId });
-  } else {
-    logProcessStep("document marked failed", { documentId, pageCount: pageCount ?? null });
-  }
-}
 
 async function updateProcessingStage({
   documentId,
@@ -458,7 +434,10 @@ export async function POST(request: Request) {
         ? "You have reached the document processing limit for now."
         : "Document processing rate limiting is not configured.";
 
-    return NextResponse.json({ error }, { status });
+    // WP3 (audit-r1): 429s carry Retry-After (seconds until the limiter window resets).
+    const headers = status === 429 ? { "Retry-After": String(computeResetRetryAfterSeconds(processLimit.resetAt, Date.now())) } : undefined;
+
+    return NextResponse.json({ error }, { headers, status });
   }
 
   let document: DocumentRow | null = null;
@@ -466,270 +445,283 @@ export async function POST(request: Request) {
   let processingStage: DocumentProcessingStage = "validating";
 
   try {
-    logProcessStep("validating request body");
-    const body: unknown = await request.json().catch(() => null);
-    const parsedBody = processDocumentSchema.safeParse(body);
+    return await runProcessingWithTerminalState({
+      run: async () => {
+        logProcessStep("validating request body");
+        const body: unknown = await request.json().catch(() => null);
+        const parsedBody = processDocumentSchema.safeParse(body);
 
-    if (!parsedBody.success) {
-      logProcessStep("request validation failed", { issues: parsedBody.error.issues.map((issue) => issue.message) });
-      return NextResponse.json({ error: "Invalid document id." }, { status: 400 });
-    }
+        if (!parsedBody.success) {
+          logProcessStep("request validation failed", { issues: parsedBody.error.issues.map((issue) => issue.message) });
+          return NextResponse.json({ error: "Invalid document id." }, { status: 400 });
+        }
 
-    logProcessStep("request validation passed", { documentId: parsedBody.data.document_id });
-    logProcessStep("looking up owned document", { documentId: parsedBody.data.document_id });
+        logProcessStep("request validation passed", { documentId: parsedBody.data.document_id });
+        logProcessStep("looking up owned document", { documentId: parsedBody.data.document_id });
 
-    const { data: documentData, error: documentError } = await supabase
-      .from("documents")
-      .select(DOCUMENT_SELECT_FIELDS)
-      .eq("id", parsedBody.data.document_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
+        const { data: documentData, error: documentError } = await supabase
+          .from("documents")
+          .select(DOCUMENT_SELECT_FIELDS)
+          .eq("id", parsedBody.data.document_id)
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-    if (documentError) {
-      throwSupabaseProcessingError(
-        "document ownership lookup failed",
-        documentError,
-        "Unable to load this document for processing. Supabase could not complete the ownership check."
-      );
-    }
+        if (documentError) {
+          throwSupabaseProcessingError(
+            "document ownership lookup failed",
+            documentError,
+            "Unable to load this document for processing. Supabase could not complete the ownership check."
+          );
+        }
 
-    if (!documentData) {
-      logProcessStep("owned document not found", { documentId: parsedBody.data.document_id });
-      return NextResponse.json({ error: "Document not found." }, { status: 404 });
-    }
+        if (!documentData) {
+          logProcessStep("owned document not found", { documentId: parsedBody.data.document_id });
+          return NextResponse.json({ error: "Document not found." }, { status: 404 });
+        }
 
-    const ownedDocument = documentData as DocumentRow;
-    document = ownedDocument;
+        const ownedDocument = documentData as DocumentRow;
+        document = ownedDocument;
 
-    logProcessStep("owned document found", {
-      collectionId: ownedDocument.collection_id,
-      documentId: ownedDocument.id,
-      status: ownedDocument.status,
-    });
+        logProcessStep("owned document found", {
+          collectionId: ownedDocument.collection_id,
+          documentId: ownedDocument.id,
+          status: ownedDocument.status,
+        });
 
-    const processingLock = await acquireProcessingLock({
-      document: ownedDocument,
-      supabase,
-      userId: user.id,
-    });
+        const processingLock = await acquireProcessingLock({
+          document: ownedDocument,
+          supabase,
+          userId: user.id,
+        });
 
-    if (!processingLock.shouldProcess) {
-      return processingLock.response ?? getAlreadyProcessingResponse(ownedDocument.id);
-    }
+        if (!processingLock.shouldProcess) {
+          return processingLock.response ?? getAlreadyProcessingResponse(ownedDocument.id);
+        }
 
-    const processingDocument = processingLock.document;
-    document = processingDocument;
+        const processingDocument = processingLock.document;
+        document = processingDocument;
 
-    logProcessStep("downloading document from storage", {
-      documentId: processingDocument.id,
-    });
+        logProcessStep("downloading document from storage", {
+          documentId: processingDocument.id,
+        });
 
-    const { data: documentBlob, error: downloadError } = await supabase.storage.from("documents").download(processingDocument.storage_path);
+        const { data: documentBlob, error: downloadError } = await supabase.storage.from("documents").download(processingDocument.storage_path);
 
-    if (downloadError || !documentBlob) {
-      throwSupabaseProcessingError("storage download failed", downloadError, "Unable to read the uploaded document from storage.");
-    }
+        if (downloadError || !documentBlob) {
+          throwSupabaseProcessingError("storage download failed", downloadError, "Unable to read the uploaded document from storage.");
+        }
 
-    const documentBytes = new Uint8Array(await documentBlob.arrayBuffer());
-    const mimeType = normalizeDocumentMimeType(documentBlob.type || getMimeTypeForDocument(processingDocument));
-    logProcessStep("document downloaded", { byteLength: documentBytes.byteLength, documentId: processingDocument.id });
+        const documentBytes = new Uint8Array(await documentBlob.arrayBuffer());
+        const mimeType = normalizeDocumentMimeType(documentBlob.type || getMimeTypeForDocument(processingDocument));
+        logProcessStep("document downloaded", { byteLength: documentBytes.byteLength, documentId: processingDocument.id });
 
-    const processor = getDocumentProcessor({
-      bytes: documentBytes,
-      filename: processingDocument.filename,
-      mimeType,
-    });
+        const processor = getDocumentProcessor({
+          bytes: documentBytes,
+          filename: processingDocument.filename,
+          mimeType,
+        });
 
-    if (!processor) {
-      throw new ProcessingError("This file type is not supported for processing yet.");
-    }
+        if (!processor) {
+          throw new ProcessingError("This file type is not supported for processing yet.");
+        }
 
-    await processor.validate({
-      bytes: documentBytes,
-      filename: processingDocument.filename,
-      mimeType,
-    });
+        await processor.validate({
+          bytes: documentBytes,
+          filename: processingDocument.filename,
+          mimeType,
+        });
 
-    processingStage = "extracting";
-    await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
+        processingStage = "extracting";
+        await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
 
-    logProcessStep("starting document extraction", {
-      documentId: processingDocument.id,
-      processor: processor.id,
-    });
+        logProcessStep("starting document extraction", {
+          documentId: processingDocument.id,
+          processor: processor.id,
+        });
 
-    let extracted = await processor.extract({
-      bytes: documentBytes,
-      filename: processingDocument.filename,
-      mimeType,
-      onStage: async (stage) => {
-        processingStage = stage;
-        await updateProcessingStage({ documentId: processingDocument.id, stage, supabase, userId: user.id });
+        let extracted = await processor.extract({
+          bytes: documentBytes,
+          filename: processingDocument.filename,
+          mimeType,
+          onStage: async (stage) => {
+            processingStage = stage;
+            await updateProcessingStage({ documentId: processingDocument.id, stage, supabase, userId: user.id });
+          },
+        });
+        extractedPageCount = extracted.pageCount ?? 0;
+
+        logProcessStep("document extraction complete", {
+          charCount: extracted.charCount,
+          documentId: processingDocument.id,
+          extractionMethod: extracted.extractionMethod,
+          kind: extracted.kind,
+          pageCount: extracted.pageCount ?? null,
+          unitCount: extracted.units.length,
+          warningCount: extracted.warnings.length,
+          wordCount: extracted.wordCount,
+        });
+
+        const sanitization = sanitizeExtractedDocument(extracted, processingDocument.id);
+        extracted = sanitization.document;
+        assertExtractedDocumentLimits(extracted);
+
+        if (sanitization.events.length > 0) {
+          logProcessStep("source sanitization events recorded", {
+            documentId: processingDocument.id,
+            eventCount: sanitization.events.length,
+            events: sanitization.events.map(({ documentId, length, offset, ruleId }) => ({ documentId, length, offset, ruleId })),
+          });
+        }
+
+        processingStage = "chunking";
+        await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
+        const chunks = chunkExtractedDocument(extracted);
+        logProcessStep("chunks created", { chunkCount: chunks.length, documentId: processingDocument.id, extractionMethod: extracted.extractionMethod });
+
+        if (chunks.length === 0) {
+          throw new ProcessingError("This document did not produce readable text chunks.");
+        }
+
+        processingStage = "embedding";
+        await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
+        const chunkInsertResult = await buildChunkInsertRows({
+          chunks,
+          collectionId: processingDocument.collection_id,
+          documentId: processingDocument.id,
+          filename: processingDocument.filename,
+          privacyPolicyVersion: processingDocument.privacy_policy_version,
+          processingMode: processingDocument.processing_mode,
+          userId: user.id,
+        });
+
+        logProcessStep("chunk embeddings prepared", {
+          batchCount: isEmbeddingsEnabled() ? Math.ceil(chunks.length / getEmbeddingBatchSize()) : 0,
+          batchSize: isEmbeddingsEnabled() ? getEmbeddingBatchSize() : 0,
+          documentId: processingDocument.id,
+          embeddedCount: chunkInsertResult.embeddedCount,
+          embeddingConcurrency: isEmbeddingsEnabled() ? 1 : 0,
+          embeddingsEnabled: isEmbeddingsEnabled(),
+          providerRequestCount: isEmbeddingsEnabled() ? Math.ceil(chunks.length / getEmbeddingBatchSize()) : 0,
+          skippedCount: chunkInsertResult.skippedCount,
+        });
+
+        processingStage = "indexing";
+        await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
+        logProcessStep("upserting complete chunk set", {
+          chunkCount: chunks.length,
+          documentId: processingDocument.id,
+          samplePayloadShape: {
+            collection_id: "uuid",
+            content: "text",
+            document_id: "uuid",
+            embedding: isEmbeddingsEnabled() ? "vector" : "omitted",
+            chunk_index: "integer",
+            file_kind: "text",
+            location_label: "text",
+            metadata: "jsonb",
+            page_number: "integer",
+            provider_safe_content: processingDocument.processing_mode === "privacy_minimised" ? "text" : "null",
+          },
+        });
+
+        const { error: insertChunksError } = await supabase
+          .from("document_chunks")
+          .upsert(chunkInsertResult.rows, { onConflict: "document_id,chunk_index" });
+
+        if (insertChunksError) {
+          throwSupabaseProcessingError(
+            "chunk insertion failed",
+            insertChunksError,
+            "Document text was extracted, but saving chunks failed."
+          );
+        }
+
+        const { error: deleteStaleChunksError } = await supabase
+          .from("document_chunks")
+          .delete()
+          .eq("document_id", processingDocument.id)
+          .eq("collection_id", processingDocument.collection_id)
+          .gte("chunk_index", chunkInsertResult.rows.length);
+
+        if (deleteStaleChunksError) {
+          throwSupabaseProcessingError("stale chunk deletion failed", deleteStaleChunksError, "Document text was indexed, but stale chunks could not be removed.");
+        }
+
+        logProcessStep("complete chunk set indexed", { chunkCount: chunks.length, documentId: processingDocument.id });
+        const readyWarning = ["ocr", "pdf_hybrid_ocr"].includes(extracted.extractionMethod) ? extracted.warnings[0] ?? "Text recovered with OCR. Review sources for accuracy." : extracted.warnings[0] ?? null;
+
+        logProcessStep("updating document ready status", {
+          documentId: processingDocument.id,
+          extractionMethod: extracted.extractionMethod,
+          pageCount: extracted.pageCount,
+        });
+
+        const { error: readyError } = await supabase
+          .from("documents")
+          .update({
+            error_message: readyWarning,
+            page_count: extracted.pageCount ?? 0,
+            processing_stage: "ready",
+            processing_started_at: null,
+            status: "ready",
+          })
+          .eq("id", processingDocument.id)
+          .eq("user_id", user.id);
+
+        if (readyError) {
+          throwSupabaseProcessingError("ready status update failed", readyError, "Document chunks were saved, but the document status could not be updated.");
+        }
+
+        logProcessStep("document processing succeeded", {
+          chunkCount: chunks.length,
+          documentId: processingDocument.id,
+          extractionMethod: extracted.extractionMethod,
+          pageCount: extracted.pageCount ?? 0,
+        });
+
+        return NextResponse.json({
+          chunk_count: chunks.length,
+          chunksCreated: chunks.length,
+          documentId: processingDocument.id,
+          document_id: processingDocument.id,
+          embedded_chunk_count: chunkInsertResult.embeddedCount,
+          fileKind: extracted.kind,
+          ok: true,
+          ocr_used: ["ocr", "pdf_hybrid_ocr"].includes(extracted.extractionMethod),
+          page_count: extracted.pageCount ?? 0,
+          status: "ready",
+        });
       },
-    });
-    extractedPageCount = extracted.pageCount ?? 0;
+      markFailed: async (error) => {
+        if (!document) {
+          return;
+        }
 
-    logProcessStep("document extraction complete", {
-      charCount: extracted.charCount,
-      documentId: processingDocument.id,
-      extractionMethod: extracted.extractionMethod,
-      kind: extracted.kind,
-      pageCount: extracted.pageCount ?? null,
-      unitCount: extracted.units.length,
-      warningCount: extracted.warnings.length,
-      wordCount: extracted.wordCount,
-    });
+        const readableError = getReadableError(error);
 
-    const sanitization = sanitizeExtractedDocument(extracted, processingDocument.id);
-    extracted = sanitization.document;
-    assertExtractedDocumentLimits(extracted);
-
-    if (sanitization.events.length > 0) {
-      logProcessStep("source sanitization events recorded", {
-        documentId: processingDocument.id,
-        eventCount: sanitization.events.length,
-        events: sanitization.events.map(({ documentId, length, offset, ruleId }) => ({ documentId, length, offset, ruleId })),
-      });
-    }
-
-    processingStage = "chunking";
-    await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
-    const chunks = chunkExtractedDocument(extracted);
-    logProcessStep("chunks created", { chunkCount: chunks.length, documentId: processingDocument.id, extractionMethod: extracted.extractionMethod });
-
-    if (chunks.length === 0) {
-      throw new ProcessingError("This document did not produce readable text chunks.");
-    }
-
-    processingStage = "embedding";
-    await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
-    const chunkInsertResult = await buildChunkInsertRows({
-      chunks,
-      collectionId: processingDocument.collection_id,
-      documentId: processingDocument.id,
-      filename: processingDocument.filename,
-      privacyPolicyVersion: processingDocument.privacy_policy_version,
-      processingMode: processingDocument.processing_mode,
-      userId: user.id,
-    });
-
-    logProcessStep("chunk embeddings prepared", {
-      batchCount: isEmbeddingsEnabled() ? Math.ceil(chunks.length / getEmbeddingBatchSize()) : 0,
-      batchSize: isEmbeddingsEnabled() ? getEmbeddingBatchSize() : 0,
-      documentId: processingDocument.id,
-      embeddedCount: chunkInsertResult.embeddedCount,
-      embeddingConcurrency: isEmbeddingsEnabled() ? 1 : 0,
-      embeddingsEnabled: isEmbeddingsEnabled(),
-      providerRequestCount: isEmbeddingsEnabled() ? Math.ceil(chunks.length / getEmbeddingBatchSize()) : 0,
-      skippedCount: chunkInsertResult.skippedCount,
-    });
-
-    processingStage = "indexing";
-    await updateProcessingStage({ documentId: processingDocument.id, stage: processingStage, supabase, userId: user.id });
-    logProcessStep("upserting complete chunk set", {
-      chunkCount: chunks.length,
-      documentId: processingDocument.id,
-      samplePayloadShape: {
-        collection_id: "uuid",
-        content: "text",
-        document_id: "uuid",
-        embedding: isEmbeddingsEnabled() ? "vector" : "omitted",
-        chunk_index: "integer",
-        file_kind: "text",
-        location_label: "text",
-        metadata: "jsonb",
-        page_number: "integer",
-        provider_safe_content: processingDocument.processing_mode === "privacy_minimised" ? "text" : "null",
+        logProcessStep("recording terminal failure state", { documentId: document.id });
+        await markDocumentFailed(supabase, document.id, user.id, `${processingStage}: ${readableError.message}`, extractedPageCount);
       },
-    });
-
-    const { error: insertChunksError } = await supabase
-      .from("document_chunks")
-      .upsert(chunkInsertResult.rows, { onConflict: "document_id,chunk_index" });
-
-    if (insertChunksError) {
-      throwSupabaseProcessingError(
-        "chunk insertion failed",
-        insertChunksError,
-        "Document text was extracted, but saving chunks failed."
-      );
-    }
-
-    const { error: deleteStaleChunksError } = await supabase
-      .from("document_chunks")
-      .delete()
-      .eq("document_id", processingDocument.id)
-      .eq("collection_id", processingDocument.collection_id)
-      .gte("chunk_index", chunkInsertResult.rows.length);
-
-    if (deleteStaleChunksError) {
-      throwSupabaseProcessingError("stale chunk deletion failed", deleteStaleChunksError, "Document text was indexed, but stale chunks could not be removed.");
-    }
-
-    logProcessStep("complete chunk set indexed", { chunkCount: chunks.length, documentId: processingDocument.id });
-    const readyWarning = ["ocr", "pdf_hybrid_ocr"].includes(extracted.extractionMethod) ? extracted.warnings[0] ?? "Text recovered with OCR. Review sources for accuracy." : extracted.warnings[0] ?? null;
-
-    logProcessStep("updating document ready status", {
-      documentId: processingDocument.id,
-      extractionMethod: extracted.extractionMethod,
-      pageCount: extracted.pageCount,
-    });
-
-    const { error: readyError } = await supabase
-      .from("documents")
-      .update({
-        error_message: readyWarning,
-        page_count: extracted.pageCount ?? 0,
-        processing_stage: "ready",
-        processing_started_at: null,
-        status: "ready",
-      })
-      .eq("id", processingDocument.id)
-      .eq("user_id", user.id);
-
-    if (readyError) {
-      throwSupabaseProcessingError("ready status update failed", readyError, "Document chunks were saved, but the document status could not be updated.");
-    }
-
-    logProcessStep("document processing succeeded", {
-      chunkCount: chunks.length,
-      documentId: processingDocument.id,
-      extractionMethod: extracted.extractionMethod,
-      pageCount: extracted.pageCount ?? 0,
-    });
-
-    return NextResponse.json({
-      chunk_count: chunks.length,
-      chunksCreated: chunks.length,
-      documentId: processingDocument.id,
-      document_id: processingDocument.id,
-      embedded_chunk_count: chunkInsertResult.embeddedCount,
-      fileKind: extracted.kind,
-      ok: true,
-      ocr_used: ["ocr", "pdf_hybrid_ocr"].includes(extracted.extractionMethod),
-      page_count: extracted.pageCount ?? 0,
-      status: "ready",
     });
   } catch (error) {
     const readableError = getReadableError(error);
+    // The pipeline assigns the owned document row as soon as it is loaded; at
+    // this point it reflects the document this request was processing.
+    const failedDocument = document as DocumentRow | null;
     logProcessError("processing failed", error, {
-      documentId: document?.id ?? null,
+      documentId: failedDocument?.id ?? null,
       pageCount: extractedPageCount ?? null,
       userId: user.id,
     });
 
-    if (document) {
-      await markDocumentFailed(supabase, document.id, user.id, `${processingStage}: ${readableError.message}`, extractedPageCount);
-    }
-
     return NextResponse.json(
       {
-        documentId: document?.id,
-        document_id: document?.id,
-        error: document ? `${getStageLabel(processingStage)}: ${readableError.message}` : readableError.message,
+        documentId: failedDocument?.id,
+        document_id: failedDocument?.id,
+        error: failedDocument ? `${getStageLabel(processingStage)}: ${readableError.message}` : readableError.message,
         ok: false,
-        status: document ? "failed" : undefined,
-        stage: document ? processingStage : undefined,
+        status: failedDocument ? "failed" : undefined,
+        stage: failedDocument ? processingStage : undefined,
       },
       { status: readableError.status }
     );
