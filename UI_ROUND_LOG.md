@@ -136,3 +136,13 @@
 - Documents Surface (`6ca956a`): Unified `DocumentStatusBadge` for table and mobile cards; modernized dropzone and delete/process buttons; dead CSS pruned (-109 lines).
 - Ask Surface & Source Inspector (`7d61141`): Centered 768px conversation column, Apple-grade composer (`--radius-xl`, `--shadow-2`), accessible screen-reader citation text, 16px reading text in Source Inspector, modernized ChartBlock and RiskEvidenceReportPreview. Removed light weight 300 from `Source_Serif_4` in `src/app/layout.tsx`.
 - Delivered `deliverables/U3.patch`, `deliverables/U3-NOTES.md`, and `deliverables/pliny-ui-U3.zip`.
+
+---
+
+## 9. U4 Deliverables & Missing States
+- Implemented branded 404 page (`src/app/not-found.tsx`) with `SiteHeader` (variant="info"), BrandMark, warm editorial copy, and primary "Back home" Button.
+- Implemented root error boundary (`src/app/global-error.tsx`) as a client component wrapping `<html><body>`, branded error card with warm styling, and `reset()` Button.
+- Refactored `src/app/error.tsx` to operate cleanly within the root layout without duplicate `<html><body>` tags.
+- Unified route error, loading, and not-found states across dashboard and collection routes (`dashboard/loading.tsx`, `dashboard/error.tsx`, `collection/[id]/not-found.tsx`, `collection/[id]/error.tsx`, `collection/[id]/loading.tsx`).
+- Delivered `deliverables/U4.patch`, `deliverables/U4-NOTES.md`, and `deliverables/pliny-ui-U4.zip`.
+
