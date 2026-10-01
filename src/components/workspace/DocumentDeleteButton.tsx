@@ -79,22 +79,22 @@ export function DocumentDeleteButton({ className, documentId, filename, onDelete
           </DialogDescription>
         </DialogHeader>
 
-        <div className="rounded-lg border border-black/10 bg-black/[0.03] p-3">
-          <p className="truncate text-sm font-medium">{filename}</p>
+        <div className="rounded-[var(--radius-md)] border border-[var(--rule)] bg-[var(--paper-2)] p-3">
+          <p className="truncate text-sm font-medium text-[var(--ink-900)]">{filename}</p>
         </div>
 
         {error ? (
-          <div className="rounded-lg border border-red-300/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300" role="alert">
+          <div className="rounded-[var(--radius-md)] border border-[var(--danger-soft)] bg-[var(--danger-soft)]/20 px-3 py-2 text-sm text-[var(--danger-ink)]" role="alert">
             {error}
           </div>
         ) : null}
 
         <DialogFooter>
-          <Button type="button" variant="outline" disabled={isDeleting} onClick={() => handleOpenChange(false)}>
+          <Button type="button" variant="secondary" disabled={isDeleting} onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" variant="destructive" disabled={isDeleting} onClick={() => void handleDelete()}>
-            {isDeleting ? "Deleting" : "Delete document"}
+          <Button type="button" variant="destructive" disabled={isDeleting} loading={isDeleting} onClick={() => void handleDelete()}>
+            {isDeleting ? "Deleting…" : "Delete document"}
           </Button>
         </DialogFooter>
       </DialogContent>

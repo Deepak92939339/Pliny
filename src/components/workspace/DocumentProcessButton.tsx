@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 
 type ProcessDocumentResponse = {
   error?: string;
@@ -10,8 +12,11 @@ type ProcessDocumentResponse = {
 };
 
 type DocumentProcessButtonProps = {
+  className?: string;
   documentId: string;
   label?: string;
+  variant?: "primary" | "secondary" | "ghost" | "link" | "destructive";
+  size?: "sm" | "md" | "lg";
 };
 
 async function readProcessResponse(response: Response): Promise<ProcessDocumentResponse> {
@@ -22,7 +27,13 @@ async function readProcessResponse(response: Response): Promise<ProcessDocumentR
   }
 }
 
-export function DocumentProcessButton({ documentId, label = "Retry" }: DocumentProcessButtonProps) {
+export function DocumentProcessButton({
+  className,
+  documentId,
+  label = "Retry",
+  variant,
+  size,
+}: DocumentProcessButtonProps) {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -53,17 +64,43 @@ export function DocumentProcessButton({ documentId, label = "Retry" }: DocumentP
     }
   }
 
+  if (variant) {
+    return (
+      <div>
+        <Button
+          type="button"
+          variant={variant}
+          size={size}
+          onClick={handleProcess}
+          disabled={isProcessing}
+          loading={isProcessing}
+          className={className}
+        >
+          {label}
+        </Button>
+        {errorMessage ? (
+          <p className="mt-1 text-[var(--text-2xs)] leading-5 text-[var(--danger-ink)]">{errorMessage}</p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div>
       <button
         type="button"
         onClick={handleProcess}
         disabled={isProcessing}
-        className="rounded px-1 py-0.5 text-[11px] font-medium text-[var(--accent-ink)] underline-offset-2 hover:bg-[var(--accent)]/10 hover:text-[color:var(--editorial-rust-strong)] hover:underline disabled:pointer-events-none disabled:opacity-50"
+        className={cn(
+          "rounded-[var(--radius-sm)] px-1 py-0.5 text-[var(--text-2xs)] font-medium text-[var(--accent-ink)] underline-offset-2 hover:bg-[var(--accent)]/10 hover:text-[var(--accent-ink)] hover:underline disabled:pointer-events-none disabled:opacity-50",
+          className
+        )}
       >
-        {isProcessing ? "Processing" : label}
+        {isProcessing ? "Processing…" : label}
       </button>
-      {errorMessage ? <p className="mt-1 text-[11px] leading-5 text-[var(--accent-ink)]">{errorMessage}</p> : null}
+      {errorMessage ? (
+        <p className="mt-1 text-[var(--text-2xs)] leading-5 text-[var(--danger-ink)]">{errorMessage}</p>
+      ) : null}
     </div>
   );
 }

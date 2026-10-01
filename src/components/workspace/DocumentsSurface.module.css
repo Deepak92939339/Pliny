@@ -60,32 +60,14 @@
 .headText {
   min-width: 0;
 }
-.backBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 0 8px 0 4px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.backBtn:hover {
-  color: var(--ink);
-  background: rgba(12, 20, 39, 0.04);
-}
 .eyebrow {
   margin-top: 4px;
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: .16em;
   text-transform: uppercase;
-  color: var(--editorial-rust);
+  color: var(--accent-ink);
 }
 .title {
   margin-top: 8px;
@@ -94,54 +76,14 @@
   font-weight: 600;
   line-height: 1.08;
   letter-spacing: -0.035em;
-  color: var(--ink);
+  color: var(--ink-900);
 }
 .lede {
   margin-top: 10px;
   max-width: 680px;
-  font-size: 15px;
+  font-size: var(--text-base);
   line-height: 1.65;
-  color: var(--ink-soft);
-}
-
-.primaryBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 18px;
-  border: 1px solid var(--ink);
-  border-radius: 7px;
-  background: var(--ink);
-  color: var(--paper-2);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity var(--t) var(--ease);
-}
-.primaryBtn:hover {
-  opacity: .88;
-}
-
-.ghostBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--sheet);
-  color: var(--ink-soft);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color var(--t) var(--ease);
-}
-.ghostBtn:hover {
-  background: var(--sheet-warm);
-  color: var(--ink);
+  color: var(--ink-700);
 }
 
 .toolbar {
@@ -155,19 +97,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--sheet);
-  font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 11px;
-  letter-spacing: .06em;
-  color: var(--ink-soft);
 }
 .filters {
   display: inline-flex;
@@ -342,49 +271,15 @@
   display: block;
   margin-top: 4px;
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   letter-spacing: .06em;
   color: var(--muted);
 }
 
-.statusChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-}
-.statusOk {
-  border: 1px solid var(--ok-line);
-  background: var(--ok-bg);
-  color: var(--ok);
-}
-.statusRust {
-  border: 1px solid var(--rust-line);
-  background: var(--rust-bg);
-  color: var(--rust);
-}
-.statusRed {
-  border: 1px solid var(--red-line);
-  background: var(--red-bg);
-  color: var(--red);
-}
-.statusDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  flex: none;
-}
-.dotOk { background: var(--ok-dot); }
-.dotRust { background: var(--rust); }
-.dotRed { background: var(--red); }
-
 .stageText {
   display: block;
   margin-top: 6px;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--muted);
 }
 .shimmer {
@@ -394,7 +289,7 @@
   height: 2px;
   width: 96px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--line);
 }
 .shimmer::after {
@@ -402,7 +297,7 @@
   position: absolute;
   inset: 0;
   width: 40%;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--ink-500);
   animation: shimmerSlide 1.6s var(--ease) infinite;
 }
@@ -414,7 +309,7 @@
 .failNote {
   margin: 6px 0 0;
   max-width: 320px;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   line-height: 1.5;
   color: var(--red);
 }
@@ -433,7 +328,7 @@
   width: 44px;
   height: 44px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -452,9 +347,9 @@
   min-width: 180px;
   padding: 4px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--sheet);
-  box-shadow: 0 16px 40px rgba(72, 48, 31, 0.12);
+  box-shadow: var(--shadow-2);
   text-align: left;
 }
 .menuItem {
@@ -464,7 +359,7 @@
   min-height: 40px;
   padding: 0 10px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--ink);
   font-size: 13px;
@@ -485,7 +380,7 @@
   min-height: 40px;
   padding: 0 10px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   font-size: 13px;
   font-weight: 500;
@@ -506,7 +401,7 @@
 .card {
   position: relative;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--sheet);
   padding: 12px 52px 12px 12px;
 }
@@ -598,7 +493,7 @@
   width: 44px;
   height: 44px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -649,13 +544,13 @@
 }
 .monoNote {
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--muted);
 }
 .tech {
   margin-top: 12px;
   border: 1px solid var(--line-soft);
-  border-radius: 7px;
+  border-radius: var(--radius-md);
 }
 .tech summary {
   cursor: pointer;
@@ -668,7 +563,7 @@
   margin: 0;
   padding: 0 12px 12px;
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   line-height: 1.6;
   color: var(--ink-soft);
   white-space: pre-wrap;
@@ -684,7 +579,7 @@
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--red-line);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--red-bg);
   font-size: 13px;
   font-weight: 600;
@@ -707,9 +602,9 @@
   width: min(560px, 100%);
   max-height: calc(100dvh - 32px);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-xl);
   background: var(--sheet);
-  box-shadow: 0 24px 60px rgba(12, 20, 39, 0.2);
+  box-shadow: var(--shadow-3);
 }
 .dialogHead {
   display: flex;
@@ -740,7 +635,7 @@
   gap: 12px;
   padding: 16px;
   border: 1px dashed var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--sheet-warm);
 }
 .dropHeadTitle {
@@ -761,7 +656,7 @@
 .formatLine {
   margin-top: 12px;
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   letter-spacing: .08em;
   line-height: 1.7;
   color: var(--muted);
@@ -775,9 +670,6 @@
   flex: none;
 }
 
-.backBtn:focus-visible,
-.primaryBtn:focus-visible,
-.ghostBtn:focus-visible,
 .filterBtn:focus-visible,
 .menuBtn:focus-visible,
 .menuItem:focus-visible,
