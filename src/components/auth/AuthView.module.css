@@ -7,7 +7,6 @@
   --ink-2: var(--ink-700);
   --slate: var(--ink-500);
   --slate-2: var(--ink-500);
-  --blue: #0066CC;
   --rust: var(--accent-ink);
   --rust-line: var(--rule-strong);
   --red: var(--danger);
@@ -42,8 +41,8 @@
 }
 .skip:focus {
   transform: none;
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .paneForm {
@@ -162,7 +161,7 @@
   background: transparent;
   border: 0;
   padding: 0;
-  color: var(--blue);
+  color: var(--accent-ink);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -199,8 +198,8 @@
 .input:focus,
 .input:focus-visible {
   outline: none;
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.12);
+  border-color: var(--accent-ink);
+  box-shadow: var(--focus-ring);
 }
 .bad { border-color: var(--red); }
 .bad:focus,
@@ -223,7 +222,7 @@
   cursor: pointer;
 }
 .peek:hover { color: var(--ink); }
-.show .peek { color: var(--blue); }
+.show .peek { color: var(--accent-ink); }
 .caps {
   display: none;
   font-family: var(--font-jetbrains-mono), monospace;
@@ -254,8 +253,8 @@
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: .6; cursor: default; }
 .btn:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 .bar {
   display: block;
@@ -333,7 +332,7 @@
   background: transparent;
   border: 0;
   padding: 0;
-  color: var(--blue);
+  color: var(--accent-ink);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -384,8 +383,8 @@
 .textarea:focus,
 .textarea:focus-visible {
   outline: none;
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.12);
+  border-color: var(--accent-ink);
+  box-shadow: var(--focus-ring);
 }
 
 .paneDemo {

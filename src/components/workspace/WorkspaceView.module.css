@@ -8,7 +8,6 @@
   --slate-2: var(--ink-500);
   --rust: var(--accent-ink);
   --rust-strong: var(--accent-ink);
-  --blue: #0066CC;
   --line: var(--rule);
   --line-2: var(--rule-strong);
   --ease: cubic-bezier(.2, .8, .2, 1);
@@ -305,8 +304,8 @@
   transition: width var(--t) var(--ease);
 }
 .sidebar:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: -2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 .sidebarCollapsed {
   width: 64px;
@@ -581,7 +580,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--blue);
+  color: var(--accent-ink);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -699,8 +698,8 @@
 .brand:focus-visible,
 .crumbLink:focus-visible,
 .popoverLink:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 @media (min-width: 900px) {

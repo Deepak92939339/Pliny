@@ -8,7 +8,6 @@
   --ink-2: var(--ink-700);
   --slate: var(--ink-500);
   --slate-2: var(--ink-500);
-  --blue: #0066CC;
   --rust: var(--accent-ink);
   --line: var(--rule);
   --line-2: var(--rule-strong);
@@ -349,7 +348,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--blue);
+  color: var(--accent-ink);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -605,8 +604,8 @@
 .retryBtn:focus-visible,
 .brandLinkTop:focus-visible,
 .sideBrandLink:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 @media (min-width: 900px) {
