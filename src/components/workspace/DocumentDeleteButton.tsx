@@ -1,8 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { useState, type RefObject } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   Dialog,
@@ -12,12 +11,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 
-type DocumentDeleteButtonProps = {
-  className?: string;
+type DocumentDeleteDialogProps = {
   documentId: string;
   filename: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  returnFocusRef: RefObject<HTMLElement | null>;
+  fallbackFocusRef: RefObject<HTMLElement | null>;
   onDeleted?: () => void;
 };
 
@@ -25,15 +26,14 @@ type DocumentDeleteButtonProps = {
  * WP5 (audit-r1, PLN-007): "Delete document" action with confirmation dialog.
  * Calls DELETE /api/documents/[id] (204 on success) and refreshes the list.
  */
-export function DocumentDeleteButton({ className, documentId, filename, onDeleted }: DocumentDeleteButtonProps) {
+export function DocumentDeleteDialog({ documentId, filename, open, onOpenChange, returnFocusRef, fallbackFocusRef, onDeleted }: DocumentDeleteDialogProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   function handleOpenChange(nextOpen: boolean) {
     if (isDeleting) return;
-    setOpen(nextOpen);
+    onOpenChange(nextOpen);
     setError(null);
   }
 
@@ -45,7 +45,7 @@ export function DocumentDeleteButton({ className, documentId, filename, onDelete
       const response = await fetch(`/api/documents/${documentId}`, { method: "DELETE" });
 
       if (response.status === 204) {
-        setOpen(false);
+        onOpenChange(false);
         onDeleted?.();
         router.refresh();
         return;
@@ -62,16 +62,10 @@ export function DocumentDeleteButton({ className, documentId, filename, onDelete
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <button
-        type="button"
-        role="menuitem"
-        className={cn(className)}
-        onClick={() => setOpen(true)}
-      >
-        <Trash2 className="size-3.5" aria-hidden="true" />
-        Delete document
-      </button>
-      <DialogContent>
+      <DialogContent finalFocus={() => {
+        const trigger = returnFocusRef.current;
+        return trigger?.isConnected ? trigger : fallbackFocusRef.current;
+      }}>
         <DialogHeader>
           <DialogTitle>Delete document</DialogTitle>
           <DialogDescription>

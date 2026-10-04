@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, EllipsisVertical, Plus, X } from "lucide-react";
+import { ArrowLeft, EllipsisVertical, Plus, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { DocumentDeleteButton } from "@/components/workspace/DocumentDeleteButton";
+import { DocumentDeleteDialog } from "@/components/workspace/DocumentDeleteButton";
 import { DocumentProcessButton } from "@/components/workspace/DocumentProcessButton";
 import { DocumentUploadDropzone } from "@/components/workspace/DocumentUploadDropzone";
 import { getFileKindLabel, inferSupportedFileKind } from "@/lib/document-processing/fileKinds";
@@ -112,16 +112,19 @@ export function DocumentsSurface({
   const [filter, setFilter] = useState<FilterKey>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; filename: string } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isSheetMode, setIsSheetMode] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const dialogTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const addDocumentsRef = useRef<HTMLButtonElement | null>(null);
   const dialogCardRef = useRef<HTMLDivElement>(null);
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const asideCloseRef = useRef<HTMLButtonElement>(null);
   const lastTriggerRef = useRef<HTMLElement | null>(null);
   const menuWrapRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const deleteReturnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const query = window.matchMedia("(max-width: 1099px)");
@@ -176,6 +179,8 @@ export function DocumentsSurface({
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
+      // Let the confirmation dialog handle its own Escape and focus restoration.
+      if (deleteTarget) return;
       if (openMenuId) {
         setOpenMenuId(null);
         return;
@@ -241,6 +246,12 @@ export function DocumentsSurface({
     });
   }
 
+  function openDeleteDialog(id: string, filename: string, menuId: string) {
+    deleteReturnFocusRef.current = menuWrapRefs.current[menuId]?.querySelector<HTMLButtonElement>("button[aria-haspopup='menu']") ?? null;
+    setDeleteTarget({ id, filename });
+    setOpenMenuId(null);
+  }
+
   function selectDocument(id: string, trigger: HTMLElement | null) {
     lastTriggerRef.current = trigger;
     setSelectedId(id);
@@ -278,6 +289,7 @@ export function DocumentsSurface({
             </p>
           </div>
           <Button
+            ref={addDocumentsRef}
             variant="primary"
             onClick={(event) => openDialog(event.currentTarget)}
             className="gap-2 shrink-0"
@@ -459,12 +471,15 @@ export function DocumentsSurface({
                                     <DocumentProcessButton documentId={document.id} label="Retry" />
                                   </span>
                                 ) : null}
-                                <DocumentDeleteButton
+                                <button
+                                  type="button"
+                                  role="menuitem"
                                   className={styles.menuItem}
-                                  documentId={document.id}
-                                  filename={filename}
-                                  onDeleted={() => setOpenMenuId(null)}
-                                />
+                                  onClick={() => openDeleteDialog(document.id, filename, document.id)}
+                                >
+                                  <Trash2 className="size-3.5" aria-hidden="true" />
+                                  Delete document
+                                </button>
                               </div>
                             ) : null}
                           </div>
@@ -536,12 +551,15 @@ export function DocumentsSurface({
                               <DocumentProcessButton documentId={document.id} label="Retry" />
                             </span>
                           ) : null}
-                          <DocumentDeleteButton
+                          <button
+                            type="button"
+                            role="menuitem"
                             className={styles.menuItem}
-                            documentId={document.id}
-                            filename={filename}
-                            onDeleted={() => setOpenMenuId(null)}
-                          />
+                            onClick={() => openDeleteDialog(document.id, filename, `${document.id}-card`)}
+                          >
+                            <Trash2 className="size-3.5" aria-hidden="true" />
+                            Delete document
+                          </button>
                         </div>
                       ) : null}
                     </div>
@@ -551,6 +569,19 @@ export function DocumentsSurface({
             </ul>
           ) : null}
         </div>
+
+        {deleteTarget ? (
+          <DocumentDeleteDialog
+            key={deleteTarget.id}
+            documentId={deleteTarget.id}
+            filename={deleteTarget.filename}
+            open
+            onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+            returnFocusRef={deleteReturnFocusRef}
+            fallbackFocusRef={addDocumentsRef}
+            onDeleted={() => { if (selectedId === deleteTarget.id) setSelectedId(null); }}
+          />
+        ) : null}
 
         {dialogOpen ? (
           <div

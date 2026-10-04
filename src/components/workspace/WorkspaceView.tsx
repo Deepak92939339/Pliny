@@ -48,8 +48,7 @@ type ActiveSourceContext = {
 
 // B8: type moved here when the dormant DocumentSidebar.tsx (panel + sidebar) was removed.
 type WorkspaceSidebarRecent = {
-  collectionId: string;
-  collectionName: string;
+  id: string;
   createdAt: string;
   message: string;
 };
@@ -203,6 +202,9 @@ export function WorkspaceView({
   // WP3 (audit-r1): set from a 429's Retry-After header; holds the Ask button.
   const [askRateLimitedUntil, setAskRateLimitedUntil] = useState<number | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  const [pendingTurnId, setPendingTurnId] = useState<string | null>(null);
+  const [turnNavigation, setTurnNavigation] = useState<{ id: string; sequence: number } | null>(null);
+  const searchInFlight = useRef(false);
   const [isDocumentPanelOpen, setIsDocumentPanelOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -284,17 +286,15 @@ export function WorkspaceView({
     return null;
   }
 
-  const latestUserQuestion = [...searchResults].reverse().find((result) => result.question.trim().length > 0);
-  const sidebarRecents: WorkspaceSidebarRecent[] = latestUserQuestion
-    ? [
-        {
-          collectionId: collection.id,
-          collectionName: collection.name,
-          createdAt: latestUserQuestion.createdAt,
-          message: latestUserQuestion.question,
-        },
-      ]
-    : [];
+  const sidebarRecents: WorkspaceSidebarRecent[] = searchResults
+    .filter((result) => result.question.trim().length > 0)
+    .slice(-8)
+    .reverse()
+    .map((result) => ({
+      id: result.id,
+      createdAt: result.createdAt,
+      message: result.question,
+    }));
   const activeSourceContext = getActiveSourceContext(searchResults, selectedSource);
   const visibleCollections = collections.length > 0 ? collections : [collection];
   const isPrivacyMinimised = collection.defaultProcessingMode === "privacy_minimised";
@@ -377,15 +377,18 @@ export function WorkspaceView({
   }
 
   async function handleSearch(query: string) {
-    if (!collection) {
+    if (!collection || searchInFlight.current) {
       return;
     }
+    searchInFlight.current = true;
+    const turnId = globalThis.crypto.randomUUID();
     setIsSearching(true);
     setSearchError(null);
     setSelectedSource(null);
     setIsSourceInspectorOpen(false);
     setIsSourceSheetOpen(false);
     setPendingQuestion(query);
+    setPendingTurnId(turnId);
     try {
       const response = await fetch("/api/chat", {
         body: JSON.stringify({
@@ -415,7 +418,7 @@ export function WorkspaceView({
         answer: result.answer,
         citations: result.citations ?? [],
         collectionId: result.collectionId,
-        id: globalThis.crypto?.randomUUID?.() ?? `client-result-${collection.id}-${query.length}-${result.answer.length}`,
+        id: turnId,
         metadata: result.metadata,
         question: result.question || query,
         retrievalReason: result.metadata.retrievalReason,
@@ -436,11 +439,13 @@ export function WorkspaceView({
               status: "answered",
             };
       setSearchResults((currentResults) => [...currentResults, nextSearchResult]);
+      setPendingQuestion(null);
+      setPendingTurnId(null);
     } catch {
       setSearchError("Unable to answer from this workspace right now. Check the server logs if this keeps happening.");
     } finally {
+      searchInFlight.current = false;
       setIsSearching(false);
-      setPendingQuestion(null);
     }
   }
 
@@ -448,6 +453,15 @@ export function WorkspaceView({
     return (
       <div role="menu" aria-label="Account" className={styles.accountMenu}>
         <p className={styles.menuEmail} title={userEmail ?? undefined}>{userEmail ?? "Signed in"}</p>
+        <button
+          type="button"
+          role="menuitem"
+          className={`${styles.menuItem} ${styles.mobileTranscriptExport}`}
+          disabled={searchResults.length === 0}
+          onClick={() => { handleExportTranscript(); setOpenMenu(null); }}
+        >
+          Export transcript
+        </button>
         <Link href="/dashboard" role="menuitem" className={styles.menuItem} onClick={() => setOpenMenu(null)}>
           All workspaces
         </Link>
@@ -496,6 +510,7 @@ export function WorkspaceView({
             type="button"
             variant="secondary"
             size="sm"
+            className={styles.transcriptExport}
             disabled={searchResults.length === 0}
             onClick={handleExportTranscript}
           >
@@ -511,7 +526,7 @@ export function WorkspaceView({
               aria-controls="processing-boundary-popover"
               onClick={() => toggleMenu("mode")}
             >
-              {modeLabelShort}
+              <span className={styles.modeBtnLabel} title={modeLabelShort}>{modeLabelShort}</span>
               <ChevronDown className={styles.icon} aria-hidden="true" />
             </button>
             {openMenu === "mode" ? (
@@ -659,17 +674,21 @@ export function WorkspaceView({
                 <p className={styles.sideLabel}>Recent questions</p>
                 {sidebarRecents.length > 0 ? (
                   sidebarRecents.map((recent) => (
-                    <Link
-                      key={`${recent.collectionId}-${recent.createdAt}`}
-                      href={`/collection/${recent.collectionId}`}
+                    <button
+                      type="button"
+                      key={recent.id}
                       className={styles.recentLink}
-                      onClick={() => setIsDrawerOpen(false)}
+                      onClick={() => {
+                        setIsDocumentPanelOpen(false);
+                        setTurnNavigation((previous) => ({ id: recent.id, sequence: (previous?.sequence ?? 0) + 1 }));
+                        if (isMobile) closeDrawerWithFocus();
+                      }}
                     >
                       <span className={styles.recentText} title={recent.message}>
                         {truncateText(recent.message, 42)}
                       </span>
                       <span className={styles.recentStamp}>{formatRecentStamp(recent.createdAt)}</span>
-                    </Link>
+                    </button>
                   ))
                 ) : (
                   <p className={styles.recentEmpty}>No questions yet</p>
@@ -713,6 +732,8 @@ export function WorkspaceView({
             documentsError={documentsError}
             isSearching={isSearching}
             pendingQuestion={pendingQuestion}
+            pendingTurnId={pendingTurnId}
+            turnNavigation={turnNavigation}
             rateLimitedUntil={askRateLimitedUntil}
             results={searchResults}
             scrollRef={canvasScrollRef}

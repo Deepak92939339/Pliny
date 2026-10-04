@@ -45,6 +45,10 @@ function buildPrintDocument(report: GeneratedReport) {
   <title>${escapeHtml(report.title)} - Pliny</title>
   <style>
     :root {
+      --paper-1: #fff;
+      --ink-900: #111827;
+      --rule-strong: #d6d1c8;
+      --accent: #ad4a30;
       color: #171717;
       background: var(--paper-1);
       font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -105,7 +109,6 @@ function buildPrintDocument(report: GeneratedReport) {
     }
     section {
       margin-top: 28px;
-      page-break-inside: avoid;
     }
     h2 {
       margin: 0 0 10px;
@@ -141,6 +144,12 @@ function buildPrintDocument(report: GeneratedReport) {
       color: #4b5563;
       font-size: 13px;
       line-height: 1.7;
+    }
+    @page { margin: 18mm; }
+    @media (max-width: 600px) {
+      main { padding: 24px 16px; }
+      h1 { font-size: 26px; }
+      .topbar { flex-wrap: wrap; }
     }
     @media print {
       main {

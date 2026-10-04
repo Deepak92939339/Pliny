@@ -70,11 +70,11 @@ assert.match(
 
 const rootLayoutSource = readFileSync("src/app/layout.tsx", "utf8");
 const webManifestSource = readFileSync("public/site.webmanifest", "utf8");
-const faviconSource = readFileSync("public/brand/pliny-monogram.svg", "utf8");
-assert.equal(rootLayoutSource.includes("/brand/pliny-monogram.svg?v=20260921"), true, "browser metadata must use the cache-busted editorial monogram");
+const faviconSource = readFileSync("public/brand/pliny-tab.svg", "utf8");
+assert.equal(rootLayoutSource.includes("/brand/pliny-tab.svg?v=20261004"), true, "browser metadata must use the owner-requested blank tab icon");
 assert.equal(rootLayoutSource.includes("pliny-mark-16.png"), false, "browser metadata must not retain the legacy illustrated mark");
-assert.equal(webManifestSource.includes("/brand/pliny-monogram.svg?v=20260921"), true, "the install manifest must use the editorial monogram");
-assert.equal(faviconSource.includes("prefers-color-scheme: dark"), true, "the monochrome mark must remain legible in dark browser chrome");
+assert.equal(webManifestSource.includes("/brand/pliny-tab.svg?v=20261004"), true, "the manifest must not revive the removed P icon");
+assert.doesNotMatch(faviconSource, /<(?:text|path|image)\b/, "the tab icon must have no visible mark");
 
 assert.equal(expandKnownRoleTerms("Who is the CTO?").includes("chief technology officer"), true);
 assert.deepEqual(getKnownRoleConcepts("Who serves as Chief Technology Officer?"), ["chief_technology_officer"]);

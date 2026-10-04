@@ -7,6 +7,7 @@ import {
   buildChatTranscriptMarkdown,
   buildReportForTemplate,
   formatAnswerWithCitations,
+  formatGeneratedReportMarkdown,
   getReportMarkdownFilename,
   getTranscriptMarkdownFilename,
   isSourceSupportedResult,
@@ -30,6 +31,8 @@ type AskSurfaceProps = {
   documentsError?: string | null;
   isSearching: boolean;
   pendingQuestion: string | null;
+  pendingTurnId?: string | null;
+  turnNavigation?: { id: string; sequence: number } | null;
   rateLimitedUntil?: number | null;
   results: WorkspaceSearchResult[];
   scrollRef?: RefObject<HTMLDivElement | null>;
@@ -56,8 +59,6 @@ const REPORT_TEMPLATES: { label: string; template: ReportTemplate }[] = [
   { label: "Risk report", template: "risk_report" },
   { label: "Table summary", template: "table_summary" },
 ];
-
-const PREPARE_STAGES = ["FINDING RELEVANT PASSAGES.", "CHECKING AVAILABLE EVIDENCE.", "PREPARING A SOURCE-BACKED ANSWER."];
 
 function isUsableSource(source: SearchChunkResult | null | undefined): source is SearchChunkResult {
   return (
@@ -338,11 +339,12 @@ function TranscriptEntry({
 }: TranscriptEntryProps) {
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const [reportCopyStatus, setReportCopyStatus] = useState<CopyStatus>("idle");
+  const [showRiskReport, setShowRiskReport] = useState(false);
   const [printError, setPrintError] = useState(false);
   const sources = dedupeSources(result);
   const hasAnswer = result.status === "answered" && typeof result.answer === "string" && result.answer.trim().length > 0;
   const hasSourceSupport = result.status === "answered" && isSourceSupportedResult(result);
-  const riskReport = hasSourceSupport ? buildReportForTemplate("risk_report", { result, workspaceName: collectionName }) : null;
+  const riskReport = hasSourceSupport && showRiskReport ? buildReportForTemplate("risk_report", { result, workspaceName: collectionName }) : null;
   const gate = getGateChip(result, sources.length);
   const isMasked = result.privacyMode === "privacy_minimised" || (typeof result.answer === "string" && /\[[A-Z0-9_]+\]/.test(result.answer));
   const citations = Array.isArray(result.citations) ? result.citations : [];
@@ -361,7 +363,7 @@ function TranscriptEntry({
     setReportCopyStatus("idle");
     try {
       const report = buildReportForTemplate("cited_answer", { result, workspaceName: collectionName });
-      await navigator.clipboard.writeText(report.content);
+      await navigator.clipboard.writeText(formatGeneratedReportMarkdown(report));
       setReportCopyStatus("copied");
     } catch {
       setReportCopyStatus("failed");
@@ -376,7 +378,7 @@ function TranscriptEntry({
 
   function handleExportAnswer() {
     const report = buildReportForTemplate("cited_answer", { result, workspaceName: collectionName });
-    downloadMarkdownFile(getReportMarkdownFilename(report), report.content);
+    downloadMarkdownFile(getReportMarkdownFilename(report), formatGeneratedReportMarkdown(report));
   }
 
   function handlePrint() {
@@ -392,7 +394,7 @@ function TranscriptEntry({
       return;
     }
     const report = buildReportForTemplate(template, { result, workspaceName: collectionName });
-    downloadMarkdownFile(getReportMarkdownFilename(report), report.content);
+    downloadMarkdownFile(getReportMarkdownFilename(report), formatGeneratedReportMarkdown(report));
   }
 
   function renderBlocks() {
@@ -466,8 +468,9 @@ function TranscriptEntry({
     .map((document) => `${document.filename} · ${document.status}`);
 
   return (
-    <article className={styles.entry}>
+    <article className={styles.entry} data-turn-id={result.id} tabIndex={-1} aria-label={result.question}>
       <div className={styles.entryHead}>
+        <p className={styles.turnLabel}>You asked</p>
         <h2 className={styles.questionTitle}>{result.question}</h2>
         <p className={styles.meta}>
           <span>{formatTimestamp(result.createdAt)}</span>
@@ -533,17 +536,23 @@ function TranscriptEntry({
               <RiskEvidenceReportPreview artifact={riskReport.artifact} />
             </div>
           ) : null}
-          {hasAnswer ? (
+        </div>
+      )}
             <div className={styles.actionRow}>
+              {hasAnswer ? <>
               <button type="button" className={styles.actionBtn} onClick={handleCopyAnswer}>
                 {copyStatus === "copied" ? "Copied" : "Copy answer with citations"}
-              </button>
-              <button type="button" className={styles.actionBtn} onClick={handleCopyReport}>
-                {reportCopyStatus === "copied" ? "Report copied" : "Copy report Markdown"}
               </button>
               <details className={styles.disclosure}>
                 <summary className={styles.disclosureSummary}>Reports</summary>
                 <div className={styles.menu}>
+                  <button type="button" className={styles.menuItem} disabled={!hasSourceSupport}
+                    onClick={() => setShowRiskReport((current) => !current)}>
+                    {showRiskReport ? "Hide risk report preview" : "Preview risk report"}
+                  </button>
+                  <button type="button" className={styles.menuItem} onClick={handleCopyReport}>
+                    {reportCopyStatus === "copied" ? "Report copied" : "Copy report Markdown"}
+                  </button>
                   {REPORT_TEMPLATES.map((item) => {
                     const disabled = item.template !== "cited_answer" && !hasSourceSupport;
                     return (
@@ -561,17 +570,18 @@ function TranscriptEntry({
                   })}
                 </div>
               </details>
+              </> : null}
               <details className={styles.disclosure}>
-                <summary className={styles.disclosureSummary}>Export</summary>
+                <summary className={styles.disclosureSummary}>Export this answer</summary>
                 <div className={styles.menu}>
-                  <button type="button" className={styles.menuItem} onClick={handleExportTranscript}>
-                    Export transcript (Markdown)
-                  </button>
                   <button type="button" className={styles.menuItem} onClick={handleExportAnswer}>
-                    Export source-backed answer (Markdown)
+                    This answer — Markdown
                   </button>
                   <button type="button" className={styles.menuItem} onClick={handlePrint}>
-                    Print view
+                    Print / Save as PDF
+                  </button>
+                  <button type="button" className={styles.menuItem} onClick={handleExportTranscript}>
+                    Whole conversation — Markdown
                   </button>
                 </div>
               </details>
@@ -579,9 +589,6 @@ function TranscriptEntry({
               {reportCopyStatus === "failed" ? <span className={styles.feedback}>Report copy failed</span> : null}
               {printError ? <span className={styles.feedback}>Print window was blocked</span> : null}
             </div>
-          ) : null}
-        </div>
-      )}
     </article>
   );
 }
@@ -594,6 +601,8 @@ export function AskSurface({
   documentsError,
   isSearching,
   pendingQuestion,
+  pendingTurnId,
+  turnNavigation,
   rateLimitedUntil,
   results,
   scrollRef,
@@ -605,11 +614,15 @@ export function AskSurface({
 }: AskSurfaceProps) {
   const [query, setQuery] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const localScrollRef = useRef<HTMLDivElement | null>(null);
+  const readingRef = scrollRef ?? localScrollRef;
+  const initialTurnId = useRef(results.at(-1)?.id);
+  const lastScrollEvent = useRef<{ pending?: string | null; navigation?: typeof turnNavigation }>({});
   const readyDocuments = documents.filter((document) => document.status === "ready");
   const readyCount = readyDocuments.length;
   const noDocuments = documents.length === 0 && !documentsError;
   const noReady = readyCount === 0 && documents.length > 0;
-  const bannerMessage = searchError ?? chatError ?? documentsError;
+  const bannerMessage = chatError ?? documentsError;
   const trimmedQuery = query.trim();
   // WP3 (audit-r1): a 429 with Retry-After holds the Ask button until the
   // limit window clears, with a live countdown next to the control.
@@ -627,7 +640,23 @@ export function AskSurface({
   }, [isRateLimited]);
 
   const canSubmit = trimmedQuery.length > 0 && !isSearching && readyCount > 0 && !isRateLimited;
-  const orderedResults = [...results].reverse();
+  const hasConversation = results.length > 0 || Boolean(pendingQuestion);
+
+  useEffect(() => {
+    const newPending = pendingTurnId && pendingTurnId !== lastScrollEvent.current.pending;
+    const newNavigation = turnNavigation && turnNavigation !== lastScrollEvent.current.navigation;
+    const id = newPending ? pendingTurnId : newNavigation ? turnNavigation.id : initialTurnId.current;
+    lastScrollEvent.current = { pending: pendingTurnId, navigation: turnNavigation };
+    const container = readingRef.current;
+    if (!container || !id) return;
+    const turn = Array.from(container.querySelectorAll<HTMLElement>("[data-turn-id]"))
+      .find((node) => node.dataset.turnId === id);
+    if (!turn) return;
+    const offset = turn.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    container.scrollTo({ top: container.scrollTop + offset - 16, behavior: "instant" });
+    if (newNavigation && !newPending) turn.focus({ preventScroll: true });
+    initialTurnId.current = undefined;
+  }, [pendingTurnId, turnNavigation, readingRef]);
 
   useEffect(() => {
     const node = textareaRef.current;
@@ -635,7 +664,7 @@ export function AskSurface({
       return;
     }
     node.style.height = "auto";
-    node.style.height = `${Math.min(node.scrollHeight, 160)}px`;
+    node.style.height = `${Math.min(node.scrollHeight, 120)}px`;
   }, [query]);
 
   function submitQuestion() {
@@ -662,7 +691,7 @@ export function AskSurface({
 
   return (
     <section className={styles.canvas} aria-label="Ask this workspace">
-      <header className={styles.head}>
+      <header className={`${styles.head} ${hasConversation ? styles.headCompact : ""}`}>
         <p className={styles.eyebrow}>Workspace</p>
         {noDocuments ? (
           <>
@@ -683,7 +712,7 @@ export function AskSurface({
             <h1 className={styles.title} title={collectionName}>
               {collectionName}
             </h1>
-            <p className={styles.lede}>Ask a question and Pliny will answer only from the ready documents in this workspace.</p>
+            {!hasConversation ? <p className={styles.lede}>Ask a question and Pliny will answer only from the ready documents in this workspace.</p> : null}
             {noReady ? (
               <div className={styles.noReady}>
                 <p>
@@ -699,7 +728,7 @@ export function AskSurface({
         )}
         <Badge variant="ok" className="gap-1.5 font-mono text-[11px]">
           <span className="size-1.5 rounded-full bg-[var(--ok-ink)] shrink-0" aria-hidden="true" />
-          {`Searching ${readyCount} ready document${readyCount === 1 ? "" : "s"}`}
+          {`${readyCount} ready document${readyCount === 1 ? "" : "s"}`}
         </Badge>
       </header>
 
@@ -710,7 +739,7 @@ export function AskSurface({
       ) : null}
       {chatNotice ? <div className={styles.notice}>{chatNotice}</div> : null}
 
-      <div className={styles.scroll} ref={scrollRef}>
+      <div className={styles.scroll} ref={readingRef} aria-label="Questions and answers">
         <div className={styles.inner}>
           {readyCount >= 1 && results.length === 0 && !pendingQuestion ? (
             <div className={styles.empty}>
@@ -718,7 +747,7 @@ export function AskSurface({
               <p className={styles.emptyCopy}>Upload files, then ask for summaries, clauses, comparisons, or citations.</p>
             </div>
           ) : null}
-          {orderedResults.map((result) => (
+          {results.map((result) => (
             <TranscriptEntry
               key={`${result.id}-${result.createdAt}`}
               collectionName={collectionName}
@@ -729,58 +758,37 @@ export function AskSurface({
               selectedSourceId={selectedSourceId}
             />
           ))}
-          {isSearching && pendingQuestion ? (
-            <div className={styles.preparing}>
-              <div className={styles.bubble}>{pendingQuestion}</div>
-              <span className={`${styles.gate} ${styles.gatePrep}`}>
-                <span className={styles.gateDot} aria-hidden="true" />
-                PREPARING
-              </span>
-              <ul className={styles.stageList}>
-                {PREPARE_STAGES.map((stage) => (
-                  <li key={stage} className={styles.stageLine}>
-                    {stage}
-                  </li>
-                ))}
-              </ul>
-              <div className={styles.skeleton} aria-hidden="true">
-                <span className={styles.skelBar} />
-                <span className={`${styles.skelBar} ${styles.skelBarShort}`} />
-              </div>
-            </div>
+          {pendingQuestion ? (
+            <article className={styles.entry} data-turn-id={pendingTurnId} aria-label={pendingQuestion} tabIndex={-1}>
+              <p className={styles.turnLabel}>You asked</p>
+              <h2 className={styles.questionTitle}>{pendingQuestion}</h2>
+              {isSearching ? <p className={styles.pendingStatus} role="status">Preparing your answer from workspace evidence…</p> : null}
+              {!isSearching && searchError ? <div className={styles.pendingError} role="alert">
+                <p>{searchError}</p>
+                <Button type="button" variant="secondary" size="sm" disabled={isRateLimited || readyCount === 0}
+                  onClick={() => onAsk(pendingQuestion)}>Retry question</Button>
+              </div> : null}
+            </article>
           ) : null}
         </div>
       </div>
 
       <div className={styles.composer}>
         <div className={styles.composerCard}>
-          <div className={styles.composerTop}>
             <label className={styles.composerLabel} htmlFor="ask-surface-composer">
-              Ask a question about the ready documents in this workspace.
+              Ask a question about your documents
             </label>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setQuery("");
-                textareaRef.current?.focus();
-              }}
-            >
-              New question
-            </Button>
-          </div>
+          <div className={styles.composerInputRow}>
           <textarea
             id="ask-surface-composer"
             ref={textareaRef}
             className={styles.textarea}
             value={query}
-            rows={3}
-            placeholder="e.g., What changed operating margin in Q2?"
+            rows={1}
+            placeholder="Ask about your documents…"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyDown}
           />
-          <div className={styles.askRow}>
             <Button
               type="button"
               variant="primary"
@@ -788,14 +796,14 @@ export function AskSurface({
               onClick={submitQuestion}
               className="min-w-20"
             >
-              {isRateLimited ? "Rate limited" : "Ask"}
+              {isSearching ? "Preparing…" : "Ask"}
             </Button>
-            <p className={styles.hint}>
+          </div>
+            <p className={styles.hint} role={isRateLimited ? "status" : undefined}>
               {isRateLimited
                 ? `You can ask again in ${formatRetryWaitDuration(rateLimitedRemainingSeconds)}`
-                : "CTRL / ⌘ + ENTER TO SUBMIT · ENTER ADDS A LINE BREAK"}
+                : "⌘ / Ctrl + Enter to send · Enter for a new line"}
             </p>
-          </div>
         </div>
       </div>
     </section>

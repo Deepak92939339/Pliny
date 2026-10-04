@@ -7,6 +7,6 @@
   "background_color": "#fcfbf8",
   "theme_color": "#ba5c3d",
   "icons": [
-    { "src": "/brand/pliny-monogram.svg?v=20260921", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    { "src": "/brand/pliny-tab.svg?v=20261004", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]
 }

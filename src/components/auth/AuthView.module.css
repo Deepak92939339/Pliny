@@ -250,7 +250,7 @@
   transition: opacity var(--t) var(--ease), transform var(--t) var(--ease);
 }
 .btn:hover { opacity: .88; }
-.btn:active { transform: translateY(1px); }
+.btn:active { opacity: .9; }
 .btn:disabled { opacity: .6; cursor: default; }
 .btn:focus-visible {
   outline: none;
