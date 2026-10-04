@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
-import { embedTexts, EmbeddingProviderError, getEmbeddingConfig } from "../src/lib/embeddings/embedBatch.ts";
+import { embedTexts, EmbeddingConfigError, EmbeddingProviderError, getEmbeddingConfig } from "../src/lib/embeddings/embedBatch.ts";
 import { prepareChunkRowsWithEmbeddings } from "../src/lib/document-processing/prepareChunkRowsWithEmbeddings.ts";
+import { getEmbeddingFailureMessage } from "../src/lib/embeddings/failureMessage.ts";
+
+assert.match(getEmbeddingFailureMessage(new EmbeddingConfigError("private configuration detail")), /not configured correctly/);
+for (const status of [401, 403]) assert.match(getEmbeddingFailureMessage(new EmbeddingProviderError("private provider body", { status })), /credentials/);
+assert.match(getEmbeddingFailureMessage(new EmbeddingProviderError("private provider body", { status: 402 })), /billing/);
+assert.match(getEmbeddingFailureMessage(new EmbeddingProviderError("private provider body", { status: 429, retryable: true })), /rate-limited/);
+assert.match(getEmbeddingFailureMessage(new EmbeddingProviderError("private provider body", { status: 503, retryable: true })), /temporarily unavailable/);
+assert.match(getEmbeddingFailureMessage(new Error("private provider body")), /processing logs/);
+assert.doesNotMatch(getEmbeddingFailureMessage(new Error("private provider body")), /private provider body/);
 
 process.env.EMBEDDINGS_ENABLED = "true";
 process.env.EMBEDDINGS_PROVIDER = "voyage";

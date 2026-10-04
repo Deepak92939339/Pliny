@@ -61,8 +61,8 @@ export const metadata: Metadata = {
     images: [socialPreview],
   },
   icons: {
-    icon: [{ url: "/brand/pliny-monogram.svg?v=20260921", sizes: "any", type: "image/svg+xml" }],
-    shortcut: "/brand/pliny-monogram.svg?v=20260921",
+    icon: [{ url: "/brand/pliny-tab.svg?v=20261004", sizes: "any", type: "image/svg+xml" }],
+    shortcut: "/brand/pliny-tab.svg?v=20261004",
   },
   manifest: "/site.webmanifest",
 };

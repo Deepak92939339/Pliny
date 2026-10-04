@@ -68,15 +68,6 @@ function ChevronGlyph() {
   );
 }
 
-function ReadyBadge() {
-  return (
-    <Badge variant="ok" className="gap-1.5 font-medium">
-      <span className="size-1.5 rounded-full bg-[var(--ok-ink)]" aria-hidden="true" />
-      Ready
-    </Badge>
-  );
-}
-
 export function DashboardView({ userEmail, collections, collectionsError }: DashboardViewProps) {
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -334,13 +325,12 @@ export function DashboardView({ userEmail, collections, collectionsError }: Dash
               </div>
             </Card>
           ) : (
-            <Card className="mt-6 overflow-hidden border-[var(--rule)] bg-[var(--paper-1)] p-0" aria-label="Your workspaces">
+            <Card className={`${styles.workspaceList} p-0`} aria-label="Your workspaces">
               <div className={styles.tableWrap}>
                 <table className={styles.table} aria-label="Your workspaces">
                   <colgroup>
                     <col className={styles.col1} />
                     <col className={styles.col2} />
-                    <col className={styles.col3} />
                     <col className={styles.col4} />
                     <col className={styles.col5} />
                   </colgroup>
@@ -348,7 +338,6 @@ export function DashboardView({ userEmail, collections, collectionsError }: Dash
                     <tr>
                       <th scope="col" className={styles.th}>Workspace</th>
                       <th scope="col" className={styles.th}>Documents</th>
-                      <th scope="col" className={styles.th}>Status</th>
                       <th scope="col" className={styles.th}>Updated</th>
                       <th scope="col" className={styles.th}>
                         <span className={styles.srOnly}>Actions</span>
@@ -367,9 +356,6 @@ export function DashboardView({ userEmail, collections, collectionsError }: Dash
                           </div>
                         </td>
                         <td className={styles.td}>{collection.documentCount}</td>
-                        <td className={styles.td}>
-                          <ReadyBadge />
-                        </td>
                         <td className={styles.td}>{formatDate(collection.updatedAt)}</td>
                         <td className={`${styles.td} ${styles.delCell}`}>
                           <DeleteCollectionButton collectionId={collection.id} collectionName={collection.name} />
@@ -387,7 +373,6 @@ export function DashboardView({ userEmail, collections, collectionsError }: Dash
                       <Link className={styles.wName} href={`/collection/${collection.id}`} title={collection.name}>
                         {collection.name}
                       </Link>
-                      <ReadyBadge />
                     </div>
                     <div>
                       <Badge variant="mono-label">{modeLabel(collection.defaultProcessingMode)}</Badge>

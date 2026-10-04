@@ -3,6 +3,7 @@
 import { notFound, useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useState, useEffect } from "react";
 import { DashboardView } from "@/components/dashboard/DashboardView";
+import { DashboardLoadingView } from "@/components/dashboard/DashboardLoadingView";
 import { WorkspaceView } from "@/components/workspace/WorkspaceView";
 import { SourceInspector } from "@/components/workspace/SourceInspector";
 import { ChartBlock } from "@/components/chart/ChartBlock";
@@ -291,9 +292,13 @@ function UiPreviewContent() {
       {/* Render active section */}
       <main className="p-0">
         {activeTab === "dashboard" && (
-          <DashboardView
+          searchParams.get("state") === "loading" ? <DashboardLoadingView /> : <DashboardView
             userEmail="qa.analyst@example.test"
-            collections={syntheticCollections}
+            collections={searchParams.get("state") === "empty" || searchParams.get("state") === "error" ? [] : searchParams.get("state") === "long" ? [
+              { ...syntheticCollections[0], name: "PLINY-QA-SYNTHETIC-20261004T120000Z-PRIVATE-OPERATIONS-AND-COMPLIANCE", documentCount: 0 },
+              { ...syntheticCollections[1], name: "International Customer Operations — Evidence Review and Source Verification Workspace" },
+            ] : syntheticCollections}
+            collectionsError={searchParams.get("state") === "error" ? "Synthetic workspace-list failure." : null}
           />
         )}
 
@@ -303,8 +308,8 @@ function UiPreviewContent() {
             userId="user-synthetic-1"
             collection={syntheticCollections[0]}
             collections={syntheticCollections}
-            documents={syntheticDocuments}
-            initialMessages={syntheticMessagesAnswer}
+            documents={searchParams.get("state") === "no-documents" ? [] : syntheticDocuments}
+            initialMessages={searchParams.get("state") ? [] : syntheticMessagesAnswer}
           />
         )}
 

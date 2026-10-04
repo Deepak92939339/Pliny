@@ -20,6 +20,7 @@ import {
   toProviderSafeText,
 } from "@/lib/privacy/providerSafeText";
 import { logSafeStageError } from "@/lib/privacy/safeLogging";
+import { getEmbeddingFailureMessage } from "@/lib/embeddings/failureMessage";
 import { createClient } from "@/lib/supabase/server";
 import type { DocumentStatus, PrivacyMode } from "@/types";
 
@@ -389,7 +390,7 @@ async function buildChunkInsertRows({
       chunkCount: rows.length,
       documentId,
     });
-    throw new ProcessingError("Embeddings could not be generated. Try again.");
+    throw new ProcessingError(getEmbeddingFailureMessage(error));
   }
 
   return {

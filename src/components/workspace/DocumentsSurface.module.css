@@ -692,6 +692,8 @@
 
 @media (min-width: 1100px) {
   .aside {
+    /* Desktop details stay below the workspace header and its menus. */
+    z-index: 30;
     position: static;
     width: 340px;
     flex: none;

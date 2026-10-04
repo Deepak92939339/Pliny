@@ -315,11 +315,24 @@
   .dm-editorial-oxford { background: var(--editorial-oxford); color: var(--editorial-on-oxford); }
   .dm-editorial-oxford-muted { color: var(--editorial-oxford-muted); }
   .dm-editorial-oxford-border { border-color: var(--editorial-oxford-border); }
-  .theme-soft-fade, .theme-soft-fade *, body, main, header, aside, section, article, form, input, textarea, button {
+  .theme-soft-fade :is(a, button, input, textarea, select, [role="button"]) {
     transition-duration: 180ms;
     transition-property: background-color, border-color, color, box-shadow, fill, stroke, opacity;
     transition-timing-function: var(--ease-out);
   }
+}
+
+/* Compositor-only press feedback; popup anchors/citations stay stationary. */
+button:not([data-inline-citation]):not([aria-haspopup]),
+a.inline-flex:not([aria-haspopup]),
+[data-slot="button"]:not([aria-haspopup]) {
+  transition-property: background-color, border-color, color, opacity, box-shadow, translate;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+button:not(:disabled):not([aria-disabled="true"]):not([data-inline-citation]):not([aria-haspopup]):active,
+a.inline-flex:not([aria-disabled="true"]):not([aria-haspopup]):active {
+  translate: 0 1px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -329,6 +342,7 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  button:active, a:active { translate: none !important; }
 }
 
 /* Keep inline prose links/citations in the text flow; standalone controls get

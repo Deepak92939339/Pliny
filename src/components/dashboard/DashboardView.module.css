@@ -23,6 +23,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
+  min-width: 0;
   background: var(--canvas);
   color: var(--ink);
   font-family: var(--font-ibm-plex), Arial, Helvetica, sans-serif;
@@ -128,6 +129,7 @@
   flex: none;
 }
 .accountMenu {
+  animation: panelEnter 150ms cubic-bezier(0.2, 0, 0, 1);
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
@@ -140,6 +142,14 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-2);
+}
+@keyframes panelEnter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes backdropEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .menuItem {
   display: flex;
@@ -172,6 +182,7 @@
 }
 
 .backdrop {
+  animation: backdropEnter 150ms ease-out;
   position: fixed;
   inset: 0;
   z-index: 65;
@@ -182,6 +193,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   background: var(--side);
   border-right: 1px solid var(--line);
   position: fixed;
@@ -278,9 +290,12 @@
   list-style: none;
   margin: 0;
   padding: 0 8px;
+  min-width: 0;
 }
+.navList > li { min-width: 0; }
 .navItem {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -373,6 +388,7 @@
 }
 .pageHeadText {
   min-width: 0;
+  max-width: 100%;
 }
 .eyebrow {
   font-family: var(--font-jetbrains-mono), monospace;
@@ -408,6 +424,8 @@
   font-weight: 600;
   box-shadow: var(--shadow-1);
 }
+/* Beat the shared button:not(...) minimum without changing global controls. */
+.shell .headCreate, .shell .sideCreate { min-height: 44px; }
 
 .tableWrap {
   display: none;
@@ -415,14 +433,14 @@
 }
 .table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--text-sm);
 }
-.col1 { width: 34%; }
-.col2 { width: 14%; }
-.col3 { width: 16%; }
-.col4 { width: 16%; }
-.col5 { width: 14%; }
+.col1 { width: 46%; }
+.col2 { width: 16%; }
+.col4 { width: 26%; }
+.col5 { width: 12%; }
 .th {
   padding: 12px 16px;
   background: var(--sheet-warm);
@@ -445,13 +463,15 @@
   padding: 14px 16px;
   color: var(--ink-2);
   vertical-align: middle;
+  overflow-wrap: anywhere;
 }
 .wName {
-  display: inline-block;
+  display: block;
+  min-width: 0;
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.5;
   border-radius: var(--radius-sm);
   color: var(--ink);
   font-weight: 600;
@@ -476,10 +496,12 @@
   list-style: none;
   margin: 0;
   padding: 12px;
+  min-width: 0;
 }
 .wsCard {
   display: grid;
   gap: 8px;
+  min-width: 0;
   padding: 14px 16px;
   background: var(--sheet);
   border: 1px solid var(--line);
@@ -490,7 +512,28 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
 }
+.wsCardTop .wName { flex: 1; }
+
+.workspaceList {
+  min-width: 0;
+  margin-top: 24px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  background: var(--paper-1);
+  box-shadow: var(--shadow-1);
+}
+.td [data-slot="badge"] { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.loadingButton { display: inline-flex; flex-shrink: 0; gap: 8px; align-items: center; opacity: .45; }
+.loadingPlus { width: 16px; flex: none; text-align: center; }
+.skeleton { display: block; max-width: 100%; background: var(--rule); border-radius: var(--radius-sm); animation: dashboardPulse 1.6s ease-in-out infinite; }
+.skeletonName { height: 20px; width: 80%; }
+.skeletonMode { height: 24px; width: 130px; margin-top: 4px; }
+.skeletonShort { height: 16px; width: 24px; }
+.skeletonDate { height: 16px; width: 112px; }
+.skeletonIcon { display: block; width: 20px; height: 20px; background: var(--rule); border-radius: var(--radius-sm); }
+@keyframes dashboardPulse { 50% { opacity: .5; } }
 .wsCardMeta {
   font-size: var(--text-xs);
   color: var(--slate-2);
@@ -559,6 +602,11 @@
   .canvas {
     padding: 20px 16px 40px;
   }
+}
+
+@media (min-width: 900px) and (max-width: 1100px) {
+  .th, .td { padding-left: 10px; padding-right: 10px; }
+  .th { letter-spacing: .05em; }
 }
 
 @media (prefers-reduced-motion: reduce) {

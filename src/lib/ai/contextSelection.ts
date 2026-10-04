@@ -88,17 +88,30 @@ export function selectRelevantPassage(content: string, question: string, maxChar
   if (trimmedContent.length <= maxCharacters) return trimmedContent;
 
   const terms = getQuestionTerms(question);
+  // Do not discard text before URL/decimal dots. A sentence boundary requires
+  // whitespace after punctuation; labelled table rows stay whole, including
+  // company abbreviations such as "Inc. PLC" and their field/value pairs.
+  const isLabelledTable = /^Row \d+:/m.test(trimmedContent);
   const passages = trimmedContent
-    .match(/[^.!?\n]+(?:[.!?]+(?=\s|$)|\n+|$)/g)
-    ?.map((passage) => passage.trim())
-    .filter(Boolean) ?? [];
+    .split(isLabelledTable ? /\r?\n+/ : /(?<=[.!?])\s+|\r?\n+/)
+    .map((passage) => passage.trim())
+    .filter(Boolean);
 
-  if (passages.length < 2 || passages.some((passage) => passage.length > maxCharacters)) {
+  if (passages.length < 2) {
     return selectWordBoundedWindow(trimmedContent, terms, maxCharacters);
   }
 
   const scores = passages.map((passage) => scorePassage(passage, terms));
   let startIndex = scores.reduce((best, score, index) => (score > scores[best] ? index : best), 0);
+  if (passages[startIndex].length > maxCharacters) {
+    // Bound the relevant passage, not the entire chunk's first generic term.
+    return addOmissionMarkers(
+      selectWordBoundedWindow(passages[startIndex], terms, Math.max(1, maxCharacters - 4)),
+      startIndex > 0,
+      startIndex < passages.length - 1,
+      maxCharacters
+    );
+  }
   let endIndex = startIndex;
   let selectedLength = passages[startIndex].length;
 
@@ -120,7 +133,7 @@ export function selectRelevantPassage(content: string, question: string, maxChar
   }
 
   return addOmissionMarkers(
-    passages.slice(startIndex, endIndex + 1).join(" "),
+    passages.slice(startIndex, endIndex + 1).join(isLabelledTable ? "\n" : " "),
     startIndex > 0,
     endIndex < passages.length - 1,
     maxCharacters
