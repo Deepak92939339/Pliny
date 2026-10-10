@@ -1,185 +1,84 @@
-<p align="center">
-  <img src="./public/brand/pliny-mark.png" alt="Pliny logo" width="88" height="88" />
-</p>
-
 # Pliny
 
-## Knowledge, traced to its source.
+### Intelligence, traced to its exact source.
 
-Pliny is a private, source-grounded document intelligence workspace with verifiable citations and privacy-minimised external processing. It turns mixed-format work files into searchable evidence, refuses unsupported answers, and keeps every accepted claim connected to the passage that supports it.
+Pliny is a document-intelligence workspace for reviewing PDFs, spreadsheets and working notes. Upload documents, ask a question, and inspect the passages behind the answer—without losing the question, the source or the conversation.
 
-[Live Product](https://pliny.vercel.app) · [Architecture](./docs/architecture.md) · [Security & Privacy](./docs/security-and-privacy.md) · [Evaluation](./docs/evaluation.md)
+[Explore Pliny](https://pliny.vercel.app/) · [Architecture](./docs/architecture.md) · [Security & Privacy](./docs/security-and-privacy.md) · [Evaluation](./docs/evaluation.md)
 
-![Pliny production interface](./docs/assets/pliny-social-preview-1280x640.png)
+![Pliny's current conversation interface, with a visible question, inline citations and selected-answer exports](./docs/assets/current-ui/answer.jpg)
 
-![Pliny workspace with a grounded answer and citation](./docs/assets/pliny-workspace.png)
+*Current application components with illustrative sample records. Screenshots captured October 10, 2026; not live answer-quality measurements.*
 
-*A synthetic CTO question answered with a citation anchored to the owner-visible source.*
+## From documents to reviewable answers
 
-## The problem
+**Organise the evidence.** Keep files in private, owner-scoped workspaces. Follow each document through processing, Ready or Needs attention states; review details, retry processing and delete individual documents.
 
-Document tools often make fluent answers easier to produce than trustworthy decisions. Relevant passages can be buried across PDFs, spreadsheets and working notes; retrieval can disagree across search paths; and an answer without resolvable provenance is difficult to review.
+**Ask within a defined scope.** Search the workspace or selected documents. Questions and answers remain together in a chronological conversation, with recent-question navigation and explicit retry feedback.
 
-Pliny treats evidence as the product boundary. Retrieval happens before generation, weak context is rejected, and citations resolve back to owner-visible source material.
+**Inspect before trusting.** Inline citations open the Source Inspector with the filename, location and retrieved passage. When available evidence is insufficient, Pliny returns a refusal rather than treating missing information as a fact.
 
-## What makes Pliny different
+**Take the result with you.** Copy a cited answer, export one answer as Markdown, print/save it as PDF, or export the conversation transcript. Supported answers can also produce evidence-linked charts and a Risk and Evidence Report.
 
-- **Evidence before generation.** Lexical and semantic candidates are fused, bounded and checked for sufficiency before an answer provider is called.
-- **Citations that resolve.** Source markers are parsed and validated against the exact retrieved chunks; the Source Inspector opens the corresponding filename, location and excerpt.
-- **Privacy is a processing mode, not a slogan.** Privacy-minimised documents receive document-scoped HMAC pseudonyms and separate provider-safe content and metadata projections.
-- **Failure is explicit.** Missing evidence, incomplete masked projections, provider failures and budget failures stop or degrade safely instead of producing unsupported certainty.
-- **Operational controls are part of the system.** Private object storage, tenant-scoped database policies, rate and cost limits, safe logging and guarded storage reconciliation are implemented boundaries.
+## A citation is the beginning of review
 
-![Pliny Source Inspector showing the exact synthetic PDF passage](./docs/assets/pliny-source-evidence.png)
+![Pliny Source Inspector showing the passage associated with a selected citation](./docs/assets/current-ui/source-inspector.jpg)
 
-*The Source Inspector resolves the citation to the fictional PDF, page 1 and the exact retrieved passage.*
+*The selected sample citation connects the answer to a specific PDF passage and page. Source navigation stays beside the conversation.*
 
-## Product capabilities
+## The current interface
 
-- Authenticated, owner-scoped workspaces
-- Sequential batch upload for one to five files with per-file status
-- Native multi-format extraction with bounded PDF OCR fallback
-- Provenance-preserving chunks for pages, headings, rows, sheets and text blocks
-- Hybrid PostgreSQL lexical search and 1,024-dimension semantic retrieval
-- Bounded acronym/title equivalence for supported retrieval concepts
-- Evidence-sufficiency refusal before external answer generation
-- Validated inline citations and an exact-source inspector
-- Source-grounded charts, Risk and Evidence Reports, Markdown exports and print output
-- Standard and privacy-minimised processing modes captured immutably per document
+<details>
+<summary>Landing page</summary>
 
-## Architecture
+![The current Pliny landing page and text-only wordmark](./docs/assets/current-ui/landing.jpg)
 
-Pliny uses a React 19 interface and Next.js 15 App Router on Vercel. Supabase provides authentication, private object storage and PostgreSQL with pgvector, generated lexical indexes, row-level security and explicit role grants. Server-side ingestion selects a processor by file type, normalises provenance, creates bounded chunks and builds either original or provider-safe retrieval material.
+*Captured from the public product. Its interactive example uses synthetic documents.*
 
-At query time, Pliny resolves document scope and the strictest participating privacy boundary, runs lexical and semantic retrieval, fuses and validates the evidence, and only then constructs a bounded generation envelope. Lexical retrieval is PostgreSQL full-text search (`ts_rank_cd` over generated `tsvector` columns) with identifier-aware queries — structured IDs such as `INC-5517` are searched as exact quoted phrases. Tabular CSV/XLSX documents are chunked row-faithfully (8 rows per unit, headers repeated, rows never split). Fusion is Reciprocal Rank Fusion (RRF, k=60) across the lexical and semantic lanes with a deterministic identifier-match boost and a guaranteed identifier slot; the earlier weighted blend remains selectable via `RETRIEVAL_FUSION=weighted`. Voyage 4 supplies 1,024-dimensional embeddings through the configured direct or OpenRouter transport. OpenRouter's `openai/gpt-6-luna` supplies answers by default; Anthropic remains an explicitly selectable alternative, with no automatic fallback. All provider calls stay behind server-side boundaries.
+</details>
+
+<details>
+<summary>Private workspaces</summary>
+
+![Pliny workspace index showing sample Standard and privacy-minimised workspaces](./docs/assets/current-ui/workspaces.jpg)
+
+*Illustrative workspaces show document counts and processing modes without exposing private customer data.*
+
+</details>
+
+<details>
+<summary>Document processing and details</summary>
+
+![Pliny document library showing sample processing states and extracted-page details](./docs/assets/current-ui/documents.jpg)
+
+*Sample Ready, Processing and Needs attention states demonstrate how ingestion progress and document details are presented.*
+
+</details>
+
+## Engineering behind the interface
+
+- **Format-aware ingestion:** PDF, DOCX, XLSX, CSV, HTML, Markdown and TXT processors preserve available page, heading, sheet and row locations. Scanned PDFs have a bounded OCR fallback.
+- **Hybrid retrieval:** PostgreSQL full-text search and pgvector semantic search feed reciprocal rank fusion, with additional handling for exact structured identifiers. The lexical lane is PostgreSQL full-text search, not BM25.
+- **Answer boundaries:** Evidence-sufficiency checks and citation validation constrain the answer path. Refusals, provider failures and rate limits are represented explicitly in the interface.
+- **Privacy-minimised processing:** Supported identifiers receive document-scoped pseudonyms before external processing. Standard and privacy-minimised modes are recorded per document.
+- **Ownership controls:** Authentication, row-level security, private object storage and server-side ownership checks protect workspace data.
+- **Regression coverage:** Deterministic tests, release evaluations and focused browser checks cover ingestion, retrieval, citations, privacy boundaries and key interface flows. See the evaluation record for the scope and limitations of each result.
 
 ```mermaid
 flowchart LR
-  User["Authenticated user"] --> UI["React 19 workspace"] --> Routes["Next.js 15<br/>authenticated route handlers"]
-
-  subgraph Server["Vercel server-only privacy boundary"]
-    Upload["Upload validation"]
-    Extract["Format-specific extraction<br/>PDF · DOCX · XLSX · CSV · HTML · MD · TXT"]
-    Chunk["Provenance-preserving chunking"]
-    Mode["Standard / privacy-minimised<br/>processing"]
-    Mask["Document-scoped HMAC masking<br/>when required"]
-    DocEmbed["Voyage document embeddings"]
-    Scope["Document scope"]
-    Transform["Privacy-aware query transformation"]
-    QueryEmbed["Voyage query embedding"]
-    Lexical["Mode-aware lexical retrieval"]
-    Fusion["Hybrid rank fusion"]
-    Gate{"Evidence-sufficiency gate"}
-    Refusal["Refusal when insufficient"]
-    Generate["Bounded OpenRouter Luna generation<br/>when sufficient"]
-    Cite["Citation validation"]
-    Persist["Persistence"]
-    Inspector["Source Inspector"]
-    Reports["Reports"]
-  end
-
-  subgraph Data["Supabase protected data boundary"]
-    Auth["Supabase Auth"]
-    Storage["Private Supabase Storage<br/>original documents"]
-    Chunks["PostgreSQL chunks"]
-    Indexes["pgvector + generated tsvector indexes"]
-    RLS["RLS + ownership enforcement"]
-  end
-
-  subgraph Controls["Control and provider boundaries"]
-    Rate["Upstash rate limits"]
-    Providers["Provider boundaries<br/>Voyage direct/OpenRouter · OpenRouter Luna · Anthropic optional"]
-  end
-
-  Routes --> Auth
-  Routes --> Rate
-  Routes --> Upload --> Extract --> Chunk --> Mode
-  Upload --> Storage
-  Mode -->|standard| DocEmbed
-  Mode -->|privacy-minimised| Mask --> DocEmbed
-  DocEmbed --> Chunks --> Indexes
-  RLS -. protects .-> Storage
-  RLS -. protects .-> Chunks
-
-  Routes --> Scope --> Transform
-  Transform --> QueryEmbed --> Fusion
-  Scope --> Lexical --> Fusion
-  Fusion --> Gate
-  Gate -->|insufficient| Refusal
-  Gate -->|sufficient| Generate --> Cite --> Persist
-  Persist --> Inspector
-  Persist --> Reports
-  DocEmbed -. provider .-> Providers
-  QueryEmbed -. provider .-> Providers
-  Generate -. provider .-> Providers
+    Files["Documents"] --> Ingest["Extract and chunk"]
+    Ingest --> Search["Lexical + semantic retrieval"]
+    Question["Question + document scope"] --> Search
+    Search --> Gate{"Sufficient evidence?"}
+    Gate -->|No| Refuse["Explicit refusal"]
+    Gate -->|Yes| Answer["Generate and validate citations"]
+    Answer --> Review["Answer + source inspection + export"]
 ```
 
-The [complete architecture](./docs/architecture.md) contains the complete system topology, 23-stage ingestion lifecycle, 30-stage query-to-answer lifecycle, and privacy/security/failure boundaries.
+Built with **TypeScript, Next.js, React, PostgreSQL/pgvector and Tesseract**, with authentication and private storage supplied by Supabase. The [architecture guide](./docs/architecture.md) describes the ingestion, retrieval, privacy and failure boundaries in detail.
 
-## Security and privacy posture
+## Scope and limitations
 
-- Supabase Auth gates workspaces and protected routes.
-- Row-level security and ownership predicates isolate collections, documents, chunks, messages and usage records.
-- Anonymous DML grants are revoked from private application tables.
-- Original files live in a private Storage bucket under owner-prefixed exact paths.
-- Privacy-minimised processing masks supported deterministic identifiers before embedding and answer-provider requests.
-- Provider payloads are bounded and asserted against detected original identifiers in privacy-minimised mode.
-- Server logs use safe stage metadata rather than document passages or provider bodies.
-- Browser bundles are scanned for server-only secret names and provider-key indicators.
-- Rate limits and persistent daily request/cost checks fail closed in Production when their backing controls are unavailable.
-- Storage reconciliation requires repeated orphan witnesses, signed manifests and exact-path deletion.
+Pliny is a deployed portfolio product, not an enterprise compliance certification. File size, extraction, indexing and OCR are bounded; large-document capacity is not guaranteed. Team roles, shared workspaces, enterprise SSO and billing are not implemented.
 
-![Pliny Processing boundary disclosure](./docs/assets/pliny-processing-boundary.png)
-
-*The Processing boundary control keeps external-processing limits visible without a permanent warning banner.*
-
-Privacy-minimised processing is not local-only processing. Detection can miss sensitive values, and provider zero-retention has not been verified for this deployment. See the [full security and privacy posture](./docs/security-and-privacy.md).
-
-## Verified engineering evidence
-
-| Evidence | Current witness |
-| --- | --- |
-| Offline behavior evaluation | 14/14 automated cases passed |
-| Privacy/database acceptance | 59/59 pgTAP assertions passed on two clean rebuilds |
-| Tenant and API boundary | Anonymous database DML denied; protected Production APIs reject unauthenticated requests |
-| Retrieval | Hybrid, lexical-only, semantic-only, scoped and fail-closed paths covered deterministically |
-| Citations | Marker validation, multi-document coverage and Source Inspector resolution verified |
-| Ingestion | PDF, DOCX, XLSX, CSV, HTML, Markdown and TXT processors covered |
-| Privacy boundary | Mock provider payload assertions and Production browser-bundle secret scans passed |
-| Production acceptance | Multi-file upload, safe Markdown rendering and acronym/title retrieval defects accepted in the real interface |
-| Build quality | ESLint, TypeScript and the Next.js Production build passed at the released commit |
-
-The [evaluation record](./docs/evaluation.md) separates deterministic evidence from provider-backed and browser acceptance.
-
-## Supported formats
-
-| Format | Implemented handling |
-| --- | --- |
-| PDF | Native text extraction with bounded per-page OCR fallback |
-| DOCX | Paragraph extraction with layout caveats |
-| XLSX | Sheet, row, header and cell-aware extraction |
-| CSV | Structured row batches with source ranges |
-| HTML | Safe visible-text and structural block extraction |
-| Markdown | Headings, lists, code and text blocks |
-| TXT | Bounded line-oriented text extraction |
-
-Legacy `.xls`, macro-enabled spreadsheets, presentations, notebooks and arbitrary code files are not accepted.
-
-## Current limitations
-
-- Deterministic identifier detection is intentionally bounded and can miss sensitive values.
-- External processors receive original or masked content depending on the document mode; this is not a local-only system.
-- Provider account-level zero-retention remains unverified.
-- Poor scans may exceed the bounded OCR path.
-- Provider-backed quality evaluation is still limited relative to the deterministic suite.
-- The answer and embedding providers are external processors. The daily answer budget is an estimate, not an account-level spending cap, and does not include embedding charges.
-- Team roles, SSO and billing are not implemented.
-- Dependency posture (audit-r1): `npm audit --omit=dev` reports 0 vulnerabilities. `@xmldom/xmldom` is pinned via npm `overrides` to 0.8.15 (the patched release compatible with `mammoth`), and `ai` was updated within its existing range to clear the remaining low-severity advisories.
-
-See [current limitations](./docs/limitations.md) for the precise boundaries.
-
-## Runtime configuration
-
-Keep credentials in Vercel's Production environment (and in ignored `.env.local` for local work), never in Git. This release uses `ANSWER_PROVIDER=openrouter`, `OPENROUTER_MODEL=openai/gpt-6-luna`, `EMBEDDINGS_PROVIDER=openrouter`, `EMBEDDING_MODEL=voyageai/voyage-4`, and `EMBEDDING_DIMENSIONS=1024`. `OPENROUTER_API_KEY` authorizes answers; a separate `OPENROUTER_EMBEDDINGS_API_KEY` authorizes embeddings. The direct Voyage path remains available with `EMBEDDINGS_PROVIDER=voyage`, `EMBEDDING_MODEL=voyage-4`, and `VOYAGE_API_KEY`.
-
-For the requested limits, set `AI_MODEL_PRICING_JSON={"openai/gpt-6-luna":{"inputUsdPerMillion":0.10,"outputUsdPerMillion":0.50}}`, `AI_DAILY_BUDGET_INR=100`, and `AI_MAX_REQUESTS_PER_DAY=600` in Production. These are server-side preflight estimates. At the current fixed `INR_PER_USD_ESTIMATE=85`, ₹100 corresponds to about $1.18—not a strict $1 ceiling. Embedding usage is not included in that budget.
+Privacy-minimised processing is not local-only processing and can miss sensitive values. A citation identifies the supporting passage; it does not guarantee that the document itself is correct or complete. See [current limitations](./docs/limitations.md) and [Security & Privacy](./docs/security-and-privacy.md) before evaluating it with sensitive documents.

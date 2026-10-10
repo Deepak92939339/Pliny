@@ -1,0 +1,29 @@
+{
+  "capturedOn": "2026-10-10",
+  "applicationSourceCommit": "b747d24e86f19e60315aa2106d710fa9d06b5c86",
+  "viewport": { "width": 1280, "height": 720 },
+  "screenshots": [
+    { "file": "landing.jpg", "source": "https://pliny.vercel.app/", "kind": "public landing page" },
+    { "file": "answer.jpg", "kind": "actual application components with synthetic fixture data" },
+    { "file": "source-inspector.jpg", "kind": "actual application components with synthetic fixture data" },
+    { "file": "workspaces.jpg", "kind": "actual application components with synthetic fixture data" },
+    { "file": "documents.jpg", "kind": "actual application components with synthetic fixture data" }
+  ],
+  "sampleData": {
+    "workspace": "Q3 Strategic Audit",
+    "documents": 3,
+    "ready": 1,
+    "processing": 1,
+    "needsAttention": 1,
+    "question": "What was the operating margin trend in Q3 and which division led profitability?",
+    "answer": "The operating margin reached 18.7% in Q3 2026, driven by recurring SaaS leverage and improved cloud infrastructure efficiency [[s.1]]. Enterprise Platform services delivered an operating contribution of $42.6M, up 22% year-over-year [[s.2]].",
+    "source1": "Operating margin expanded to 18.7% in Q3 2026, driven by recurring SaaS leverage and improved cloud infrastructure efficiency. Total gross profit reached $88.2M against revenues of $142.1M.",
+    "source2": "Enterprise Platform delivered $42.6M in operating contribution, up 22% year-over-year. International business units contributed $18.4M while consumer segments remained flat."
+  },
+  "notes": [
+    "Local captures used the existing development-only UI harness; no private workspace was accessed.",
+    "The harness toolbar was excluded with a screenshot crop and the local developer indicator was hidden using its session-only preference.",
+    "A temporary synthetic-fixture adjustment aligned the answer with the displayed passages and the workspace count with its three sample documents. The source file was restored after capture.",
+    "Screenshots illustrate current components. They are not live ingestion, retrieval, generation, performance or security acceptance evidence."
+  ]
+}
