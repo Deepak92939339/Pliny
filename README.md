@@ -1,84 +1,65 @@
 # Pliny
 
-### Intelligence, traced to its exact source.
+**Intelligence, traced to its exact source.**
 
-Pliny is a document-intelligence workspace for reviewing PDFs, spreadsheets and working notes. Upload documents, ask a question, and inspect the passages behind the answer—without losing the question, the source or the conversation.
+Pliny turns a collection of documents into a workspace you can question, inspect and review. Bring in PDFs, spreadsheets or working notes, ask what you need to know, and follow the answer back to the passage it cites.
 
-[Explore Pliny](https://pliny.vercel.app/) · [Architecture](./docs/architecture.md) · [Security & Privacy](./docs/security-and-privacy.md) · [Evaluation](./docs/evaluation.md)
+The aim is simple: spend less time searching through files without giving up the ability to check the answer yourself.
 
-![Pliny's current conversation interface, with a visible question, inline citations and selected-answer exports](./docs/assets/current-ui/answer.jpg)
+[Open Pliny](https://pliny.vercel.app/) · [Architecture](./docs/architecture.md) · [Security & privacy](./docs/security-and-privacy.md) · [Evaluation](./docs/evaluation.md)
 
-*Current application components with illustrative sample records. Screenshots captured October 10, 2026; not live answer-quality measurements.*
+![Pliny landing design with a source-backed question, cited answer and evidence chart](./docs/assets/interface-design/landing.png)
 
-## From documents to reviewable answers
+*Images in this README come from Pliny's original interface prototypes and use illustrative data. They show the design direction, not live retrieval results; the deployed application has since evolved.*
 
-**Organise the evidence.** Keep files in private, owner-scoped workspaces. Follow each document through processing, Ready or Needs attention states; review details, retry processing and delete individual documents.
+## A workspace for the question—and its evidence
 
-**Ask within a defined scope.** Search the workspace or selected documents. Questions and answers remain together in a chronological conversation, with recent-question navigation and explicit retry feedback.
+A useful answer should be easy to read and possible to challenge. Pliny keeps the question, answer and supporting sources within the same review flow. Open a citation to see the retrieved passage and its document location. If the evidence is insufficient, the answer path returns an explicit refusal.
 
-**Inspect before trusting.** Inline citations open the Source Inspector with the filename, location and retrieved passage. When available evidence is insufficient, Pliny returns a refusal rather than treating missing information as a fact.
+This makes it useful for checking a clause in a contract, finding a record in a spreadsheet, or comparing information across a set of working documents. The source remains part of the task, rather than a footnote you have to chase later.
 
-**Take the result with you.** Copy a cited answer, export one answer as Markdown, print/save it as PDF, or export the conversation transcript. Supported answers can also produce evidence-linked charts and a Risk and Evidence Report.
+## What you can do
 
-## A citation is the beginning of review
+- Organise documents in private workspaces, with Standard or privacy-minimised processing.
+- Upload PDF, DOCX, XLSX, CSV, HTML, Markdown and TXT files. Inspect processing status and document details, retry failures, and remove individual files.
+- Ask across a workspace or narrow the question to selected documents. Revisit previous questions and inspect the cited passages.
+- Review evidence-linked charts and Risk and Evidence Reports where the answer supports them.
+- Copy an answer, export a selected answer as Markdown, print or save it as PDF through the browser, or export the conversation transcript.
 
-![Pliny Source Inspector showing the passage associated with a selected citation](./docs/assets/current-ui/source-inspector.jpg)
+## Interface design
 
-*The selected sample citation connects the answer to a specific PDF passage and page. Source navigation stays beside the conversation.*
-
-## The current interface
+The interface uses restrained typography, quiet surfaces and a clear separation between navigation, reading and source inspection. Its purpose is to make document review easier to follow, not to make the evidence compete with the interface.
 
 <details>
-<summary>Landing page</summary>
+<summary>Workspace organisation</summary>
 
-![The current Pliny landing page and text-only wordmark](./docs/assets/current-ui/landing.jpg)
-
-*Captured from the public product. Its interactive example uses synthetic documents.*
+![Original Pliny workspace design showing navigation and the first-workspace empty state](./docs/assets/interface-design/workspaces.png)
 
 </details>
 
 <details>
-<summary>Private workspaces</summary>
+<summary>Document library and processing</summary>
 
-![Pliny workspace index showing sample Standard and privacy-minimised workspaces](./docs/assets/current-ui/workspaces.jpg)
-
-*Illustrative workspaces show document counts and processing modes without exposing private customer data.*
+![Original Pliny document-library design with status filters and a document-details panel](./docs/assets/interface-design/documents.png)
 
 </details>
 
-<details>
-<summary>Document processing and details</summary>
+## How it works
 
-![Pliny document library showing sample processing states and extracted-page details](./docs/assets/current-ui/documents.jpg)
+Pliny is built with TypeScript, Next.js and React. Supabase provides authentication, PostgreSQL and private file storage; pgvector supports semantic retrieval, and Tesseract provides the OCR fallback for scanned PDFs.
 
-*Sample Ready, Processing and Needs attention states demonstrate how ingestion progress and document details are presented.*
+The document pipeline extracts text, creates format-aware chunks and retains available page, sheet, row and heading references. Retrieval combines PostgreSQL full-text search with vector similarity using reciprocal rank fusion, with additional handling for structured identifiers. Evidence-sufficiency checks and citation validation constrain the answer path before the result is returned.
 
-</details>
+Privacy-minimised processing replaces supported sensitive identifiers with document-scoped pseudonyms before external processing. Workspace access is enforced through authentication, database row-level security and server-side ownership checks.
 
-## Engineering behind the interface
+The repository includes deterministic regression tests, release evaluations and focused browser checks. These cover specific behaviours; they are not a claim that every document or question will succeed. The [evaluation notes](./docs/evaluation.md) describe what has been measured and what remains unverified.
 
-- **Format-aware ingestion:** PDF, DOCX, XLSX, CSV, HTML, Markdown and TXT processors preserve available page, heading, sheet and row locations. Scanned PDFs have a bounded OCR fallback.
-- **Hybrid retrieval:** PostgreSQL full-text search and pgvector semantic search feed reciprocal rank fusion, with additional handling for exact structured identifiers. The lexical lane is PostgreSQL full-text search, not BM25.
-- **Answer boundaries:** Evidence-sufficiency checks and citation validation constrain the answer path. Refusals, provider failures and rate limits are represented explicitly in the interface.
-- **Privacy-minimised processing:** Supported identifiers receive document-scoped pseudonyms before external processing. Standard and privacy-minimised modes are recorded per document.
-- **Ownership controls:** Authentication, row-level security, private object storage and server-side ownership checks protect workspace data.
-- **Regression coverage:** Deterministic tests, release evaluations and focused browser checks cover ingestion, retrieval, citations, privacy boundaries and key interface flows. See the evaluation record for the scope and limitations of each result.
+For the implementation details, start with the [architecture guide](./docs/architecture.md).
 
-```mermaid
-flowchart LR
-    Files["Documents"] --> Ingest["Extract and chunk"]
-    Ingest --> Search["Lexical + semantic retrieval"]
-    Question["Question + document scope"] --> Search
-    Search --> Gate{"Sufficient evidence?"}
-    Gate -->|No| Refuse["Explicit refusal"]
-    Gate -->|Yes| Answer["Generate and validate citations"]
-    Answer --> Review["Answer + source inspection + export"]
-```
+## Current scope
 
-Built with **TypeScript, Next.js, React, PostgreSQL/pgvector and Tesseract**, with authentication and private storage supplied by Supabase. The [architecture guide](./docs/architecture.md) describes the ingestion, retrieval, privacy and failure boundaries in detail.
+Pliny is a working portfolio product with bounded file, extraction, indexing and OCR capacity. It is not an unrestricted document archive or a certified enterprise deployment. Shared workspaces, team roles, enterprise SSO and billing are not implemented.
 
-## Scope and limitations
+Citations make an answer inspectable; they do not prove that a source is correct or that every relevant passage was retrieved. Privacy-minimised processing is not local-only processing and does not guarantee detection of every sensitive value.
 
-Pliny is a deployed portfolio product, not an enterprise compliance certification. File size, extraction, indexing and OCR are bounded; large-document capacity is not guaranteed. Team roles, shared workspaces, enterprise SSO and billing are not implemented.
-
-Privacy-minimised processing is not local-only processing and can miss sensitive values. A citation identifies the supporting passage; it does not guarantee that the document itself is correct or complete. See [current limitations](./docs/limitations.md) and [Security & Privacy](./docs/security-and-privacy.md) before evaluating it with sensitive documents.
+Before using confidential material or evaluating a large corpus, read the [limitations](./docs/limitations.md) and [security and privacy notes](./docs/security-and-privacy.md).
