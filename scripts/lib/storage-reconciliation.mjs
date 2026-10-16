@@ -19,7 +19,9 @@ const ACTIVE_PROCESSING_STAGES = new Set([
   "indexing",
 ]);
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
-const EXACT_OBJECT_PATH = new RegExp(`^${UUID}/${UUID}/${UUID}-[a-z0-9_.-]+$`, "i");
+// Two layouts exist: the legacy {user}/{collection}/{uuid}-{name} and the direct-upload
+// {user}/{collection}/{document}/{name}. Both stay exact, fully-qualified object paths.
+const EXACT_OBJECT_PATH = new RegExp(`^${UUID}/${UUID}/(?:${UUID}-[a-z0-9_.-]+|${UUID}/[a-z0-9_.-]+)$`, "i");
 const FORBIDDEN_PATH_TOKEN = /[\\*?\[\]{}\u0000-\u001f\u007f]/;
 
 export class StorageSafetyError extends Error {
@@ -52,7 +54,7 @@ export function validateExactObjectPath(path) {
   if (FORBIDDEN_PATH_TOKEN.test(path)) return { ok: false, reason: "WILDCARD_OR_UNSAFE_PATH" };
   const segments = path.split("/");
   if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) return { ok: false, reason: "PATH_TRAVERSAL" };
-  if (segments.length !== 3) return { ok: false, reason: "PATH_PREFIX_OR_DEPTH" };
+  if (segments.length !== 3 && segments.length !== 4) return { ok: false, reason: "PATH_PREFIX_OR_DEPTH" };
   if (!EXACT_OBJECT_PATH.test(path)) return { ok: false, reason: "MALFORMED_OWNERSHIP_PATH" };
   return { ok: true, reason: null };
 }

@@ -20,7 +20,7 @@ export type CollectionListItem = {
 
 export type PrivacyMode = "standard" | "privacy_minimised";
 
-export type DocumentStatus = "processing" | "ready" | "failed";
+export type DocumentStatus = "awaiting_upload" | "processing" | "ready" | "failed";
 export type DocumentProcessingStage = "validating" | "uploading" | "extracting" | "ocr_fallback" | "chunking" | "embedding" | "indexing" | "ready" | "failed";
 
 export type DocumentRow = {

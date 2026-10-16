@@ -76,7 +76,7 @@ Application code runs in the Vercel-hosted Next.js runtime. Browser code can hol
 
 ```mermaid
 flowchart TB
-  A1["1 · Authenticated upload request<br/>React dropzone → Next.js multipart Route Handler"]
+  A1["1 · Authenticated upload request<br/>React dropzone → signed upload URL → direct browser-to-Storage upload"]
   A2["2 · Workspace ownership verification<br/>Supabase Auth getUser + collection owner filter"]
   A3["3 · Rate-limit enforcement<br/>Upstash Redis sliding window; Production fails closed"]
   A4["4 · Batch boundary<br/>React coordinator accepts 1–5 files and sends them sequentially"]
@@ -107,7 +107,7 @@ flowchart TB
     A21["21 · Ready transition<br/>complete chunk upsert, stale-chunk removal, document status update"]
   end
 
-  A22["22 · Failure and compensation<br/>exact uploaded object removed if row creation fails; processing failures persist a safe failed stage"]
+  A22["22 · Failure and compensation<br/>abandoned uploads expire to failed and their objects are removed; stalled processing is moved to Needs attention by the watchdog; processing failures persist a safe failed stage"]
   A23["23 · Client completion<br/>queued/uploading/processing/ready/failed per file + router refresh"]
 
   A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7 --> A8 --> A9

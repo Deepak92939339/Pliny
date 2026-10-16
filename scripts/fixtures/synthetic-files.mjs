@@ -42,3 +42,88 @@ export function buildSyntheticPdfFixture() {
 
   return Buffer.from(pdf, "latin1");
 }
+
+/**
+ * A structurally valid, text-extractable PDF of exactly `targetBytes` bytes. The size comes from
+ * a never-painted image stream (like the embedded scans that make real PDFs large), so it parses
+ * and extracts quickly while still exercising the byte size of the upload path.
+ */
+export function buildSizedPdfFixture(targetBytes, { pages = 12, seed = "sized" } = {}) {
+  const pageCount = pages;
+  const fontObject = 3 + pageCount * 2;
+  const imageObject = fontObject + 1;
+  const objectCount = imageObject;
+
+  function build(fillerLength) {
+    const objects = [];
+    objects[1] = Buffer.from("<< /Type /Catalog /Pages 2 0 R >>");
+    const kids = Array.from({ length: pageCount }, (_, index) => `${3 + index * 2} 0 R`).join(" ");
+    objects[2] = Buffer.from(`<< /Type /Pages /Kids [${kids}] /Count ${pageCount} >>`);
+
+    for (let page = 0; page < pageCount; page += 1) {
+      const pageObject = 3 + page * 2;
+      const contentObject = pageObject + 1;
+      const lines = Array.from(
+        { length: 14 },
+        (_, line) =>
+          `${seed} fixture page ${page + 1} line ${line + 1}: Aster Field Labs records calibration reading ${page * 100 + line} for sensor group ${(page + line) % 9} in the quarterly review.`
+      );
+      const content = lines.map((line, index) => `BT /F1 10 Tf 40 ${760 - index * 18} Td (${escapePdfText(line)}) Tj ET`).join("\n");
+      const xobject = page === 0 ? ` /XObject << /Im0 ${imageObject} 0 R >>` : "";
+      objects[pageObject] = Buffer.from(
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontObject} 0 R >>${xobject} >> /Contents ${contentObject} 0 R >>`
+      );
+      objects[contentObject] = Buffer.from(`<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`);
+    }
+
+    objects[fontObject] = Buffer.from("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+    // Deterministic filler so repeated runs upload identical bytes.
+    const filler = Buffer.alloc(fillerLength);
+    let state = 0x9e3779b9 ^ seed.length;
+    for (let index = 0; index < fillerLength; index += 1) {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      filler[index] = state >>> 24;
+    }
+    objects[imageObject] = Buffer.concat([
+      Buffer.from(
+        `<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Length ${fillerLength} >>\nstream\n`
+      ),
+      filler,
+      Buffer.from("\nendstream"),
+    ]);
+
+    const chunks = [Buffer.from("%PDF-1.4\n")];
+    const offsets = [0];
+    let position = chunks[0].length;
+
+    for (let index = 1; index <= objectCount; index += 1) {
+      offsets[index] = position;
+      const body = Buffer.concat([Buffer.from(`${index} 0 obj\n`), objects[index], Buffer.from("\nendobj\n")]);
+      chunks.push(body);
+      position += body.length;
+    }
+
+    let xref = `xref\n0 ${objectCount + 1}\n0000000000 65535 f \n`;
+    for (let index = 1; index <= objectCount; index += 1) {
+      xref += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+    }
+    xref += `trailer\n<< /Size ${objectCount + 1} /Root 1 0 R >>\nstartxref\n${position}\n%%EOF\n`;
+    chunks.push(Buffer.from(xref));
+
+    return Buffer.concat(chunks);
+  }
+
+  let fillerLength = Math.max(0, targetBytes - 20_000);
+  let pdf = build(fillerLength);
+
+  for (let attempt = 0; attempt < 5 && pdf.length !== targetBytes; attempt += 1) {
+    fillerLength += targetBytes - pdf.length;
+    pdf = build(fillerLength);
+  }
+
+  if (pdf.length !== targetBytes) {
+    throw new Error(`Unable to build a ${targetBytes}-byte PDF fixture (got ${pdf.length}).`);
+  }
+
+  return pdf;
+}

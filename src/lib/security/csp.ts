@@ -12,8 +12,11 @@
  * - style-src 'self' 'unsafe-inline': required by Tailwind/CSS-module runtime
  *   style injection and React style attributes. Acceptable per spec.
  * - connect-src: 'self' plus the Supabase project URL (REST/auth) and its
- *   wss: equivalent (realtime). Answer/embedding providers are called
- *   server-side only and are intentionally NOT reachable from the browser.
+ *   wss: equivalent (realtime). Supabase Storage is served from the same host
+ *   (`/storage/v1`), so this entry also authorises the browser's direct upload
+ *   to a signed upload URL. A loopback http URL (local Supabase stack) is
+ *   allowed too; any other non-https URL is ignored. Answer/embedding providers
+ *   are called server-side only and are intentionally NOT reachable from the browser.
  * - img-src allows data: and blob: (canvas/PDF previews).
  * - font-src 'self' data: (next/font self-hosts Geist).
  */
@@ -24,14 +27,23 @@ export type CspOptions = {
 };
 
 function getSupabaseConnectSources(supabaseUrl?: string | null): string[] {
-  if (!supabaseUrl || !/^https:\/\//i.test(supabaseUrl)) {
+  if (!supabaseUrl) {
     return [];
   }
 
   try {
     const parsed = new URL(supabaseUrl);
     const host = parsed.host;
-    return [`https://${host}`, `wss://${host}`];
+
+    if (parsed.protocol === "https:") {
+      return [`https://${host}`, `wss://${host}`];
+    }
+
+    if (parsed.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname)) {
+      return [`http://${host}`, `ws://${host}`];
+    }
+
+    return [];
   } catch {
     return [];
   }

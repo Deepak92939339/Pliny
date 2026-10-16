@@ -16,11 +16,20 @@ export type UploadBatchItem<TFile extends UploadCandidate = UploadCandidate> = {
   id: string;
   message?: string;
   pageCount?: number;
+  /** False for failures a retry cannot fix (validation rejections). */
+  retryable?: boolean;
+  /** Upload progress, 0-100, while status is "uploading". */
+  progress?: number;
   status: UploadItemStatus;
+  /** True once the object is in Storage, so a Retry after a processing failure skips the upload. */
+  uploaded?: boolean;
 };
 
 /** WP5 (audit-r1): thrown on a 409 duplicate response so the item can offer "Upload anyway". */
 export class DuplicateUploadError extends Error {
+  /** A plain retry would be refused again; the item offers "Upload anyway" instead. */
+  retryable = false;
+
   constructor(message: string) {
     super(message);
     this.name = "DuplicateUploadError";
@@ -37,10 +46,20 @@ type ProcessResult = {
   status: "processing" | "ready";
 };
 
+export type UploadContext = {
+  /** The user chose "Upload anyway" for a file the server flagged as a duplicate. */
+  allowDuplicate?: boolean;
+  /** The document row to reuse if an earlier attempt already created one. */
+  documentId?: string;
+  /** Report the document id as soon as it exists so a retry can reuse the row. */
+  onDocumentId: (documentId: string) => void;
+  onProgress: (percent: number) => void;
+};
+
 type UploadBatchHandlers<TFile extends UploadCandidate> = {
   onChange: (items: UploadBatchItem<TFile>[], changedItem: UploadBatchItem<TFile>) => void;
   process: (documentId: string, file: TFile) => Promise<ProcessResult>;
-  upload: (file: TFile, item: UploadBatchItem<TFile>) => Promise<UploadResult>;
+  upload: (file: TFile, context: UploadContext) => Promise<UploadResult>;
 };
 
 function defaultIdFactory() {
@@ -73,8 +92,14 @@ export function createFailedUploadItem<TFile extends UploadCandidate>(
     filename: file.name,
     id: idFactory(),
     message,
+    retryable: false,
     status: "failed",
   };
+}
+
+/** Puts a failed item back in the queue. It keeps documentId/uploaded so Retry resumes, not restarts. */
+export function resetUploadItemForRetry<TFile extends UploadCandidate>(item: UploadBatchItem<TFile>): UploadBatchItem<TFile> {
+  return { ...item, message: undefined, progress: undefined, status: "queued" };
 }
 
 function getFailureMessage(error: unknown) {
@@ -103,18 +128,36 @@ export async function runSequentialUploadBatch<TFile extends UploadCandidate>(
   for (const queuedItem of initialItems) {
     if (queuedItem.status !== "queued") continue;
 
-    transition(queuedItem.id, { message: undefined, status: "uploading" });
+    transition(queuedItem.id, { message: undefined, progress: queuedItem.uploaded ? undefined : 0, status: "uploading" });
 
     try {
-      const uploaded = await upload(queuedItem.file, queuedItem);
+      let documentId = queuedItem.documentId;
+
+      if (!queuedItem.uploaded || !documentId) {
+        const uploaded = await upload(queuedItem.file, {
+          allowDuplicate: queuedItem.allowDuplicate,
+          documentId,
+          onDocumentId: (id) => {
+            documentId = id;
+            transition(queuedItem.id, { documentId: id });
+          },
+          onProgress: (percent) => {
+            transition(queuedItem.id, { progress: Math.max(0, Math.min(100, Math.round(percent))) });
+          },
+        });
+        documentId = uploaded.documentId;
+      }
+
       transition(queuedItem.id, {
-        documentId: uploaded.documentId,
+        documentId,
         message: "Uploaded. Extracting text now.",
+        progress: 100,
         status: "processing",
+        uploaded: true,
       });
-      const processed = await process(uploaded.documentId, queuedItem.file);
+      const processed = await process(documentId, queuedItem.file);
       transition(queuedItem.id, {
-        documentId: uploaded.documentId,
+        documentId,
         message:
           processed.message ??
           (processed.status === "ready" ? "File processed and ready." : "File is still processing."),
@@ -122,10 +165,13 @@ export async function runSequentialUploadBatch<TFile extends UploadCandidate>(
         status: processed.status,
       });
     } catch (error) {
+      // Every exit from "uploading" lands here, so an item can never be left spinning.
       const isDuplicate = error instanceof DuplicateUploadError;
       transition(queuedItem.id, {
         duplicate: isDuplicate || undefined,
         message: getFailureMessage(error),
+        progress: undefined,
+        retryable: !(error && typeof error === "object" && (error as { retryable?: unknown }).retryable === false),
         status: "failed",
       });
     }
