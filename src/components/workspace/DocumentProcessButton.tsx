@@ -43,13 +43,7 @@ export function DocumentProcessButton({
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/process-document", {
-        body: JSON.stringify({ document_id: documentId }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-      });
+      const response = await fetch(`/api/documents/${documentId}/process`, { method: "POST" });
       const result = await readProcessResponse(response);
 
       router.refresh();

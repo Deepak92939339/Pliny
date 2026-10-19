@@ -14,7 +14,7 @@ Application ownership checks are defense in depth; RLS and database grants remai
 
 ## File storage
 
-Original uploads live in a private Supabase Storage bucket. Object paths begin with the authenticated owner ID and collection ID, and Storage policies restrict authenticated access to the owner prefix. Upload validation occurs before an object is accepted; if the subsequent document-row insert fails, the exact uploaded object is removed as compensation.
+Original uploads live in a private Supabase Storage bucket. Object paths begin with the authenticated owner ID and collection ID, and Storage policies restrict authenticated access to the owner prefix. Files are uploaded by the browser directly to Storage on a short-lived signed URL minted under the caller's own session, so file bytes never pass through the application server. The declared size and type are validated before the URL is issued, the bucket enforces a hard 15 MiB cap, and the processing step re-checks the real object size and leading bytes before any parser runs, deleting the object on mismatch. See [direct-upload-pipeline.md](direct-upload-pipeline.md).
 
 Application-row deletion and orphaned-object cleanup are separate concerns. The maintenance tooling inventories database rows and Storage objects, requires two consistent orphan observations separated by a grace period, signs candidate manifests, validates exact paths and enforces a hard batch ceiling before deletion.
 

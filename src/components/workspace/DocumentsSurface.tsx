@@ -210,6 +210,16 @@ export function DocumentsSurface({
     return () => document.removeEventListener("mousedown", onDown);
   }, [openMenuId]);
 
+  const hasUnfinishedDocuments = documents.some((document) => document.status === "processing");
+
+  // Re-read server state while anything is unfinished. The server-side watchdog runs on each
+  // read, so a stalled document surfaces as "Needs attention" without the user reloading.
+  useEffect(() => {
+    if (!hasUnfinishedDocuments) return;
+    const timer = setInterval(() => router.refresh(), 15_000);
+    return () => clearInterval(timer);
+  }, [hasUnfinishedDocuments, router]);
+
   const readyCount = documents.filter((document) => document.status === "ready").length;
   const processingCount = documents.filter((document) => document.status === "processing").length;
   const failedCount = documents.filter((document) => document.status === "failed").length;

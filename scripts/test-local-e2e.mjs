@@ -75,23 +75,30 @@ async function createCollection(name, processingMode = "standard") {
   return data.id;
 }
 
+// Mirrors the browser: metadata to the API for a signed URL, then bytes straight to Storage.
 async function uploadDocument(collectionId, { bytes, filename, mimeType }) {
-  const formData = new FormData();
-  formData.set("collection_id", collectionId);
-  formData.set("file", new Blob([bytes], { type: mimeType }), filename);
-  const { body, response } = await requestJson("/api/documents/upload", { method: "POST", body: formData });
-
-  assert.equal(response.status, 200, `Upload of ${filename} must succeed: ${body?.error ?? "unknown error"}`);
-  assert.ok(body?.document?.id, `Upload of ${filename} must return a document id.`);
-  return body.document.id;
-}
-
-async function processDocument(documentId) {
-  const { body, response } = await requestJson("/api/process-document", {
-    body: JSON.stringify({ document_id: documentId }),
+  const { body, response } = await requestJson("/api/documents/upload-url", {
+    body: JSON.stringify({ collection_id: collectionId, filename, mime_type: mimeType, size: bytes.length }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
   });
+
+  assert.equal(response.status, 200, `Upload URL for ${filename} must be issued: ${body?.error ?? "unknown error"}`);
+  assert.ok(body?.document?.id, `Upload of ${filename} must return a document id.`);
+  const storage = createClient(supabaseUrl, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { error: uploadError } = await storage.storage
+    .from(body.upload.bucket)
+    .uploadToSignedUrl(body.upload.path, body.upload.token, new Blob([bytes], { type: mimeType }), { contentType: mimeType, upsert: false });
+  assert.ifError(uploadError);
+  return body.document.id;
+}
+
+async function processDocumentRequest(documentId) {
+  return requestJson(`/api/documents/${documentId}/process`, { method: "POST" });
+}
+
+async function processDocument(documentId) {
+  const { body, response } = await processDocumentRequest(documentId);
 
   assert.equal(response.status, 200, `Document processing must succeed: ${body?.error ?? "unknown error"}`);
   assert.equal(body?.status, "ready", "Processed documents must become ready.");
@@ -175,41 +182,24 @@ try {
     "Document-scoped retrieval must not return another document's passages."
   );
 
-  const { body: invalidPdfBody, response: invalidPdfResponse } = await requestJson("/api/documents/upload", {
-    body: (() => {
-      const formData = new FormData();
-      formData.set("collection_id", standardCollectionId);
-      formData.set("file", new Blob(["not a PDF"], { type: "application/pdf" }), "invalid.pdf");
-      return formData;
-    })(),
-    method: "POST",
+  // Declared types are untrusted: the bytes are checked against the extension when processing runs.
+  const invalidPdfId = await uploadDocument(standardCollectionId, {
+    bytes: Buffer.from("not a PDF"),
+    filename: "invalid.pdf",
+    mimeType: "application/pdf",
   });
-  assert.equal(invalidPdfResponse.status, 400, "Non-PDF bytes labeled as PDFs must be rejected before parsing.");
-  assert.equal(
-    invalidPdfBody?.error,
-    "This file could not be validated safely. Try a supported file.",
-    "Malformed PDF errors must remain user-safe and actionable."
-  );
+  const { body: invalidPdfBody, response: invalidPdfResponse } = await processDocumentRequest(invalidPdfId);
+  assert.equal(invalidPdfResponse.status, 422, "Non-PDF bytes labeled as PDFs must be rejected before parsing.");
+  assert.match(invalidPdfBody?.error ?? "", /not a PDF/, "Mislabelled file errors must remain user-safe and actionable.");
   const parseablePdfBytes = buildSyntheticPdfFixture();
-  const { body: truncatedPdfBody, response: truncatedPdfResponse } = await requestJson("/api/documents/upload", {
-    body: (() => {
-      const formData = new FormData();
-      formData.set("collection_id", standardCollectionId);
-      formData.set(
-        "file",
-        new Blob([parseablePdfBytes.subarray(0, Math.floor(parseablePdfBytes.length / 2))], { type: "application/pdf" }),
-        "truncated.pdf"
-      );
-      return formData;
-    })(),
-    method: "POST",
+  const truncatedPdfId = await uploadDocument(standardCollectionId, {
+    bytes: parseablePdfBytes.subarray(0, Math.floor(parseablePdfBytes.length / 2)),
+    filename: "truncated.pdf",
+    mimeType: "application/pdf",
   });
-  assert.equal(truncatedPdfResponse.status, 422, "Truncated PDFs must be rejected after PDF parsing fails.");
-  assert.equal(
-    truncatedPdfBody?.error,
-    "This file could not be validated safely. Try a supported file.",
-    "Truncated PDF errors must remain user-safe and actionable."
-  );
+  const { body: truncatedPdfBody, response: truncatedPdfResponse } = await processDocumentRequest(truncatedPdfId);
+  assert.ok([400, 422].includes(truncatedPdfResponse.status), "Truncated PDFs must be rejected after PDF parsing fails.");
+  assert.match(truncatedPdfBody?.error ?? "", /could not be (validated|parsed)/, "Truncated PDF errors must remain user-safe and actionable.");
 
   const privacyCollectionId = await createCollection(`Synthetic privacy E2E ${testSuffix}`, "privacy_minimised");
   const privacyDocumentId = await uploadDocument(privacyCollectionId, {

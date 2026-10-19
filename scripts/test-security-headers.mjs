@@ -53,6 +53,20 @@ await run("CSP pins the Supabase project URL and its wss equivalent into connect
   assert.ok(connectDirective.includes("wss://abcdefgh.supabase.co"), connectDirective);
 });
 
+await run("CSP connect-src covers direct Storage uploads and nothing broader", () => {
+  const connectOf = (supabaseUrl) =>
+    buildEnforcedCsp({ nonce: "abc123", supabaseUrl, isDevelopment: false })
+      .split("; ")
+      .find((directive) => directive.startsWith("connect-src"));
+  // Storage is served from the project host, so the project origin authorises /storage/v1 uploads.
+  assert.ok(connectOf(SUPABASE_URL).includes(new URL(SUPABASE_URL).origin), connectOf(SUPABASE_URL));
+  assert.ok(!connectOf(SUPABASE_URL).includes("*"), connectOf(SUPABASE_URL));
+  // The local Supabase stack (loopback http) works; arbitrary http hosts are never allowed.
+  assert.ok(connectOf("http://127.0.0.1:54321").includes("http://127.0.0.1:54321"));
+  assert.equal(connectOf("http://evil.example.com"), "connect-src 'self'");
+  assert.equal(connectOf(undefined), "connect-src 'self'");
+});
+
 await run("CSP hardening directives are present", () => {
   assert.equal(typeof buildEnforcedCsp, "function", "buildEnforcedCsp does not exist yet");
   const csp = buildEnforcedCsp({ nonce: "abc123", supabaseUrl: SUPABASE_URL, isDevelopment: false });

@@ -148,6 +148,10 @@ await assert.rejects(() => planCleanup({ manifest: wrongBucket, adapter: new Moc
 
 // Exact-path validation rejects malformed ownership, traversal, wildcard, prefix, folder and root targets.
 assert.equal(validateExactObjectPath(PRIVATE_PATH).ok, true);
+// Direct-upload layout: {user}/{collection}/{document}/{name}
+assert.equal(validateExactObjectPath(`${OWNER}/${COLLECTION}/${OBJECT}/private-fixture.pdf`).ok, true);
+assert.deepEqual(validateExactObjectPath(`${OWNER}/${COLLECTION}/${OBJECT}/plain/extra.pdf`), { ok: false, reason: "PATH_PREFIX_OR_DEPTH" });
+assert.deepEqual(validateExactObjectPath(`${OWNER}/${COLLECTION}/${OBJECT}/`), { ok: false, reason: "ROOT_OR_FOLDER_PATH" });
 for (const [unsafePath, reason] of [
   [`${OWNER}/${COLLECTION}/plain-name.pdf`, "MALFORMED_OWNERSHIP_PATH"],
   [`${OWNER}/${COLLECTION}/../secret.pdf`, "PATH_TRAVERSAL"],

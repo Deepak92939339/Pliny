@@ -21,7 +21,7 @@ This makes it useful for checking a clause in a contract, finding a record in a 
 ## What you can do
 
 - Organise documents in private workspaces, with Standard or privacy-minimised processing.
-- Upload PDF, DOCX, XLSX, CSV, HTML, Markdown and TXT files. Inspect processing status and document details, retry failures, and remove individual files.
+- Upload one to five PDF, DOCX, XLSX, CSV, HTML, Markdown or TXT files at a time (up to 15 MiB each) straight from the browser to private storage, with real progress and per-file Retry ([details](docs/direct-upload-pipeline.md)). Inspect processing status and document details, retry failures, and remove individual files.
 - Ask across a workspace or narrow the question to selected documents. Revisit previous questions and inspect the cited passages.
 - Review evidence-linked charts and Risk and Evidence Reports where the answer supports them.
 - Copy an answer, export a selected answer as Markdown, print or save it as PDF through the browser, or export the conversation transcript.

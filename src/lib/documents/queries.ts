@@ -1,5 +1,4 @@
-import { findStaleProcessingDocuments, STALE_PROCESSING_MESSAGE } from "@/lib/documents/staleProcessing";
-import { logSafeStageError } from "@/lib/privacy/safeLogging";
+import { reapStaleDocuments } from "@/lib/documents/lifecycle";
 import { createClient } from "@/lib/supabase/server";
 import type { DocumentListItem, DocumentRow } from "@/types";
 
@@ -19,52 +18,24 @@ function mapDocumentRow(row: DocumentRow): DocumentListItem {
     filename: row.filename,
     id: row.id,
     pageCount: row.page_count,
-    status: row.status,
+    // An awaiting-upload row is, to the user, a document that is still on its way in.
+    status: row.status === "awaiting_upload" ? "processing" : row.status,
     processingStage: row.processing_stage ?? null,
     storagePath: row.storage_path,
   };
 }
 
-/**
- * WP1 (PLN-009 S1 / PLN-003 S2): stale-processing watchdog. Whenever documents
- * are read for a workspace, anything still non-terminal whose processing
- * started (or, if never started, whose upload happened) more than
- * STALE_PROCESSING_MINUTES ago is marked failed with a retryable message.
- * The update is owner-scoped (user_id), so RLS still applies.
- */
-async function markStaleProcessingDocumentsFailed(supabase: Awaited<ReturnType<typeof createClient>>, rows: DocumentRow[]): Promise<void> {
-  const staleRows: DocumentRow[] = findStaleProcessingDocuments<DocumentRow>(rows, new Date());
-
-  if (staleRows.length === 0) {
-    return;
-  }
-
-  await Promise.all(
-    staleRows.map(async (row) => {
-      const { error } = await supabase
-        .from("documents")
-        .update({
-          error_message: STALE_PROCESSING_MESSAGE,
-          processing_stage: "failed",
-          status: "failed",
-        })
-        .eq("id", row.id)
-        .eq("user_id", row.user_id);
-
-      if (error) {
-        logSafeStageError("documents", "stale processing watchdog update failed", error, { documentId: row.id });
-        return;
-      }
-
-      row.status = "failed";
-      row.processing_stage = "failed";
-      row.error_message = STALE_PROCESSING_MESSAGE;
-    })
-  );
-}
-
 export async function getDocumentsForCollection(collectionId: string, userId: string): Promise<DocumentsResult> {
   const supabase = await createClient();
+
+  // Server-side watchdog: expire abandoned uploads and fail stalled processing before listing,
+  // so a document can never sit in "Processing" indefinitely once its owner looks at it.
+  try {
+    await reapStaleDocuments(supabase, { collectionId, userId });
+  } catch (reapError) {
+    console.error("[documents] watchdog sweep failed", { message: reapError instanceof Error ? reapError.message : "unknown" });
+  }
+
   const { data, error } = await supabase
     .from("documents")
     .select("id,collection_id,user_id,filename,storage_path,page_count,file_size,status,processing_stage,processing_started_at,error_message,processing_mode,privacy_policy_version,created_at")
@@ -80,8 +51,6 @@ export async function getDocumentsForCollection(collectionId: string, userId: st
   }
 
   const rows = (data ?? []) as DocumentRow[];
-
-  await markStaleProcessingDocumentsFailed(supabase, rows);
 
   return {
     documents: rows.map(mapDocumentRow),
